@@ -1,0 +1,1239 @@
+#include <vector>
+#include <iostream>
+#include <fstream>
+#include <format>
+#include <optional>
+#include <memory>
+#include <stack>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/glm.hpp>
+#include <glm/gtx/intersect.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <future>
+#include <random>
+#include "stb_image.h"
+
+#include "Model.hpp"
+
+#include "Texture.hpp"
+#include "Material.hpp"
+#include "Random.hpp"
+#include "Ray.hpp"
+#include "Hit_record.hpp"
+
+#include <chrono>
+
+//#include <OpenImageDenoise/oidn.hpp>
+
+
+#include "Shape.hpp"
+#include "Primitive.hpp"
+#include "Light.hpp"
+#include "LightSampler.hpp"
+#include "Sampler.hpp"
+
+
+
+
+
+
+
+
+static constexpr int PrimeTableSize = 1000;
+int Primes[PrimeTableSize] = {
+    2, 3, 5, 7, 11,
+    // Subsequent prime numbers
+    13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101,
+    103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191,
+    193, 197, 199, 211, 223, 227, 229, 233, 239, 241, 251, 257, 263, 269, 271, 277, 281,
+    283, 293, 307, 311, 313, 317, 331, 337, 347, 349, 353, 359, 367, 373, 379, 383, 389,
+    397, 401, 409, 419, 421, 431, 433, 439, 443, 449, 457, 461, 463, 467, 479, 487, 491,
+    499, 503, 509, 521, 523, 541, 547, 557, 563, 569, 571, 577, 587, 593, 599, 601, 607,
+    613, 617, 619, 631, 641, 643, 647, 653, 659, 661, 673, 677, 683, 691, 701, 709, 719,
+    727, 733, 739, 743, 751, 757, 761, 769, 773, 787, 797, 809, 811, 821, 823, 827, 829,
+    839, 853, 857, 859, 863, 877, 881, 883, 887, 907, 911, 919, 929, 937, 941, 947, 953,
+    967, 971, 977, 983, 991, 997, 1009, 1013, 1019, 1021, 1031, 1033, 1039, 1049, 1051,
+    1061, 1063, 1069, 1087, 1091, 1093, 1097, 1103, 1109, 1117, 1123, 1129, 1151, 1153,
+    1163, 1171, 1181, 1187, 1193, 1201, 1213, 1217, 1223, 1229, 1231, 1237, 1249, 1259,
+    1277, 1279, 1283, 1289, 1291, 1297, 1301, 1303, 1307, 1319, 1321, 1327, 1361, 1367,
+    1373, 1381, 1399, 1409, 1423, 1427, 1429, 1433, 1439, 1447, 1451, 1453, 1459, 1471,
+    1481, 1483, 1487, 1489, 1493, 1499, 1511, 1523, 1531, 1543, 1549, 1553, 1559, 1567,
+    1571, 1579, 1583, 1597, 1601, 1607, 1609, 1613, 1619, 1621, 1627, 1637, 1657, 1663,
+    1667, 1669, 1693, 1697, 1699, 1709, 1721, 1723, 1733, 1741, 1747, 1753, 1759, 1777,
+    1783, 1787, 1789, 1801, 1811, 1823, 1831, 1847, 1861, 1867, 1871, 1873, 1877, 1879,
+    1889, 1901, 1907, 1913, 1931, 1933, 1949, 1951, 1973, 1979, 1987, 1993, 1997, 1999,
+    2003, 2011, 2017, 2027, 2029, 2039, 2053, 2063, 2069, 2081, 2083, 2087, 2089, 2099,
+    2111, 2113, 2129, 2131, 2137, 2141, 2143, 2153, 2161, 2179, 2203, 2207, 2213, 2221,
+    2237, 2239, 2243, 2251, 2267, 2269, 2273, 2281, 2287, 2293, 2297, 2309, 2311, 2333,
+    2339, 2341, 2347, 2351, 2357, 2371, 2377, 2381, 2383, 2389, 2393, 2399, 2411, 2417,
+    2423, 2437, 2441, 2447, 2459, 2467, 2473, 2477, 2503, 2521, 2531, 2539, 2543, 2549,
+    2551, 2557, 2579, 2591, 2593, 2609, 2617, 2621, 2633, 2647, 2657, 2659, 2663, 2671,
+    2677, 2683, 2687, 2689, 2693, 2699, 2707, 2711, 2713, 2719, 2729, 2731, 2741, 2749,
+    2753, 2767, 2777, 2789, 2791, 2797, 2801, 2803, 2819, 2833, 2837, 2843, 2851, 2857,
+    2861, 2879, 2887, 2897, 2903, 2909, 2917, 2927, 2939, 2953, 2957, 2963, 2969, 2971,
+    2999, 3001, 3011, 3019, 3023, 3037, 3041, 3049, 3061, 3067, 3079, 3083, 3089, 3109,
+    3119, 3121, 3137, 3163, 3167, 3169, 3181, 3187, 3191, 3203, 3209, 3217, 3221, 3229,
+    3251, 3253, 3257, 3259, 3271, 3299, 3301, 3307, 3313, 3319, 3323, 3329, 3331, 3343,
+    3347, 3359, 3361, 3371, 3373, 3389, 3391, 3407, 3413, 3433, 3449, 3457, 3461, 3463,
+    3467, 3469, 3491, 3499, 3511, 3517, 3527, 3529, 3533, 3539, 3541, 3547, 3557, 3559,
+    3571, 3581, 3583, 3593, 3607, 3613, 3617, 3623, 3631, 3637, 3643, 3659, 3671, 3673,
+    3677, 3691, 3697, 3701, 3709, 3719, 3727, 3733, 3739, 3761, 3767, 3769, 3779, 3793,
+    3797, 3803, 3821, 3823, 3833, 3847, 3851, 3853, 3863, 3877, 3881, 3889, 3907, 3911,
+    3917, 3919, 3923, 3929, 3931, 3943, 3947, 3967, 3989, 4001, 4003, 4007, 4013, 4019,
+    4021, 4027, 4049, 4051, 4057, 4073, 4079, 4091, 4093, 4099, 4111, 4127, 4129, 4133,
+    4139, 4153, 4157, 4159, 4177, 4201, 4211, 4217, 4219, 4229, 4231, 4241, 4243, 4253,
+    4259, 4261, 4271, 4273, 4283, 4289, 4297, 4327, 4337, 4339, 4349, 4357, 4363, 4373,
+    4391, 4397, 4409, 4421, 4423, 4441, 4447, 4451, 4457, 4463, 4481, 4483, 4493, 4507,
+    4513, 4517, 4519, 4523, 4547, 4549, 4561, 4567, 4583, 4591, 4597, 4603, 4621, 4637,
+    4639, 4643, 4649, 4651, 4657, 4663, 4673, 4679, 4691, 4703, 4721, 4723, 4729, 4733,
+    4751, 4759, 4783, 4787, 4789, 4793, 4799, 4801, 4813, 4817, 4831, 4861, 4871, 4877,
+    4889, 4903, 4909, 4919, 4931, 4933, 4937, 4943, 4951, 4957, 4967, 4969, 4973, 4987,
+    4993, 4999, 5003, 5009, 5011, 5021, 5023, 5039, 5051, 5059, 5077, 5081, 5087, 5099,
+    5101, 5107, 5113, 5119, 5147, 5153, 5167, 5171, 5179, 5189, 5197, 5209, 5227, 5231,
+    5233, 5237, 5261, 5273, 5279, 5281, 5297, 5303, 5309, 5323, 5333, 5347, 5351, 5381,
+    5387, 5393, 5399, 5407, 5413, 5417, 5419, 5431, 5437, 5441, 5443, 5449, 5471, 5477,
+    5479, 5483, 5501, 5503, 5507, 5519, 5521, 5527, 5531, 5557, 5563, 5569, 5573, 5581,
+    5591, 5623, 5639, 5641, 5647, 5651, 5653, 5657, 5659, 5669, 5683, 5689, 5693, 5701,
+    5711, 5717, 5737, 5741, 5743, 5749, 5779, 5783, 5791, 5801, 5807, 5813, 5821, 5827,
+    5839, 5843, 5849, 5851, 5857, 5861, 5867, 5869, 5879, 5881, 5897, 5903, 5923, 5927,
+    5939, 5953, 5981, 5987, 6007, 6011, 6029, 6037, 6043, 6047, 6053, 6067, 6073, 6079,
+    6089, 6091, 6101, 6113, 6121, 6131, 6133, 6143, 6151, 6163, 6173, 6197, 6199, 6203,
+    6211, 6217, 6221, 6229, 6247, 6257, 6263, 6269, 6271, 6277, 6287, 6299, 6301, 6311,
+    6317, 6323, 6329, 6337, 6343, 6353, 6359, 6361, 6367, 6373, 6379, 6389, 6397, 6421,
+    6427, 6449, 6451, 6469, 6473, 6481, 6491, 6521, 6529, 6547, 6551, 6553, 6563, 6569,
+    6571, 6577, 6581, 6599, 6607, 6619, 6637, 6653, 6659, 6661, 6673, 6679, 6689, 6691,
+    6701, 6703, 6709, 6719, 6733, 6737, 6761, 6763, 6779, 6781, 6791, 6793, 6803, 6823,
+    6827, 6829, 6833, 6841, 6857, 6863, 6869, 6871, 6883, 6899, 6907, 6911, 6917, 6947,
+    6949, 6959, 6961, 6967, 6971, 6977, 6983, 6991, 6997, 7001, 7013, 7019, 7027, 7039,
+    7043, 7057, 7069, 7079, 7103, 7109, 7121, 7127, 7129, 7151, 7159, 7177, 7187, 7193,
+    7207, 7211, 7213, 7219, 7229, 7237, 7243, 7247, 7253, 7283, 7297, 7307, 7309, 7321,
+    7331, 7333, 7349, 7351, 7369, 7393, 7411, 7417, 7433, 7451, 7457, 7459, 7477, 7481,
+    7487, 7489, 7499, 7507, 7517, 7523, 7529, 7537, 7541, 7547, 7549, 7559, 7561, 7573,
+    7577, 7583, 7589, 7591, 7603, 7607, 7621, 7639, 7643, 7649, 7669, 7673, 7681, 7687,
+    7691, 7699, 7703, 7717, 7723, 7727, 7741, 7753, 7757, 7759, 7789, 7793, 7817, 7823,
+    7829, 7841, 7853, 7867, 7873, 7877, 7879, 7883, 7901, 7907, 7919};
+
+
+
+
+
+
+
+
+
+class LightMat : public Material {
+    public:
+    LightMat(const glm::vec3& albedo) : tex(std::make_shared<Solid_color>(albedo)) {}
+    LightMat(std::shared_ptr<Texture>& tex) : tex(tex) {}
+
+    virtual glm::vec3 emitted(float u,float v) const {
+        return tex->color_value(u,v);
+    }
+    private:
+    std::shared_ptr<Texture> tex;
+};
+
+class isotropic : public Material {
+  public:
+    isotropic(const glm::vec3& albedo) : tex(std::make_shared<Solid_color>(albedo)) {}
+    isotropic(std::shared_ptr<Texture> tex) : tex(tex) {}
+
+    bool scatter(const Ray& r_in, const SurfaceInteraction& interaction, Ray& scattered,const glm::vec2& UV = glm::vec2(-1,-1))
+    const override {
+        scattered = Ray(r_in.at(interaction.t), random_unit_vector());
+        return true;
+    }
+
+    virtual glm::vec3 calc_attenuation(const Ray& r_in, const SurfaceInteraction& interaction, const Ray& scattered) const override {
+        return tex->color_value(interaction.uv.x, interaction.uv.y);
+    }
+
+  private:
+    std::shared_ptr<Texture> tex;
+};
+
+
+struct constant_medium : hittable {
+
+    constant_medium(const std::shared_ptr<hittable>& medium_boundry, float density, const std::shared_ptr<Texture>& tex) : boundry(medium_boundry), neg_inv_density(-1/density), phase_function(std::make_shared<isotropic>(tex)){
+
+    }
+
+    constant_medium(const std::shared_ptr<hittable>& medium_boundry, float density, const glm::vec3& albedo) : boundry(medium_boundry), neg_inv_density(-1/density), phase_function(std::make_shared<isotropic>(albedo)){
+        
+    }
+
+    bool hit(const Ray& ray, float min, float max, SurfaceInteraction& interaction) const override{
+        SurfaceInteraction rec1,rec2;
+
+        if(!boundry->hit(ray,min,max,rec1))return false;
+      
+        if(!boundry->hit(ray,rec1.t + 0.001,max,rec2)){
+            rec2.t = max-0.001;
+        }
+    
+
+        auto ray_length = glm::length(ray.dir);// allways 1?
+        auto distance_inside_boundary = (rec2.t - rec1.t) * ray_length;
+        auto hit_distance = neg_inv_density * std::log(random_float());
+
+        if (hit_distance > distance_inside_boundary)
+            return false;
+
+        interaction.t = rec1.t + hit_distance / ray_length;
+        interaction.mat = phase_function;
+        return true;
+    }
+
+    AABB bounding_box() const override{
+        return boundry->bounding_box();
+    }
+
+    std::shared_ptr<hittable> boundry;
+    float neg_inv_density;
+    std::shared_ptr<Material> phase_function;
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+inline uint64_t InverseRadicalInverse(uint64_t inverse, int base,
+                                                   int nDigits) {
+    uint64_t index = 0;
+    for (int i = 0; i < nDigits; ++i) {
+        uint64_t digit = inverse % base;
+        inverse /= base;
+        index = index * base + digit;
+    }
+    return index;
+}
+
+template <typename T>
+inline T Mod(T a, T b) {
+    T result = a - (a / b) * b;
+    return (T)((result < 0) ? result + b : result);
+}
+
+inline float RadicalInverse(int baseIndex, uint64_t a) {
+    unsigned int base = Primes[baseIndex];
+    // We have to stop once reversedDigits is >= limit since otherwise the
+    // next digit of |a| may cause reversedDigits to overflow.
+    uint64_t limit = ~0ull / base - base;
+    float invBase = (float)1 / (float)base, invBaseM = 1;
+    uint64_t reversedDigits = 0;
+    while (a && reversedDigits < limit) {
+        // Extract least significant digit from _a_ and update _reversedDigits_
+        uint64_t next = a / base;
+        uint64_t digit = a - next * base;
+        reversedDigits = reversedDigits * base + digit;
+        invBaseM *= invBase;
+        a = next;
+    }
+    return std::min(reversedDigits * invBaseM, 1.0f-std::numeric_limits<float>::epsilon());
+}
+
+inline float OwenScrambledRadicalInverse(int baseIndex, uint64_t a,
+                                                      uint32_t hash) {
+    unsigned int base = Primes[baseIndex];
+    // We have to stop once reversedDigits is >= limit since otherwise the
+    // next digit of |a| may cause reversedDigits to overflow.
+    uint64_t limit = ~0ull / base - base;
+    float invBase = (float)1 / (float)base, invBaseM = 1;
+    uint64_t reversedDigits = 0;
+    int digitIndex = 0;
+    while (1 - invBaseM < 1 && reversedDigits < limit) {
+        // Compute Owen-scrambled digit for _digitIndex_
+        uint64_t next = a / base;
+        int digitValue = a - next * base;
+        uint32_t digitHash = MixBits(hash ^ reversedDigits);
+        digitValue = PermutationElement(digitValue, base, digitHash);
+        reversedDigits = reversedDigits * base + digitValue;
+        invBaseM *= invBase;
+        ++digitIndex;
+        a = next;
+    }
+    return std::min<float>(invBaseM * reversedDigits, 0.99999994f);
+}
+
+class HaltonSampler : public Sampler{
+  public:
+    
+    // HaltonSampler Public Methods
+    HaltonSampler(int samplesPerPixel, glm::ivec2 fullResolution) : spp(samplesPerPixel) {
+        // Find radical inverse base scales and exponents that cover sampling area
+        for (int i = 0; i < 2; ++i) {
+            int base = (i == 0) ? 2 : 3;
+            int scale = 1, exp = 0;
+            while (scale < std::min(fullResolution[i], MaxHaltonResolution)) {
+                scale *= base;
+                ++exp;
+            }
+            baseScales[i] = scale;
+            baseExponents[i] = exp;
+        }
+
+        // Compute multiplicative inverses for _baseScales_
+        multInverse[0] = multiplicativeInverse(baseScales[1], baseScales[0]);
+        multInverse[1] = multiplicativeInverse(baseScales[0], baseScales[1]);
+    }
+
+    virtual int SamplesPerPixel() const { return spp; }
+
+    virtual void StartPixelSample(int px,int py, int sampleIndex) {
+        //siwcth to ivec
+        haltonIndex = 0;
+        dimension = 0;
+        int sampleStride = baseScales[0] * baseScales[1];
+        // Compute Halton sample index for first sample in pixel _p_
+        if (sampleStride > 1) {
+            glm::ivec2 pm(Mod(px, MaxHaltonResolution), Mod(py, MaxHaltonResolution));
+            for (int i = 0; i < 2; ++i) {
+                uint64_t dimOffset =
+                    (i == 0) ? InverseRadicalInverse(pm[i], 2, baseExponents[i])
+                             : InverseRadicalInverse(pm[i], 3, baseExponents[i]);
+                haltonIndex +=
+                    dimOffset * (sampleStride / baseScales[i]) * multInverse[i];
+            }
+            haltonIndex %= sampleStride;
+        }
+
+        haltonIndex += sampleIndex * sampleStride;
+        dimension = 2;
+    }
+
+    virtual float get1D() {
+        if (dimension >= PrimeTableSize)
+            dimension = 2;
+        return SampleDimension(dimension++);
+    }
+
+    virtual glm::vec2 get2D() {
+        if (dimension + 1 >= PrimeTableSize)
+            dimension = 2;
+        int dim = dimension;
+        dimension += 2;
+        return {SampleDimension(dim), SampleDimension(dim + 1)};
+    }
+
+    virtual glm::vec2 GetPixel2D() {
+        return {RadicalInverse(0, haltonIndex >> baseExponents[0]),
+                RadicalInverse(1, haltonIndex / baseScales[1])};
+    }
+
+
+  private:
+    // HaltonSampler Private Methods
+    static uint64_t multiplicativeInverse(int64_t a, int64_t n) {
+        int64_t x, y;
+        extendedGCD(a, n, &x, &y);
+        return Mod(x, n);
+    }
+
+    static void extendedGCD(uint64_t a, uint64_t b, int64_t *x, int64_t *y) {
+        if (b == 0) {
+            *x = 1;
+            *y = 0;
+            return;
+        }
+        int64_t d = a / b, xp, yp;
+        extendedGCD(b, a % b, &xp, &yp);
+        *x = yp;
+        *y = xp - (d * yp);
+    }
+
+    float SampleDimension(int dim) const {
+        return OwenScrambledRadicalInverse(dim, haltonIndex,
+                                            MixBits(1 + (dim << 4)));
+        
+    }
+
+    // HaltonSampler Private Members
+    int spp;
+    static constexpr int MaxHaltonResolution = 128;
+    glm::ivec2 baseScales, baseExponents;
+    int multInverse[2];
+    int64_t haltonIndex = 0;
+    int dimension = 0;
+};
+
+
+
+
+
+
+
+struct LightSamplerPrim {
+    std::vector<InfiniteLight> inf_lights;
+    std::vector<AreaLight> lights;
+
+    std::vector<float> light_weights;
+    float weight_sum = 0;
+    bool addInfinite(InfiniteLight light) {
+        //maybe templateise
+        inf_lights.push_back(light);
+        return true;
+    }
+
+    bool addArea(AreaLight light) {
+        //maybe templateise
+        if(light.Power()  > 1e-10f){
+            lights.push_back(light);
+            light_weights.push_back(light.Power());
+            weight_sum+=light_weights.back();
+        }
+        return true;
+    }
+
+    const Light* sample(float u) const{ //just picks light
+        if(lights.empty()){
+            int index = std::min<int>((u * inf_lights.size()),inf_lights.size()-1);
+            return &inf_lights[index];
+        }else if(inf_lights.empty()){
+            int index = std::min<int>((u * lights.size()),lights.size()-1);
+            return &lights[index];
+        }else if(u < 0.5) {
+            u = u*2.0f;
+            int index = std::min<int>((u * inf_lights.size()),inf_lights.size()-1);
+            return &inf_lights[index];
+        }else{
+            u = u*2.0f - 1.0f;
+            //problem is we sample what light and sample psoiton from u !!!!!!!!!!!!! we can do u*2-1 but we need andother one to know which light to sample!
+            int index = std::min<int>((u * lights.size()),lights.size()-1);
+            //sampled[index].fetch_add(1);
+            return &lights[index];
+        }
+    }
+
+    const Light* sampleWeight(float u) const{ //just picks light
+        if(lights.empty()){
+            int index = std::min<int>((u * inf_lights.size()),inf_lights.size()-1);
+            return &inf_lights[index];
+        }else if(inf_lights.empty()){
+            float curr_sum = 0;
+            int index = light_weights.size()-1;
+            for(int i = 0;i<light_weights.size();i++){
+                curr_sum+=light_weights[i];
+                if(curr_sum >= u*weight_sum){
+                    index = i;
+                    break;
+                }
+            }
+            return &lights[index];
+        }else if(u < 0.5) {
+            u = u*2.0f;
+            int index = std::min<int>((u * inf_lights.size()),inf_lights.size()-1);
+            return &inf_lights[index];
+        }else{
+            u = u*2.0f - 1.0f;
+            float curr_sum = 0;
+            int index = light_weights.size()-1;
+            for(int i = 0;i<light_weights.size();i++){
+                curr_sum+=light_weights[i];
+                if(curr_sum >= u*weight_sum){
+                    index = i;
+                    break;
+                }
+            }
+            //sampled[index].fetch_add(1);
+            return &lights[index];
+        }
+    }
+
+    float PMF() const {
+        return lights.empty() || inf_lights.empty() ? 0 : 0.5f;
+    }
+    
+    glm::vec3 sampleLd(const Ray& curr_ray,const SurfaceInteraction& interaction,float brdf,const TLAS& bvh,float u,glm::vec2& UV) const{
+        //if UV is random we get correct images? then we will need to not use stratified sampling???
+        const Light* sampled_light = sample(u);
+        if(sampled_light->isDelta()){
+
+            glm::vec3 dir = sampled_light->sample(UV).dir;
+            Ray shadow_ray(interaction.p,dir);//was -1 6 1 // 
+            if(glm::dot(interaction.n,shadow_ray.dir) > 0 && !bvh.IntersectPred(shadow_ray,1e30f)){
+                return sampled_light->L({{0,0,0},{0,0,0},UV},shadow_ray) * interaction.mat->calc_attenuation(curr_ray,interaction,shadow_ray) / (1 - PMF()/inf_lights.size());
+            }
+        }else{
+            LightSample lightSample = sampled_light->sample(UV);
+            glm::vec3 to_light = lightSample.interaction.p - interaction.p;
+            //glm::vec3 light_dir = glm::normalize(to_light);
+            Ray shadow_ray(interaction.p, glm::normalize(to_light));
+            
+            
+            if(glm::dot(interaction.n,shadow_ray.dir) > 0 && !bvh.IntersectPred(shadow_ray,glm::length(to_light)-0.005f)){
+                //change emitted to actual point on surface -> somehow get UV coords
+                //change emitted to actual point on surface -> somehow get UV coords
+                //float light_area = sampled_light->Area();
+                //sampled_light->hit(shadow_ray,0.001f,1e30f,light_interaction);//we get normal info? should it be shading or geometric? i preusme shading
+                //float light_cosine = glm::dot(-light_dir,light_interaction.N);//std::abs(light_dir.y); // cosine at light surface
+                //if(light_cosine<=0)return glm::vec3(0,0,0);
+                //glm::dot(light_interaction.normal,-new_ray.dir);
+ 
+                float light_pdf = PMF(sampled_light) * sampled_light->PDF(lightSample.interaction,shadow_ray);
+                float w2 = light_pdf*light_pdf;
+                float w1 = interaction.mat->PDF(curr_ray,interaction,shadow_ray);
+                w1 = w1*w1;
+
+                float w_light = (w2) / (w1 + w2);
+                return sampled_light->L(lightSample.interaction,shadow_ray) * interaction.mat->calc_attenuation(curr_ray,interaction,shadow_ray) * w_light / light_pdf;
+            }
+        }
+        return {0,0,0};
+    }
+    
+
+    float PMF(const Light* sampled_light) const {
+        return (lights.empty() || inf_lights.empty() ? 0.f : 0.5f) / lights.size();
+    }
+
+    float PMFWeight(const Light* sampled_light) const {
+        return (lights.empty() || inf_lights.empty() ? 0 : 0.5f) * (sampled_light->Power()) / weight_sum;
+    }
+
+
+    glm::vec3 sampleLdWeightPrim(const Ray& curr_ray,const SurfaceInteraction& interaction,float brdf,const TLAS& bvh,float u,const glm::vec2& UV) const{
+        const Light* sampled_light = sampleWeight(u);
+        if(sampled_light->isDelta()){
+            Ray shadow_ray(interaction.p,sampled_light->sample(UV).dir);//was -1 6 1 // 
+            if(glm::dot(interaction.ns,shadow_ray.dir) > 0 && !bvh.IntersectPred(shadow_ray,1e30f)){
+                return sampled_light->L({{0,0,0},{0,0,0},UV},shadow_ray) * interaction.mat->calc_attenuation(curr_ray,interaction,shadow_ray) / ((1 - PMF())/inf_lights.size());
+            }
+        }else{
+            LightSample lightSample = sampled_light->sample(UV);
+            glm::vec3 to_light = lightSample.interaction.p - interaction.p;
+
+            Ray shadow_ray(interaction.p, glm::normalize(to_light));
+ 
+            if(glm::dot(interaction.n,shadow_ray.dir) > 0 && !bvh.IntersectPred(shadow_ray, glm::length(to_light) - 0.005f)){
+                float light_pdf = PMFWeight(sampled_light) * sampled_light->PDF(lightSample.interaction,shadow_ray);
+                if(light_pdf == 0)return {0,0,0};
+                float w2 = light_pdf*light_pdf;
+                float w1 = interaction.mat->PDF(curr_ray,interaction,shadow_ray);
+                w1 = w1*w1;
+
+                float w_light = (w2) / (w1 + w2);
+                return sampled_light->L(lightSample.interaction,shadow_ray) * interaction.mat->calc_attenuation(curr_ray,interaction,shadow_ray) * w_light / light_pdf;// /PMFWeight(sampled_light)
+            }
+        }
+        return {0,0,0};
+    }
+};
+
+
+
+
+
+inline glm::vec3 Li(Ray curr_ray, const TLAS& BVH, Sampler* sampler, const LightSamplerPrim& LIsampler) {
+    glm::vec3 color = {1,1,1};
+    glm::vec3 output = {0,0,0};
+
+    
+    int depth = 0;
+    int rr_depth = 0;
+    float prevPDF = 0;
+    float spec = true;
+    bool regularize = false;
+    while(depth++<64 && color.x + color.y + color.z != 0.0f){
+        SurfaceInteraction interaction;
+
+        if(!BVH.Intersect(curr_ray,interaction,1e30f)){
+            float a = 0.5f*(curr_ray.dir.y+1.0f);
+            return output + color * ((1.0f-a)*0.5f*glm::vec3(1,0.95,0.8) + a*glm::vec3(0.5,0.7,1));
+        }
+    
+        glm::vec2 random_variables = sampler->get2D();
+        glm::vec2 light_random_variables = sampler->get2D();
+        float light_selection_random_variable = sampler->get1D();
+        float rr_random_variable = sampler->get1D();
+        glm::vec3 L;
+        if(interaction.AreaLight && (L = interaction.AreaLight->L(interaction,curr_ray)) != glm::vec3(0,0,0)){
+            if(spec){
+                output += color * L;
+            }else{
+                //pmf * pdf
+                //float light_pdf = LIsampler.PMFWeight(rec.AreaLight) * (rec.t*rec.t) / (glm::dot(-curr_ray.dir,rec.normal) * rec.AreaLight->Area());//should incorporate PMF() ?
+                float light_pdf = LIsampler.PMFWeight(interaction.AreaLight) * interaction.AreaLight->PDF(interaction,curr_ray);
+                float w = prevPDF * prevPDF / (prevPDF * prevPDF + light_pdf * light_pdf);
+                output += color * L * w;// * w;
+            }
+
+        }
+
+        Ray new_ray;
+        
+        //glm::vec3 emitted_color = rec.material->emitted(rec.u,rec.v,curr_ray.at(rec.t));
+        //output += color * emitted_color;
+        
+        
+        if(!interaction.mat->scatter(curr_ray,interaction,new_ray,random_variables)){
+            return output;//absorbed   
+        }
+        if(interaction.mat->is_specular(interaction)){
+            color *= interaction.mat->f_PDF(curr_ray,interaction,new_ray);
+            curr_ray = new_ray;
+            spec = true;
+            continue;
+        }
+        spec = false;
+        float brdfPDF = interaction.mat->PDF(curr_ray,interaction,new_ray);
+        prevPDF = brdfPDF;
+        output += color * LIsampler.sampleLdWeightPrim(curr_ray,interaction,brdfPDF,BVH,light_selection_random_variable,light_random_variables);
+        
+        glm::vec3 color_attenuation = interaction.mat->calc_attenuation(curr_ray,interaction,new_ray);
+
+        float rr_prob = rr_depth++ < 4 ? 1 : std::fmin(0.95,std::fmaxf(std::fmaxf(color_attenuation.x, color_attenuation.y), color_attenuation.z));
+        
+        if(rr_random_variable >= rr_prob || brdfPDF <= 0)break;
+        color *= color_attenuation / (brdfPDF * rr_prob);
+        curr_ray = new_ray;
+        
+        regularize = true;//if not specular and depth != 0
+        
+    }
+    return output;
+}
+
+
+
+
+
+
+
+
+
+double luminance(const glm::dvec3& v)
+{
+    return dot(v, glm::dvec3(0.2126f, 0.7152f, 0.0722f));
+}
+
+glm::dvec3 change_luminance(glm::dvec3 c_in, double l_out)
+{
+    double l_in = luminance(c_in);
+    return c_in * (l_out / l_in);
+}
+
+glm::dvec3 reinhard_extended_luminance(const glm::dvec3& v, double max_white_l)
+{
+    double l_old = luminance(v);
+    double numerator = l_old * (1.0 + (l_old / (max_white_l * max_white_l)));
+    double l_new = numerator / (1.0 + l_old);
+    return change_luminance(v, l_new); //something doesnt work -> got NaN and whole screen bas
+}
+
+glm::dvec3 reinhard_jodie(const glm::dvec3& v)
+{
+    double l = luminance(v);
+    glm::dvec3 tv = v / (1.0 + v);
+    return glm::mix(v / (1.0 + l), tv, tv);
+}
+
+glm::dvec3 ACESFilm(glm::dvec3 color) {
+    const double A = 2.51f;
+    const double B = 0.03f;
+    const double C = 2.43f;
+    const double D = 0.59f;
+    const double E = 0.14f;
+    return glm::clamp((color * (A * color + B)) / (color * (C * color + D) + E), 0.0, 1.0);
+}
+
+
+
+
+
+
+struct ScenePrim {
+
+    TLAS scene_bvh;//tlas bvh should take shared ptrs / unique ptrs and own them
+    std::vector<Primitive*> primitives;
+    //light sampler, sampler
+    bool render(/*camera, output file name... stbi image to jpg or ppm*/) {
+        return false;
+    }
+
+    bool add(Primitive* ptr) {
+        primitives.push_back(ptr);
+        return true;
+    }
+
+    std::vector<Light*> GetLights() const {
+        return scene_bvh.GetLights();
+    }
+
+    void PreProcess() {
+        scene_bvh = TLAS(primitives);
+    }
+
+    AABB Bounding_box() {
+        return scene_bvh.Bounding_box();
+    }
+};
+
+
+
+
+void renderPrim(const ScenePrim& scene, int width, int height,const LightSamplerPrim& LIsampler){
+    stbi_set_flip_vertically_on_load(true);
+    std::vector<std::vector<glm::dvec3>> screen(height,std::vector<glm::dvec3>(width,{0,0,0})); 
+
+  
+    float fov = 1.7;
+    float halfWidth  = std::tan(fov * 0.5f);
+    float halfHeight = halfWidth * height / width;
+
+ 
+    //20 sec
+    glm::vec3 up = {0,1,0};
+    glm::vec3 lookfrom = {-1000,300,0};
+    lookfrom = {17.3,1.2,7.2};
+    //glm::vec3 lookfrom = {-900,300,0};
+    //glm::vec3 lookfrom = {1.6,1.6,1.8};
+    glm::vec3 lookat = {0,300,0};
+    lookat = {0,0,0};
+    //glm::vec3 lookat = {-600,230,-200};
+    glm::vec3 w = glm::normalize(lookfrom-lookat);
+    glm::vec3 u = glm::normalize(glm::cross(up,w));
+    glm::vec3 v = glm::cross(w,u);
+
+    float defocus_angle = 0;
+    float focus_dist = 10;
+    float defocus_radius = focus_dist * std::tan(defocus_angle/2.0f);
+    glm::vec3 defocus_disk_u = u * defocus_radius;
+    glm::vec3 defocus_disk_v = v * defocus_radius;
+    
+    unsigned threads = std::thread::hardware_concurrency();
+    std::vector<std::thread> workers;
+    std::atomic<int> done{0};
+    auto start = std::chrono::high_resolution_clock::now();
+
+
+    int samples = 64;//64*16*4 -> 4 hours
+    int sqrts = std::sqrt(samples);
+
+    auto lamb = [&](){
+        int k;
+        while((k = done.fetch_add(2, std::memory_order_relaxed))<height){
+            std::cout<<k<<"\n";
+            //auto duration = std::chrono::high_resolution_clock::now() - start;
+            //float expected_time = float(std::chrono::duration_cast<std::chrono::seconds>(duration).count())*height/float(k);
+            //std::cout<<"seconds left: "<<expected_time - float(std::chrono::duration_cast<std::chrono::seconds>(duration).count())<<"\n";
+            for(int i = k;i<std::min(k+2,height);i++){
+                for(int j = 0;j<width;j++){
+
+ 
+                    //test out uniform sampling with 25 x samples ?
+                    int sample_count = 0;
+                    double acc = 0;
+                    double acc_2 = 0;
+                    glm::dvec3 color = {0,0,0};
+                    
+                    while(sample_count < 128*samples){//was 32
+                        StratifiedSampler stratified_sampler(sqrts,sqrts);
+                        for(int sample_index = 0;sample_index < samples; sample_index++){
+                            stratified_sampler.StartPixelSample(j,i,sample_index);
+                            glm::vec2 pixel_sample = stratified_sampler.GetPixel2D();
+                            float u_coord = (pixel_sample.x + j) / float(width);
+                            float v_coord = (pixel_sample.y + i) / float(height);
+                            glm::vec3 direction = glm::normalize( -w + (2.0f * u_coord - 1.0f) * halfWidth * u + (2.0f * v_coord - 1.0f) * halfHeight * v)*focus_dist;
+                            glm::vec3 p = random_in_unit_disk();
+                            glm::vec3 offset = p.x * defocus_disk_u + p.y * defocus_disk_v;
+                            //color+=ray_color_iterative_model(Ray(lookfrom + offset,glm::normalize(direction - offset)),inline_bvh);
+                            glm::dvec3 temp_color = Li(Ray(lookfrom + offset,glm::normalize(direction - offset)),scene.scene_bvh, &stratified_sampler,LIsampler);
+                            if(temp_color.x != temp_color.x || temp_color.y != temp_color.y || temp_color.z != temp_color.z){
+                                std::cout<<"Nan:"<<i<<" "<<j<<"\n";
+                                continue;
+                            }
+                            ++sample_count;
+                            //if any is NaN -> total samples - 1 ??
+                            color+=temp_color;
+                            double L = (temp_color.x + temp_color.y + temp_color.z);
+                            
+                            acc += L;
+                            acc_2 += L*L;
+                        }
+                    
+                        double sigma_2 = (acc_2 - acc*acc/sample_count)/(sample_count - 1);
+                        double mi = acc / sample_count;
+                        double I = 1.96 * std::sqrt(sigma_2/sample_count);
+          
+                        if(I <= 1.3*mi)break;//switch to 1.3
+                    }
+                    screen[i][j]+=color/double(sample_count);
+                }
+            }
+        }
+    };
+    
+    
+    for(int t = 0;t<threads;t++){
+        workers.emplace_back(lamb);
+    }
+
+    for(auto& worker : workers)worker.join();
+    auto duration = std::chrono::high_resolution_clock::now() - start;
+    std::cout<<"ms: "<<std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()<<"\n";
+  
+
+    
+    std::ofstream out("out.ppm", std::ios::binary );
+    out << "P6\n" << width << " " << height << "\n255\n";
+    for(int i = height-1;i>=0;i--){
+        for(int j = 0;j<width;j++){
+            screen[i][j] = ACESFilm(screen[i][j]);
+            double r = linear_to_sRGB(screen[i][j].r);
+            double g = linear_to_sRGB(screen[i][j].g);
+            double b = linear_to_sRGB(screen[i][j].b);
+            out << (char)(255.999*std::max(0.0,std::min(1.0,r))) << (char)(255.999*std::max(0.,std::min(1.,g))) << (char)(255.999*std::max(0.,std::min(1.,b)));
+        }
+    }
+    out.close();
+}
+
+struct Pixel{
+    std::atomic<double> r{0.0};
+    std::atomic<double> g{0.0};
+    std::atomic<double> b{0.0};
+};
+
+double gaussian(double r){
+    double sigma = 0.5;
+    double radius = 1.5;
+    return std::max<double>(0.,std::exp(-(r*r)/(2*sigma*sigma))/(sigma*std::sqrt(2*std::numbers::pi_v<double>)) - std::exp(-(radius*radius)/(2*sigma*sigma))/(std::sqrt(2*std::numbers::pi_v<double>*sigma*sigma)));
+}
+
+double gaussianIntegral(){
+    double sigma = 0.5;
+    double radius = 1.5;
+    return 0.5*(std::erf(radius/(sigma*std::numbers::sqrt2_v<double>))-std::erf(-radius/(sigma*std::numbers::sqrt2_v<double>))) - radius*2*std::exp(-(radius*radius)/(2*sigma*sigma))/(std::sqrt(2*std::numbers::pi_v<double>*sigma*sigma));
+}
+
+double Mitchell(double r){
+    double radius = 2;
+    double absX = std::abs(r);
+    double b = 1.0/3.0;
+    double c = 1.0/3.0;
+    if(absX < 1.0){
+        return 1.0/6.0 * ((12 - 9*b - 6*c)*absX*absX*absX + (-18 + 12*b + 6*c)*absX*absX + (6 -2*b));
+    }else if( absX >= 1 && absX < 2){
+        return 1.0/6.0 * ((-b - 6*c)*absX*absX*absX + (6*b+30*c)*absX*absX +(-12*b-48*c)*absX + (8*b + 24*c));
+    }else return 0;
+
+}
+
+double MitchellIntegral(){
+    double radius = 2;
+    return radius/2;//should be 1 ?
+}
+
+void renderPrimFilter(const ScenePrim& scene, int width, int height,const LightSamplerPrim& LIsampler){
+    stbi_set_flip_vertically_on_load(true);
+    std::vector<Pixel> screen(height*width); 
+
+ 
+
+
+    
+    //Quad light_1 = Quad(glm::vec3(15, 1, 7), glm::vec3(-1,0,0), glm::vec3(0,0,-1), light);
+    //Sphere light_2 = Sphere(glm::vec3(14.5,1,6.5),glm::vec3(0,0,0),light,0.5);
+    
+  
+
+
+
+  
+    float fov = 1.7;
+    float halfWidth  = std::tan(fov * 0.5f);
+    float halfHeight = halfWidth * height / width;
+
+ 
+    //20 sec
+    glm::vec3 up = {0,1,0};
+    glm::vec3 lookfrom = {-1000,300,0};
+    lookfrom = {17.3,1.2,7.2};
+    //glm::vec3 lookfrom = {-900,300,0};
+    //glm::vec3 lookfrom = {1.6,1.6,1.8};
+    glm::vec3 lookat = {0,300,0};
+    lookat = {0,0,0};
+    //glm::vec3 lookat = {-600,230,-200};
+    glm::vec3 w = glm::normalize(lookfrom-lookat);
+    glm::vec3 u = glm::normalize(glm::cross(up,w));
+    glm::vec3 v = glm::cross(w,u);
+
+    float defocus_angle = 0;
+    float focus_dist = 10;
+    float defocus_radius = focus_dist * std::tan(defocus_angle/2.0f);
+    glm::vec3 defocus_disk_u = u * defocus_radius;
+    glm::vec3 defocus_disk_v = v * defocus_radius;
+    
+    unsigned threads = std::thread::hardware_concurrency();
+    std::vector<std::thread> workers;
+    std::atomic<int> done{0};
+    auto start = std::chrono::high_resolution_clock::now();
+
+
+
+    int samples = 64;//64*16*4 -> 4 hours
+    int sqrts = std::sqrt(samples);
+
+    double Integral = gaussianIntegral();
+    double MitIntegral = MitchellIntegral();
+    auto lamb = [&](){
+        int k;
+        while((k = done.fetch_add(2, std::memory_order_relaxed))<height){
+            std::cout<<k<<"\n";
+            //auto duration = std::chrono::high_resolution_clock::now() - start;
+            //float expected_time = float(std::chrono::duration_cast<std::chrono::seconds>(duration).count())*height/float(k);
+            //std::cout<<"seconds left: "<<expected_time - float(std::chrono::duration_cast<std::chrono::seconds>(duration).count())<<"\n";
+            for(int i = k;i<std::min(k+2,height);i++){
+                for(int j = 0;j<width;j++){
+     
+
+                    
+                    std::array<std::array<glm::dvec3,3>,3> grid{glm::dvec3(0,0,0)};
+                    
+                    //test out uniform sampling with 25 x samples ?
+                    int sample_count = 0;
+                    double acc = 0;
+                    double acc_2 = 0;
+                    while(sample_count < 256*samples){//was 32
+                        StratifiedSampler stratified_sampler(sqrts,sqrts);
+                        for(int sample_index = 0;sample_index < samples; sample_index++){
+                            stratified_sampler.StartPixelSample(j,i,sample_index);
+                            glm::vec2 pixel_sample = stratified_sampler.GetPixel2D();
+                            float u_coord = (pixel_sample.x + j) / float(width);
+                            float v_coord = (pixel_sample.y + i) / float(height);
+                            glm::vec3 direction = glm::normalize( -w + (2.0f * u_coord - 1.0f) * halfWidth * u + (2.0f * v_coord - 1.0f) * halfHeight * v)*focus_dist;
+                            glm::vec3 p = random_in_unit_disk();
+                            glm::vec3 offset = p.x * defocus_disk_u + p.y * defocus_disk_v;
+                            //color+=ray_color_iterative_model(Ray(lookfrom + offset,glm::normalize(direction - offset)),inline_bvh);
+                            glm::dvec3 temp_color = Li(Ray(lookfrom + offset,glm::normalize(direction - offset)),scene.scene_bvh, &stratified_sampler,LIsampler);
+                            if(temp_color.x != temp_color.x || temp_color.y != temp_color.y || temp_color.z != temp_color.z){
+                                std::cout<<"Nan:"<<i<<" "<<j<<"\n";
+                                continue;
+                            }
+                            ++sample_count;
+                            //if any is NaN -> total samples - 1 ??
+                            for(int ii = 0;ii<3;ii++){
+                                for(int jj = 0;jj<3;jj++){
+                                    float pixel_u = (-1 + jj + 0.5);
+                                    float pixel_v = (-1 + ii + 0.5);
+                                    //pixel sample.x [0,1)
+                                    //
+                                    //-0.5 - 
+                                    grid[ii][jj]+=gaussian(pixel_u-pixel_sample.x) * gaussian(pixel_v-pixel_sample.y) / (Integral * Integral)* temp_color;
+                                    //grid[ii][jj]+=Mitchell(pixel_u-pixel_sample.x) * Mitchell(pixel_v-pixel_sample.y) / (MitIntegral * MitIntegral)* temp_color;
+                                }
+                            }
+                            //color+=temp_color;
+                            double L = (temp_color.x + temp_color.y + temp_color.z); // should maybe evaluate over filter
+                            
+                            acc += L;
+                            acc_2 += L*L;
+                        }
+                    
+                        double sigma_2 = (acc_2 - acc*acc/sample_count)/(sample_count - 1);
+                        double mi = acc / sample_count;
+                        double I = 1.96 * std::sqrt(sigma_2/sample_count);
+          
+                        if(I <= 1.3*mi)break;//switch to 1.5
+                    }
+                    //color/=static_cast<double>(sample_count);
+                    //screen[i*width + j].r.fetch_add(color.r,std::memory_order_relaxed);
+                    //screen[i*width + j].g.fetch_add(color.g,std::memory_order_relaxed);
+                    //screen[i*width + j].b.fetch_add(color.b,std::memory_order_relaxed);
+                    for(int ii = 0;ii<3;ii++){
+                        for(int jj = 0;jj<3;jj++){
+                            float pixel_j = (-1 + jj) + j;
+                            float pixel_i = (-1 + ii) + i;
+                            if(pixel_i < 0 || pixel_j < 0 || pixel_i >= height || pixel_j >= width)continue;
+                            grid[ii][jj]/=static_cast<double>(sample_count);
+                            screen[pixel_i*width + pixel_j].r.fetch_add(grid[ii][jj].r,std::memory_order_relaxed);
+                            screen[pixel_i*width + pixel_j].g.fetch_add(grid[ii][jj].g,std::memory_order_relaxed);
+                            screen[pixel_i*width + pixel_j].b.fetch_add(grid[ii][jj].b,std::memory_order_relaxed);
+                        }
+                    }
+                    //screen[i][j]+=color/double(sample_count);
+                }
+            }
+        }
+    };
+    
+    
+    for(int t = 0;t<threads;t++){
+        workers.emplace_back(lamb);
+    }
+
+    for(auto& worker : workers)worker.join();
+    auto duration = std::chrono::high_resolution_clock::now() - start;
+    std::cout<<"ms: "<<std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()<<"\n";
+  
+
+    
+    std::ofstream out("out.ppm", std::ios::binary );
+    out << "P6\n" << width << " " << height << "\n255\n";
+    for(int i = height-1;i>=0;i--){
+        for(int j = 0;j<width;j++){
+            glm::dvec3 color = ACESFilm(glm::dvec3{screen[i*width + j].r.load(),screen[i*width + j].g.load(),screen[i*width + j].b.load()});
+            double r = linear_to_sRGB(color.r);
+            double g = linear_to_sRGB(color.g);
+            double b = linear_to_sRGB(color.b);
+            out << (char)(255.999*std::max(0.0,std::min(1.0,r))) << (char)(255.999*std::max(0.,std::min(1.,g))) << (char)(255.999*std::max(0.,std::min(1.,b)));
+        }
+    }
+    out.close();
+}
+inline glm::vec3 Li2(Ray curr_ray, const TLAS& BVH, Sampler* sampler, std::shared_ptr<LightSampler>& LIsampler) {
+    glm::vec3 color = {1,1,1};
+    glm::vec3 output = {0,0,0};
+
+    
+    int depth = 0;
+    int rr_depth = 0;
+    float prevPDF = 0;
+    float spec = true;
+    bool regularize = false;
+    while(depth++<64 && color.x + color.y + color.z != 0.0f){
+        SurfaceInteraction interaction;
+
+        if(!BVH.Intersect(curr_ray,interaction,1e30f)){
+            float a = 0.5f*(curr_ray.dir.y+1.0f);
+            return output + color * ((1.0f-a)*0.5f*glm::vec3(1,0.95,0.8) + a*glm::vec3(0.5,0.7,1));
+        }
+    
+        glm::vec2 random_variables = sampler->get2D();
+        glm::vec2 light_random_variables = sampler->get2D();
+        float light_selection_random_variable = sampler->get1D();
+        float rr_random_variable = sampler->get1D();
+        glm::vec3 L;
+        if(interaction.AreaLight && (L = interaction.AreaLight->L(interaction,curr_ray)) != glm::vec3(0,0,0)){
+            if(spec){
+                output += color * L;
+            }else{
+                //pmf * pdf
+                //float light_pdf = LIsampler.PMFWeight(rec.AreaLight) * (rec.t*rec.t) / (glm::dot(-curr_ray.dir,rec.normal) * rec.AreaLight->Area());//should incorporate PMF() ?
+                float light_pdf = LIsampler->PMF(interaction.AreaLight) * interaction.AreaLight->PDF(interaction,curr_ray);
+                float w = prevPDF * prevPDF / (prevPDF * prevPDF + light_pdf * light_pdf);
+                output += color * L * w;// * w;
+            }
+
+        }
+
+        Ray new_ray;
+        
+        //glm::vec3 emitted_color = rec.material->emitted(rec.u,rec.v,curr_ray.at(rec.t));
+        //output += color * emitted_color;
+        
+        
+        if(!interaction.mat->scatter(curr_ray,interaction,new_ray,random_variables)){
+            return output;//absorbed   
+        }
+        if(interaction.mat->is_specular(interaction)){
+            color *= interaction.mat->f_PDF(curr_ray,interaction,new_ray);
+            curr_ray = new_ray;
+            spec = true;
+            continue;
+        }
+        spec = false;
+        float brdfPDF = interaction.mat->PDF(curr_ray,interaction,new_ray);
+        prevPDF = brdfPDF;
+        output += color * LIsampler->SampleLd(curr_ray,interaction,brdfPDF,BVH,light_selection_random_variable,light_random_variables);
+        
+        glm::vec3 color_attenuation = interaction.mat->calc_attenuation(curr_ray,interaction,new_ray);
+
+        float rr_prob = rr_depth++ < 4 ? 1 : std::fmin(0.95,std::fmaxf(std::fmaxf(color_attenuation.x, color_attenuation.y), color_attenuation.z));
+        
+        if(rr_random_variable >= rr_prob || brdfPDF <= 0)break;
+        color *= color_attenuation / (brdfPDF * rr_prob);
+        curr_ray = new_ray;
+        
+        regularize = true;//if not specular and depth != 0
+        
+    }
+    return output;
+}
+
+void renderPrim2(const ScenePrim& scene, int width, int height,std::shared_ptr<LightSampler>& LIsampler, const std::string& outputImage){
+    stbi_set_flip_vertically_on_load(true);
+    std::vector<std::vector<glm::dvec3>> screen(height,std::vector<glm::dvec3>(width,{0,0,0})); 
+
+  
+    float fov = 1.7;
+    float halfWidth  = std::tan(fov * 0.5f);
+    float halfHeight = halfWidth * height / width;
+
+ 
+    //20 sec
+    glm::vec3 up = {0,1,0};
+    glm::vec3 lookfrom = {-1000,300,0};
+    lookfrom = {17.3,1.2,7.2};
+    //glm::vec3 lookfrom = {-900,300,0};
+    //glm::vec3 lookfrom = {1.6,1.6,1.8};
+    glm::vec3 lookat = {0,300,0};
+    lookat = {0,0,0};
+    //glm::vec3 lookat = {-600,230,-200};
+    glm::vec3 w = glm::normalize(lookfrom-lookat);
+    glm::vec3 u = glm::normalize(glm::cross(up,w));
+    glm::vec3 v = glm::cross(w,u);
+
+    float defocus_angle = 0;
+    float focus_dist = 10;
+    float defocus_radius = focus_dist * std::tan(defocus_angle/2.0f);
+    glm::vec3 defocus_disk_u = u * defocus_radius;
+    glm::vec3 defocus_disk_v = v * defocus_radius;
+    
+    unsigned threads = std::thread::hardware_concurrency();
+    std::vector<std::thread> workers;
+    std::atomic<int> done{0};
+    auto start = std::chrono::high_resolution_clock::now();
+
+
+    int samples = 100;//64*16*4 -> 4 hours
+    int sqrts = std::sqrt(samples);
+
+    auto lamb = [&](){
+        int k;
+        while((k = done.fetch_add(2, std::memory_order_relaxed))<height){
+            std::cout<<k<<"\n";
+            //auto duration = std::chrono::high_resolution_clock::now() - start;
+            //float expected_time = float(std::chrono::duration_cast<std::chrono::seconds>(duration).count())*height/float(k);
+            //std::cout<<"seconds left: "<<expected_time - float(std::chrono::duration_cast<std::chrono::seconds>(duration).count())<<"\n";
+            for(int i = k;i<std::min(k+2,height);i++){
+                for(int j = 0;j<width;j++){
+     
+
+
+                    
+
+
+ 
+                    //test out uniform sampling with 25 x samples ?
+                    int sample_count = 0;
+                    double acc = 0;
+                    double acc_2 = 0;
+                    glm::dvec3 color = {0,0,0};
+                    
+                    while(sample_count < 128*samples){//was 32
+                        StratifiedSampler stratified_sampler(sqrts,sqrts);
+                        for(int sample_index = 0;sample_index < samples; sample_index++){
+                            stratified_sampler.StartPixelSample(j,i,sample_index);
+                            glm::vec2 pixel_sample = stratified_sampler.GetPixel2D();
+                            float u_coord = (pixel_sample.x + j) / float(width);
+                            float v_coord = (pixel_sample.y + i) / float(height);
+                            glm::vec3 direction = glm::normalize( -w + (2.0f * u_coord - 1.0f) * halfWidth * u + (2.0f * v_coord - 1.0f) * halfHeight * v)*focus_dist;
+                            glm::vec3 p = random_in_unit_disk();
+                            glm::vec3 offset = p.x * defocus_disk_u + p.y * defocus_disk_v;
+                            //color+=ray_color_iterative_model(Ray(lookfrom + offset,glm::normalize(direction - offset)),inline_bvh);
+                            glm::dvec3 temp_color = Li2(Ray(lookfrom + offset,glm::normalize(direction - offset)),scene.scene_bvh, &stratified_sampler,LIsampler);
+                            if(temp_color.x != temp_color.x || temp_color.y != temp_color.y || temp_color.z != temp_color.z){
+                                std::cout<<"Nan:"<<i<<" "<<j<<"\n";
+                                continue;
+                            }
+                            ++sample_count;
+                            //if any is NaN -> total samples - 1 ??
+                            color+=temp_color;
+                            double L = (temp_color.x + temp_color.y + temp_color.z);
+                            
+                            acc += L;
+                            acc_2 += L*L;
+                        }
+                    
+                        double sigma_2 = (acc_2 - acc*acc/sample_count)/(sample_count - 1);
+                        double mi = acc / sample_count;
+                        double I = 1.96 * std::sqrt(sigma_2/sample_count);
+          
+                        if(I <= 1.4*mi)break;//switch to 1.3
+                    }
+                    screen[i][j]+=color/double(sample_count);
+                }
+            }
+        }
+    };
+    
+    
+    for(int t = 0;t<threads;t++){
+        workers.emplace_back(lamb);
+    }
+
+    for(auto& worker : workers)worker.join();
+    auto duration = std::chrono::high_resolution_clock::now() - start;
+    std::cout<<"ms: "<<std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()<<"\n";
+  
+
+    
+    std::ofstream out(outputImage, std::ios::binary );
+    out << "P6\n" << width << " " << height << "\n255\n";
+    /*
+    double max_white_l = 0;
+    for(int i = height-1;i>=0;i--){
+        for(int j = 0;j<width;j++){
+            max_white_l = std::max(max_white_l,luminance(screen[i][j]));
+        }
+    }
+    */
+    for(int i = height-1;i>=0;i--){
+        for(int j = 0;j<width;j++){
+            //screen[i][j] = ACESFilm(screen[i][j]);
+            screen[i][j] = reinhard_jodie(screen[i][j]);
+            //screen[i][j] = reinhard_extended_luminance(screen[i][j],max_white_l);
+            double r = linear_to_sRGB(screen[i][j].r);
+            double g = linear_to_sRGB(screen[i][j].g);
+            double b = linear_to_sRGB(screen[i][j].b);
+            out << (char)(255.999*std::max(0.0,std::min(1.0,r))) << (char)(255.999*std::max(0.,std::min(1.,g))) << (char)(255.999*std::max(0.,std::min(1.,b)));
+        }
+    }
+    out.close();
+}
+
+
+int main(){
+
+    ScenePrim scene;
+    stbi_set_flip_vertically_on_load(true);
+    scene.add(new Model("/home/markov/Documents/Coding/CPP/testing/models/HARD/temp.assbin"));
+   
+    std::shared_ptr<LightSampler> ls = std::make_shared<PowerLightSampler>();
+    ls->Add(new InfiniteLight{glm::vec3(-1,6,1),6*3.f*glm::vec3(1,0.95,0.8)});
+    for(int i = 0;i<4;i++){
+        for(int j = 0;j<4;j++){
+            glm::vec3 color = glm::vec3(3*std::pow((i*4 + j)/15.f,30.f) * 50,3*std::pow((i*4 + j)/15.f,30.f) * 50,3*std::pow((i*4 + j)/15.f,30.f) * 50);
+            //auto light = std::make_shared<LightMat>(color);//have lambertian mat and cook torrence separeta
+            Shape* shape = new QuadShape(glm::vec3(7,1.5,1)+glm::vec3(i*2,0,j*2),glm::vec3(0.5,0,0),glm::vec3(0,0,0.5));
+            AreaLight* area = new AreaLight(shape,color,true);
+            auto lightMaterial = std::make_shared<lambertian>(glm::vec3{0.7});
+            Primitive* pr = new GeometricPrimitive(shape,lightMaterial,area);
+            scene.add(pr);
+        }
+    }
+    /*
+    Primitive* pr = new GeometricPrimitive(new QuadShape(glm::vec3(7,1,1)+glm::vec3(3*2,0,3*2),glm::vec3(0,1,0),glm::vec3(0,0,1)),
+                                            std::make_shared<lambertian>(std::make_shared<Solid_color>(glm::vec3{1}),nullptr,std::make_shared<Solid_color>(glm::vec3{0}),std::make_shared<Solid_color>(glm::vec3{1})),nullptr);
+    scene.add(pr);
+    pr = new GeometricPrimitive(new QuadShape(glm::vec3(7,1,1)+glm::vec3(3*2,0,2*2),glm::vec3(0,1,0),glm::vec3(0,0,1)),
+                                            std::make_shared<lambertian>(std::make_shared<Solid_color>(glm::vec3{1}),nullptr,std::make_shared<Solid_color>(glm::vec3{0.011}),std::make_shared<Solid_color>(glm::vec3{1})),nullptr);
+    scene.add(pr);   
+    pr = new GeometricPrimitive(new QuadShape(glm::vec3(7,1,1)+glm::vec3(3*2,0,1*2),glm::vec3(0,1,0),glm::vec3(0,0,1)),
+                                            std::make_shared<lambertian>(std::make_shared<Solid_color>(glm::vec3{1}),nullptr,std::make_shared<Solid_color>(glm::vec3{0.003}),std::make_shared<Solid_color>(glm::vec3{1})),nullptr);
+    scene.add(pr);    
+    */
+    scene.PreProcess();
+    ls->Add(scene.GetLights());
+    ls->PreProcess(scene.Bounding_box());
+    
+    
+
+
+    //renderPrim(scene,1920,1080,LIsampler);
+    renderPrim2(scene,1920,1080,ls,"RenderedScene.ppm");
+    //multi_mesh_test_2("/home/markov/Documents/Coding/CPP/testing/models/HARD/temp.assbin");
+    //multi_mesh_test_2("/home/markov/Documents/Coding/CPP/gl/crytek-sponza/sponza.obj");
+
+
+}

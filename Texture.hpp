@@ -1,0 +1,102 @@
+#pragma once
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/glm.hpp>
+#include <glm/gtx/intersect.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <memory>
+#include "stb_image.h"
+#include <iostream>
+#include <array>
+
+inline constexpr double linear_to_sRGB(double linear){
+    if(linear != linear)std::cout<<"linera_component is NaN\n";
+    linear = std::clamp(linear,0.0,1.0);
+    if(linear > 0){
+        return linear < 0.0031308 ? 12.92 * linear : 1.055 * std::pow(linear,1.0/2.4) - 0.055;
+    }
+    return 0;
+}
+
+inline constexpr double sRGB_to_linear(double sRGB){
+    sRGB = std::clamp(sRGB,0.0,1.0);
+    if (sRGB <= 0.04045) return sRGB / 12.92;
+    return std::pow((sRGB + 0.055) / 1.055, 2.4);
+}
+
+static inline std::array<unsigned char,256> sRGBLUT = [](){
+    std::array<unsigned char,256> LUT;
+    for(int i = 0;i<256;i++){
+        double sRGB = static_cast<unsigned char>(i)/255.0;
+        double linear = std::clamp(sRGB_to_linear(sRGB),0.0,1.0);
+        LUT[i] = (unsigned char)std::lround(linear * 255.0);
+    }
+    return LUT;
+}();
+
+
+//add FloatImage -> for alpha mask -> no division needed
+
+struct Image{
+    unsigned char* data;
+    int width;
+    int height;
+    int channels;
+
+    Image(const std::string& filename,float tempSRGB = false);
+    glm::vec3 at(int x,int y) const;
+    //getChannel
+    float W(int x,int y) const;
+    ~Image() ;
+
+};
+
+struct Texture{
+    virtual ~Texture() = default;
+    virtual glm::vec3 color_value(float u,float v) const = 0;
+    virtual float alpha(float u,float v) const {
+        return 1;
+    }
+    virtual int resolutionX() const {
+        return 0;
+    }
+    virtual int resolutionY() const {
+        return 0;
+    }
+
+    virtual glm::vec3 texel(int x, int y) const{
+        return {0,0,0};
+    }
+};
+
+struct Solid_color : Texture {
+    glm::vec3 albedo;
+    Solid_color(const glm::vec3& color);
+    Solid_color(float r,float g,float b);
+    glm::vec3 color_value(float u,float v) const override ;
+    virtual int resolutionX() const override{
+        return 0;
+    }
+    virtual int resolutionY() const override{
+        return 0;
+    }
+
+    virtual glm::vec3 texel(int x, int y) const override {
+        return albedo;
+    }
+};
+
+struct Image_texture : public Texture {
+    Image_texture(const std::string& filename,float tempSRGB = false);
+
+    glm::vec3 color_value(float u, float v) const override ;
+    float alpha(float u,float v) const override;
+    Image image;
+    virtual int resolutionX() const override{
+        return image.width;
+    }
+    virtual int resolutionY() const override{
+        return image.height;
+    }
+
+    virtual glm::vec3 texel(int x, int y) const override;
+};
