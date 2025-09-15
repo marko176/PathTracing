@@ -7,20 +7,40 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <iostream>
 #include "Material.hpp"
+#include "Medium.hpp"
 #include "ResourceManager.hpp"
+#include <memory_resource>
 
 Model::Model(const std::string& path){
+    //tempPTR = std::make_shared<int>(0);
     if(!load_model(path)){
         std::cerr << "failed model";
     }else{
+
         //std::vector<Primitive*> temp;
         std::vector<GeometricPrimitive> primitives;
+        primitives.reserve(1'000'000);
+        auto mat = std::make_shared<dielectric>(1.5,glm::vec3(1));
+        std::shared_ptr<Medium> med = std::make_shared<HomogeneusMedium>(glm::vec3(0.0,0,0),glm::vec3(0.01,0.9,0.9),500.0f);
+        //mat = std::make_shared<dielectric>(1.5,glm::vec3(1,1,1));
+        //med = nullptr;
         for(int i = 0;i<meshes.size();i++){
             //mesh_bvhs.emplace_back(&mesh);
             for(int j = 0;j<meshes[i].triangle_count;j++){
                 meshes[i].shapes[j] = TriangleShape(i,j);
                 //can just new TriangelShape
+                //std::shared_ptr<TriangleShape> p(tempPTR,&meshes[i].shapes[j]);
+
+
+                #if 1
+                //dragon
+                primitives.push_back(GeometricPrimitive(&meshes[i].shapes[j],mat,nullptr,med));
+                #else
                 primitives.push_back(GeometricPrimitive(&meshes[i].shapes[j],meshes[i].material,nullptr));
+                #endif
+
+
+                //primitives.push_back(GeometricPrimitive(std::make_shared<TriangleShape>(i,j),meshes[i].material,nullptr));
             }
         }
         for(Mesh& m : meshes){
@@ -57,7 +77,13 @@ auto Model::load_model(std::string path) -> bool {
     
     
     const aiScene* scene = nullptr;
-    if(path == "/home/markov/Documents/Coding/CPP/testing/models/HARD/temp.assbin"){
+    int index = path.find_last_of('.');
+    std::string suffix;
+    if(index != std::string::npos){
+        suffix = path.substr(index);
+
+    }
+    if(suffix == ".assbin" || path == "/home/markov/Documents/Coding/CPP/testing/models/HARD/temp.assbin"){
         scene = importer.ReadFile(path,0);
         if(!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode){
             std::cout << "ERROR::ASSIMP::" << importer.GetErrorString() << "\n";
@@ -161,7 +187,6 @@ auto Model::process_mesh(aiMesh* mesh, const aiScene* scene) -> Mesh{
     }  
     if(mesh->mMaterialIndex >= 0){
         aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
-        
         aiString name;
         material->Get(AI_MATKEY_NAME,name);
 
@@ -193,6 +218,7 @@ auto Model::process_mesh(aiMesh* mesh, const aiScene* scene) -> Mesh{
         std::replace(metallic.begin(),metallic.end(),'\\','/');
         std::string emissive = model_path + emissiveMaskPath.C_Str();
         std::replace(emissive.begin(),emissive.end(),'\\','/');
+        
         if(emissive != model_path){
             std::cout<<"founde emissive texure\n";
             std::abort();

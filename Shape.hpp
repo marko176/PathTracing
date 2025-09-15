@@ -22,7 +22,7 @@ public:
 
 class SphereShape : public Shape{ 
 public:
-    SphereShape(const glm::vec3& center,const std::shared_ptr<Material>& m, float r) : center(center), bbox{}, radius(r) {
+    SphereShape(const glm::vec3& center, float r) : center(center), bbox{}, radius(r) {
         glm::vec3 rvec = glm::vec3(radius);
         bbox.expand(center-rvec);
         bbox.expand(center+rvec);
@@ -50,7 +50,6 @@ public:
     virtual float PDF(const GeometricInteraction& interaction) const override ;
 
     virtual float PDF(const GeometricInteraction& interaction,const Ray& ray) const override ;
-
 
 private:
     glm::vec3 center;
@@ -83,7 +82,7 @@ public:
         for(int i = 0;i<meshList.size();i++){
             if(meshList[i]==nullptr){
                 meshList[i]=mesh;
-                break;
+                return;
             }
         }
         meshList.push_back(mesh);
@@ -141,7 +140,7 @@ public:
         float light_cosine = std::abs(glm::dot(-ray.dir,interaction.n));
         float area = Area();
         if(area == 0)return 0;
-        return (dist_squared) / (light_cosine * area);
+        return dist_squared / (light_cosine * area);
     }
 private:
 

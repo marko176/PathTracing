@@ -25,7 +25,7 @@ class Model : public Primitive{
         return model_bvh.IntersectPred(ray,max);
     }
     
-    std::vector<Light*> GetLights() const override {
+    std::vector<std::shared_ptr<Light>> GetLights() const override {
         return model_bvh.GetLights();
     }
     private:
@@ -37,6 +37,9 @@ class Model : public Primitive{
     std::vector<Mesh> meshes;// move to private!!!!
     BLAS model_bvh;//was primitiveBVH
     std::string model_path;
+
+
+    //std::shared_ptr<int> tempPTR;
     //TLAS_BVH_Prim model_bvh;
 
 };

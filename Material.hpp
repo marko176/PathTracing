@@ -70,7 +70,7 @@ class onb {
 
 struct Material {
     virtual ~Material() = default;
-    virtual bool scatter(const Ray& ray_in, const SurfaceInteraction& interaction, Ray& scattered,const glm::vec2& UV = glm::vec2(-1,-1)) const {
+    virtual bool scatter(const Ray& ray_in, const SurfaceInteraction& interaction, Ray& scattered,const glm::vec2& UV) const {
         return false;
     }
 
@@ -204,7 +204,7 @@ class lambertian : public Material {
                 glm::vec3 h = glm::normalize(TBN.transform(h_tangent));
                 glm::vec3 l = glm::reflect(r_in.dir, h);
     
-                scattered = Ray(r_in.at(interaction.t), glm::normalize(l));
+                scattered = Ray(interaction.p, glm::normalize(l));
 
             }else{
                 bool flip = glm::dot(interaction.ns,-r_in.dir) < 0;
@@ -240,6 +240,9 @@ class lambertian : public Material {
             glm::vec3 reflected = TBN.transform(sampled_cosine);//was uvw.transform
             scattered = Ray(interaction.p, glm::normalize(reflected));
         }
+
+        if(glm::dot(scattered.dir,interaction.ns)<=0)return false;
+
         return true;
     }
 
@@ -475,48 +478,108 @@ class lambertian : public Material {
     std::shared_ptr<Texture> tex;
 };
 
+/*
+class Medium : public Material {
+  public:
+    Medium(const glm::vec3& albedo, float density = 0.1) : albedo(albedo), d(density) {}
+
+    virtual glm::vec3 calc_attenuation(const Ray& r_in, const SurfaceInteraction& interaction, const Ray& scattered) const override {
+        return glm::exp(-interaction.t * (glm::vec3(1) - albedo) * d);//e^0 = 1 -> fully pass
+    }
+
+  private:
+    glm::vec3 albedo;
+    float d;
+};
+*/
 
 
 class dielectric : public Material {
     public:
     dielectric(float r, glm::vec3 color = glm::vec3(1,1,1)) : ri(r) , color(color){}
   
-    bool scatter(const Ray& r_in, const SurfaceInteraction& interaction, Ray& scattered,const glm::vec2& UV = glm::vec2(-1,-1))const final {
+
+    inline glm::vec3 refract(const glm::vec3& vec, const glm::vec3& n, float r) const{
+        float cosTheta = std::min(glm::dot(-vec,n),1.0f);
+        glm::vec3 outPerp = r * ( vec + cosTheta * n);
+        glm::vec3 outParallel = -std::sqrt(std::abs(1.0f - glm::dot(outPerp,outPerp))) * n;
+        return outParallel + outPerp;
+    }
+
+    bool scatter(const Ray& r_in, const SurfaceInteraction& interaction, Ray& scattered,const glm::vec2& UV) const final{
+        /*
+        double r = glm::dot(r_in.dir,interaction.ns) < 0 ? (1.0 / ri) : ri;
+
+        double cosTheta = std::min(glm::dot(-r_in.dir,interaction.ns),1.0f);
+        double sinTheta = std::sqrt(1.0 - cosTheta * cosTheta);
+
+        bool cannotRefract = r * sinTheta > 1.0;
+        if(cannotRefract || schlick(cosTheta,r) > UV.x){
+            scattered = Ray(interaction.p + 0.002f * N,glm::normalize(glm::reflect(r_in.dir,interaction.ns)));
+        }else{
+            scattered = Ray(interaction.p - 0.002f * N,glm::normalize(refract(r_in.dir,interaction.ns, (float)r)));
+        }
+
+        return true;
+        */
+        
         float r = ri;
         glm::vec3 N;
+        glm::vec3 Ng;//normal on our side
         float cos_theta = glm::dot(r_in.dir,interaction.ns);
-        
+        //<0 == front face
         if(cos_theta>0){
             N = -interaction.ns;
+            Ng = -interaction.n;
             cos_theta = std::sqrt(1.f - ri*ri*(1.f-cos_theta*cos_theta));
         }else {
+            //front face
             N = interaction.ns;
+            Ng = interaction.n;
             r = 1.0f/r;
             cos_theta = -cos_theta;
         }
         glm::vec3 dir = glm::refract(r_in.dir,N,r);
-        if(dir == glm::vec3(0,0,0) || schlick(cos_theta,ri) > random_double()){
-            scattered = Ray{interaction.p,glm::normalize(glm::reflect(r_in.dir,N))};
+
+        if(dir == glm::vec3(0,0,0) || schlick(cos_theta,r) > UV.x){
+            //if reflect and front face
+
+            //case outside to outside -> p += 0
+            //case outside to inside -> p += -0.002 n
+            //case inside to outside -> p += 0
+            //case inside to inside -> p += -0.002 n
+            dir = glm::normalize(glm::reflect(r_in.dir,N));
+            float eps = glm::dot(interaction.ns,dir) < 0 ? 0.001f : 0;
+            glm::vec3 point = r_in.at(interaction.t) + eps * Ng;
+            if(std::abs(glm::dot(interaction.ns,dir))<0.001){
+                point = r_in.at(interaction.t) + 0.001f * dir;//grazing angle
+            }
+            //should be + in the N direction??
+            //also + 0.0005*Ng workes ? but not 0.001
+            scattered = Ray{point ,dir};//was + eps*Ng //fix this
+
         }else{
-            scattered = Ray{interaction.p,dir};//test
+            
+            float eps = false && glm::dot(interaction.ns,dir) < 0 ? 0.001f : 0;
+            glm::vec3 point = r_in.at(interaction.t) - eps * Ng;
+            if(std::abs(glm::dot(interaction.ns,dir))<0.001){
+                point = r_in.at(interaction.t)+ 0.001f * dir;//grazing angle
+            }
+            //case outside to outside -> p += 0 Ng = n
+            //case outside to inside -> p += -0.002 Ng = n
+            //case inside to outside -> p += -0.002 NG = -n
+            //case inside to inside -> p += 0 Ng = -n
+            //p is always on ray side (can be backface)
+            //refract always into surface
+            scattered = Ray{point,dir};//test//was - eps*Ng
+
         }
 
-
-        return true;
-        /*
-        float r = 1.5f;
-        if(glm::dot(r_in.dir,rec.normal)>0){
-            scattered = Ray(r_in.at(rec.t),glm::normalize(refract(r_in.dir,-rec.normal,r)));
-        }else {
-            scattered = Ray(r_in.at(rec.t),glm::normalize(refract(r_in.dir,rec.normal,1/r)));
-        }
         
-        attenuation = {1,1,1};
         return true;
-        */
+        
     }
     glm::vec3 f_PDF(const Ray& ray_in, const SurfaceInteraction& interaction,Ray& scattered) const final {
-        scatter(ray_in,interaction,scattered);
         return color;
     }
     
@@ -544,7 +607,7 @@ class metal : public Material {
     metal(const glm::vec3& albedo) : albedo(albedo) {}
   
     bool scatter(const Ray& r_in, const SurfaceInteraction& interaction, Ray& scattered,const glm::vec2& UV = glm::vec2(-1,-1))const final {
-        scattered = Ray(r_in.at(interaction.t),glm::normalize(glm::reflect(r_in.dir,interaction.ns)));
+        scattered = Ray(interaction.p,glm::normalize(glm::reflect(r_in.dir,interaction.ns)));
         return glm::dot(scattered.dir, interaction.ns)>0;//always 1?
     }
 

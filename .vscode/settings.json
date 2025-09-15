@@ -80,5 +80,6 @@
         "forward_list": "cpp",
         "regex": "cpp",
         "ranges": "cpp"
-    }
+    },
+    "C_Cpp.errorSquiggles": "disabled"
 }

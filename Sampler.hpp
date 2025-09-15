@@ -133,13 +133,13 @@ class Sampler {
 public:
     virtual int SamplesPerPixel() const = 0;
 
-    virtual void StartPixelSample(int px,int py,int index) = 0;
+    virtual void StartPixelSample(const glm::ivec2& p,int index) = 0;
 
-    virtual float get1D() = 0;
+    virtual double get1D() = 0;
 
-    virtual glm::vec2 get2D() = 0;
+    virtual glm::dvec2 get2D() = 0;
 
-    virtual glm::vec2 GetPixel2D() = 0;
+    virtual glm::dvec2 GetPixel2D() = 0;
 };
 
 class UniformSampler : public Sampler{
@@ -150,20 +150,20 @@ public:
 
     constexpr int SamplesPerPixel() const final{ return 0; }
 
-    void StartPixelSample(int x,int y,int index) final{
-        this->px = x;
-        this->py = y;
+    void StartPixelSample(const glm::ivec2& p,int index) final{
+        px = p.x;
+        py = p.y;
     }
 
-    float get1D() final{
-        return random_float();
+    double get1D() final{
+        return random_double();
     }
 
-    glm::vec2 get2D() final{
-        return {random_float(),random_float()};
+    glm::dvec2 get2D() final{
+        return {random_double(),random_double()};
     }
 
-    glm::vec2 GetPixel2D() final{
+    glm::dvec2 GetPixel2D() final{
         return get2D();
     }
 private:
@@ -182,21 +182,21 @@ public:
 
     constexpr int SamplesPerPixel() const final { return xSamples*ySamples; }
 
-    void StartPixelSample(int x,int y,int index) final {
-        this->px = x;
-        this->py = y;
+    void StartPixelSample(const glm::ivec2& p,int index) final {
+        px = p.x;
+        py = p.y;
         sampleIndex = index;
         dimension = 0;
     }
 
-    float get1D() final {
+    double get1D() final {
         uint64_t seed = Hash(px,py, dimension);
         uint64_t stratum = PermutationElement(sampleIndex,SamplesPerPixel(),seed);
         dimension++;
-        return (stratum + random_float()) / (SamplesPerPixel());
+        return (stratum + random_double()) / (SamplesPerPixel());
     }
 
-    glm::vec2 get2D() final {
+    glm::dvec2 get2D() final {
         uint64_t seed = Hash(px,py, dimension);
         uint64_t stratum = PermutationElement(sampleIndex,SamplesPerPixel(),seed);
         dimension+=2;
@@ -204,15 +204,15 @@ public:
         int sy = stratum / xSamples;
 
         // local jitter in cell
-        float dx = random_float();
-        float dy = random_float();
+        double dx = random_double();
+        double dy = random_double();
         return {
-            (sx + dx) / float(xSamples),
-            (sy + dy) / float(ySamples)
+            (sx + dx) / double(xSamples),
+            (sy + dy) / double(ySamples)
         };
     }
 
-    glm::vec2 GetPixel2D() final {
+    glm::dvec2 GetPixel2D() final {
         return get2D();
     }
 private:

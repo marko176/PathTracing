@@ -23,17 +23,17 @@
 
 #include <chrono>
 
-//#include <OpenImageDenoise/oidn.hpp>
-
 
 #include "Shape.hpp"
 #include "Primitive.hpp"
 #include "Light.hpp"
 #include "LightSampler.hpp"
 #include "Sampler.hpp"
-
-
-
+#include "Filter.hpp"
+#include "Film.hpp"
+#include "Camera.hpp"
+#include "Medium.hpp"
+#include <OpenImageDenoise/oidn.hpp>
 
 
 
@@ -119,20 +119,6 @@ int Primes[PrimeTableSize] = {
 
 
 
-
-
-class LightMat : public Material {
-    public:
-    LightMat(const glm::vec3& albedo) : tex(std::make_shared<Solid_color>(albedo)) {}
-    LightMat(std::shared_ptr<Texture>& tex) : tex(tex) {}
-
-    virtual glm::vec3 emitted(float u,float v) const {
-        return tex->color_value(u,v);
-    }
-    private:
-    std::shared_ptr<Texture> tex;
-};
-
 class isotropic : public Material {
   public:
     isotropic(const glm::vec3& albedo) : tex(std::make_shared<Solid_color>(albedo)) {}
@@ -140,7 +126,7 @@ class isotropic : public Material {
 
     bool scatter(const Ray& r_in, const SurfaceInteraction& interaction, Ray& scattered,const glm::vec2& UV = glm::vec2(-1,-1))
     const override {
-        scattered = Ray(r_in.at(interaction.t), random_unit_vector());
+        scattered = Ray(interaction.p, random_unit_vector());
         return true;
     }
 
@@ -310,13 +296,13 @@ class HaltonSampler : public Sampler{
         dimension = 2;
     }
 
-    virtual float get1D() {
+    virtual double get1D() {
         if (dimension >= PrimeTableSize)
             dimension = 2;
         return SampleDimension(dimension++);
     }
 
-    virtual glm::vec2 get2D() {
+    virtual glm::dvec2 get2D() {
         if (dimension + 1 >= PrimeTableSize)
             dimension = 2;
         int dim = dimension;
@@ -324,7 +310,7 @@ class HaltonSampler : public Sampler{
         return {SampleDimension(dim), SampleDimension(dim + 1)};
     }
 
-    virtual glm::vec2 GetPixel2D() {
+    virtual glm::dvec2 GetPixel2D() {
         return {RadicalInverse(0, haltonIndex >> baseExponents[0]),
                 RadicalInverse(1, haltonIndex / baseScales[1])};
     }
@@ -370,7 +356,7 @@ class HaltonSampler : public Sampler{
 
 
 
-
+/*
 struct LightSamplerPrim {
     std::vector<InfiniteLight> inf_lights;
     std::vector<AreaLight> lights;
@@ -393,27 +379,27 @@ struct LightSamplerPrim {
         return true;
     }
 
-    const Light* sample(float u) const{ //just picks light
+    std::shared_ptr<Light> sample(float u) const{ //just picks light
         if(lights.empty()){
             int index = std::min<int>((u * inf_lights.size()),inf_lights.size()-1);
-            return &inf_lights[index];
+            return inf_lights[index];
         }else if(inf_lights.empty()){
             int index = std::min<int>((u * lights.size()),lights.size()-1);
-            return &lights[index];
+            return lights[index];
         }else if(u < 0.5) {
             u = u*2.0f;
             int index = std::min<int>((u * inf_lights.size()),inf_lights.size()-1);
-            return &inf_lights[index];
+            return inf_lights[index];
         }else{
             u = u*2.0f - 1.0f;
             //problem is we sample what light and sample psoiton from u !!!!!!!!!!!!! we can do u*2-1 but we need andother one to know which light to sample!
             int index = std::min<int>((u * lights.size()),lights.size()-1);
             //sampled[index].fetch_add(1);
-            return &lights[index];
+            return lights[index];
         }
     }
 
-    const Light* sampleWeight(float u) const{ //just picks light
+    std::shared_ptr<Light> sampleWeight(float u) const{ //just picks light
         if(lights.empty()){
             int index = std::min<int>((u * inf_lights.size()),inf_lights.size()-1);
             return &inf_lights[index];
@@ -427,11 +413,11 @@ struct LightSamplerPrim {
                     break;
                 }
             }
-            return &lights[index];
+            return lights[index];
         }else if(u < 0.5) {
             u = u*2.0f;
             int index = std::min<int>((u * inf_lights.size()),inf_lights.size()-1);
-            return &inf_lights[index];
+            return inf_lights[index];
         }else{
             u = u*2.0f - 1.0f;
             float curr_sum = 0;
@@ -444,7 +430,7 @@ struct LightSamplerPrim {
                 }
             }
             //sampled[index].fetch_add(1);
-            return &lights[index];
+            return lights[index];
         }
     }
 
@@ -454,7 +440,7 @@ struct LightSamplerPrim {
     
     glm::vec3 sampleLd(const Ray& curr_ray,const SurfaceInteraction& interaction,float brdf,const TLAS& bvh,float u,glm::vec2& UV) const{
         //if UV is random we get correct images? then we will need to not use stratified sampling???
-        const Light* sampled_light = sample(u);
+        std::shared_ptr<Light> sampled_light = sample(u);
         if(sampled_light->isDelta()){
 
             glm::vec3 dir = sampled_light->sample(UV).dir;
@@ -491,17 +477,17 @@ struct LightSamplerPrim {
     }
     
 
-    float PMF(const Light* sampled_light) const {
+    float PMF(const std::shared_ptr<Light>& sampled_light) const {
         return (lights.empty() || inf_lights.empty() ? 0.f : 0.5f) / lights.size();
     }
 
-    float PMFWeight(const Light* sampled_light) const {
+    float PMFWeight(const std::shared_ptr<Light>& sampled_light) const {
         return (lights.empty() || inf_lights.empty() ? 0 : 0.5f) * (sampled_light->Power()) / weight_sum;
     }
 
 
     glm::vec3 sampleLdWeightPrim(const Ray& curr_ray,const SurfaceInteraction& interaction,float brdf,const TLAS& bvh,float u,const glm::vec2& UV) const{
-        const Light* sampled_light = sampleWeight(u);
+        std::shared_ptr<Light> sampled_light = sampleWeight(u);
         if(sampled_light->isDelta()){
             Ray shadow_ray(interaction.p,sampled_light->sample(UV).dir);//was -1 6 1 // 
             if(glm::dot(interaction.ns,shadow_ray.dir) > 0 && !bvh.IntersectPred(shadow_ray,1e30f)){
@@ -603,111 +589,71 @@ inline glm::vec3 Li(Ray curr_ray, const TLAS& BVH, Sampler* sampler, const Light
 }
 
 
+*/
 
 
 
 
 
-
-
-double luminance(const glm::dvec3& v)
-{
-    return dot(v, glm::dvec3(0.2126f, 0.7152f, 0.0722f));
-}
-
-glm::dvec3 change_luminance(glm::dvec3 c_in, double l_out)
-{
-    double l_in = luminance(c_in);
-    return c_in * (l_out / l_in);
-}
-
-glm::dvec3 reinhard_extended_luminance(const glm::dvec3& v, double max_white_l)
-{
-    double l_old = luminance(v);
-    double numerator = l_old * (1.0 + (l_old / (max_white_l * max_white_l)));
-    double l_new = numerator / (1.0 + l_old);
-    return change_luminance(v, l_new); //something doesnt work -> got NaN and whole screen bas
-}
-
-glm::dvec3 reinhard_jodie(const glm::dvec3& v)
-{
-    double l = luminance(v);
-    glm::dvec3 tv = v / (1.0 + v);
-    return glm::mix(v / (1.0 + l), tv, tv);
-}
-
-glm::dvec3 ACESFilm(glm::dvec3 color) {
-    const double A = 2.51f;
-    const double B = 0.03f;
-    const double C = 2.43f;
-    const double D = 0.59f;
-    const double E = 0.14f;
-    return glm::clamp((color * (A * color + B)) / (color * (C * color + D) + E), 0.0, 1.0);
-}
-
-
-
-
-
-
-struct ScenePrim {
-
-    TLAS scene_bvh;//tlas bvh should take shared ptrs / unique ptrs and own them
-    std::vector<Primitive*> primitives;
+class Scene {
+public:
     //light sampler, sampler
     bool render(/*camera, output file name... stbi image to jpg or ppm*/) {
         return false;
     }
-
-    bool add(Primitive* ptr) {
+    
+    void Add(Primitive* ptr) {
         primitives.push_back(ptr);
-        return true;
     }
-
-    std::vector<Light*> GetLights() const {
+    
+    std::vector<std::shared_ptr<Light>> GetLights() const {
         return scene_bvh.GetLights();
     }
-
+    
     void PreProcess() {
         scene_bvh = TLAS(primitives);
     }
-
+    
     AABB Bounding_box() {
         return scene_bvh.Bounding_box();
     }
+
+    TLAS scene_bvh;//tlas bvh should take shared ptrs / unique ptrs and own them
+private:
+    std::vector<Primitive*> primitives;
 };
 
 
 
-
-void renderPrim(const ScenePrim& scene, int width, int height,const LightSamplerPrim& LIsampler){
+/*
+void renderPrim(const Scene& scene, int width, int height,const LightSamplerPrim& LIsampler){
     stbi_set_flip_vertically_on_load(true);
     std::vector<std::vector<glm::dvec3>> screen(height,std::vector<glm::dvec3>(width,{0,0,0})); 
 
   
-    float fov = 1.7;
-    float halfWidth  = std::tan(fov * 0.5f);
-    float halfHeight = halfWidth * height / width;
+    double fov = 1.7;
+    double halfWidth  = std::tan(fov * 0.5f);
+    double halfHeight = halfWidth * height / width;
 
  
     //20 sec
-    glm::vec3 up = {0,1,0};
-    glm::vec3 lookfrom = {-1000,300,0};
+    glm::dvec3 up = {0,1,0};
+    glm::dvec3 lookfrom = {-1000,300,0};
     lookfrom = {17.3,1.2,7.2};
     //glm::vec3 lookfrom = {-900,300,0};
     //glm::vec3 lookfrom = {1.6,1.6,1.8};
-    glm::vec3 lookat = {0,300,0};
+    glm::dvec3 lookat = {0,300,0};
     lookat = {0,0,0};
     //glm::vec3 lookat = {-600,230,-200};
-    glm::vec3 w = glm::normalize(lookfrom-lookat);
-    glm::vec3 u = glm::normalize(glm::cross(up,w));
-    glm::vec3 v = glm::cross(w,u);
+    glm::dvec3 w = glm::normalize(lookfrom-lookat);
+    glm::dvec3 u = glm::normalize(glm::cross(up,w));
+    glm::dvec3 v = glm::cross(w,u);
 
-    float defocus_angle = 0;
-    float focus_dist = 10;
-    float defocus_radius = focus_dist * std::tan(defocus_angle/2.0f);
-    glm::vec3 defocus_disk_u = u * defocus_radius;
-    glm::vec3 defocus_disk_v = v * defocus_radius;
+    double defocus_angle = 0;
+    double focus_dist = 10;
+    double defocus_radius = focus_dist * std::tan(defocus_angle/2.0f);
+    glm::dvec3 defocus_disk_u = u * defocus_radius;
+    glm::dvec3 defocus_disk_v = v * defocus_radius;
     
     unsigned threads = std::thread::hardware_concurrency();
     std::vector<std::thread> workers;
@@ -738,13 +684,13 @@ void renderPrim(const ScenePrim& scene, int width, int height,const LightSampler
                     while(sample_count < 128*samples){//was 32
                         StratifiedSampler stratified_sampler(sqrts,sqrts);
                         for(int sample_index = 0;sample_index < samples; sample_index++){
-                            stratified_sampler.StartPixelSample(j,i,sample_index);
-                            glm::vec2 pixel_sample = stratified_sampler.GetPixel2D();
-                            float u_coord = (pixel_sample.x + j) / float(width);
-                            float v_coord = (pixel_sample.y + i) / float(height);
-                            glm::vec3 direction = glm::normalize( -w + (2.0f * u_coord - 1.0f) * halfWidth * u + (2.0f * v_coord - 1.0f) * halfHeight * v)*focus_dist;
-                            glm::vec3 p = random_in_unit_disk();
-                            glm::vec3 offset = p.x * defocus_disk_u + p.y * defocus_disk_v;
+                            stratified_sampler.StartPixelSample({j,i},sample_index);
+                            glm::dvec2 pixel_sample = stratified_sampler.GetPixel2D();
+                            double u_coord = (pixel_sample.x + j) / double(width);
+                            double v_coord = (pixel_sample.y + i) / double(height);
+                            glm::dvec3 direction = glm::normalize( -w + (2.0f * u_coord - 1.0f) * halfWidth * u + (2.0f * v_coord - 1.0f) * halfHeight * v)*focus_dist;
+                            glm::dvec3 p = random_in_unit_disk();
+                            glm::dvec3 offset = p.x * defocus_disk_u + p.y * defocus_disk_v;
                             //color+=ray_color_iterative_model(Ray(lookfrom + offset,glm::normalize(direction - offset)),inline_bvh);
                             glm::dvec3 temp_color = Li(Ray(lookfrom + offset,glm::normalize(direction - offset)),scene.scene_bvh, &stratified_sampler,LIsampler);
                             if(temp_color.x != temp_color.x || temp_color.y != temp_color.y || temp_color.z != temp_color.z){
@@ -796,173 +742,241 @@ void renderPrim(const ScenePrim& scene, int width, int height,const LightSampler
     }
     out.close();
 }
+*/
 
-struct Pixel{
-    std::atomic<double> r{0.0};
-    std::atomic<double> g{0.0};
-    std::atomic<double> b{0.0};
+
+
+inline glm::vec3 Li2(Ray curr_ray, const TLAS& BVH,const std::shared_ptr<Sampler>& sampler,const std::shared_ptr<LightSampler>& LIsampler) {
+    glm::vec3 color = {1,1,1};
+    glm::vec3 output = {0,0,0};
+
+    
+    int depth = 0;
+    int rr_depth = 0;
+    float prevPDF = 1;
+    float spec = true;
+    //std::shared_ptr<Material> medium = nullptr;
+    while(depth++<128 && (color.x + color.y + color.z) != 0.0f){
+        SurfaceInteraction interaction;
+        MediumInteraction medInteraction;
+        
+        if(!BVH.Intersect(curr_ray,interaction,1e30f)){
+            float a = 0.5f*(curr_ray.dir.y+1.0f);
+            return output + color * 1.5f * ((1.0f-a)*glm::vec3(1,0.85,0.55) + a*glm::vec3(0.45,0.65,1));
+        }
+        //interaction |
+        //medium = interaction . medium
+        
+        if(curr_ray.medium){
+            color *= curr_ray.medium->Tr(curr_ray,interaction.t);
+        }
+        /*
+        if(medium){
+            color *= medium->calc_attenuation(Ray({0,0,0},{0,0,0}),interaction,Ray({0,0,0},{0,0,0}));
+        }
+        */
+        
+        glm::vec2 random_variables = sampler->get2D();
+        glm::vec2 light_random_variables = sampler->get2D();
+        float light_selection_random_variable = sampler->get1D();
+        float rr_random_variable = sampler->get1D();
+        
+        glm::vec3 L = {0,0,0};
+        if(interaction.AreaLight && (L = interaction.AreaLight->L(interaction,curr_ray)) != glm::vec3(0,0,0)){
+            if(spec){
+                output += color * L;
+            }else{
+                double light_pdf = LIsampler->PMF(interaction.AreaLight) * interaction.AreaLight->PDF(interaction,curr_ray);
+                float w = prevPDF * prevPDF / (prevPDF * prevPDF + light_pdf * light_pdf);
+                //std::cout<<w<<" "<<prevPDF<<" "<<interaction.AreaLight->PDF(interaction,curr_ray)<<"\n";
+                output += color * L * w;
+                //output += color * L;//wrong but gives good results????
+            }
+
+        }
+        if(interaction.mat){
+            Ray new_ray;
+    
+            //if mat -> normal
+            //if !mat -> fog
+            
+            if(!interaction.mat->scatter(curr_ray,interaction,new_ray,random_variables)){
+                return output;//absorbed   
+            }
+            
+            new_ray.medium = interaction.getMedium(new_ray.dir);
+    
+            if(interaction.mat->is_specular(interaction)){
+                color *= interaction.mat->f_PDF(curr_ray,interaction,new_ray);
+                curr_ray = new_ray;
+                spec = true;
+                continue;
+            }
+            spec = false;
+
+            float brdfPDF = interaction.mat->PDF(curr_ray,interaction,new_ray);
+            prevPDF = brdfPDF;
+            output += color * LIsampler->SampleLd(curr_ray,interaction,BVH,light_selection_random_variable,light_random_variables);
+            glm::vec3 color_attenuation = interaction.mat->calc_attenuation(curr_ray,interaction,new_ray);
+    
+            float rr_prob = rr_depth++ < 4 ? 1 : std::fmin(0.95f,std::fmaxf(std::fmaxf(color_attenuation.x, color_attenuation.y), color_attenuation.z));
+            
+            if(rr_random_variable >= rr_prob || brdfPDF <= 0)break;
+            color *= color_attenuation / (brdfPDF * rr_prob);
+            curr_ray = new_ray;
+        }else{
+            curr_ray = Ray(curr_ray.at(interaction.t),curr_ray.dir);//we have to have smaller shadow offset for this 0.0001f but for other scenes 0.0005
+                                                        //even that is not perfect
+            curr_ray.medium = interaction.getMedium(curr_ray.dir);
+            spec = true;
+        }
+        
+    }
+    return output;
+}
+
+class VarianceEstimator{
+public:
+    void Add(double val) {
+        ++sampleCount;
+        double delta = val - mean;
+        mean += delta / sampleCount;
+        double delta2 = val - mean;
+        S += delta * delta2;
+    }
+
+    double Mean() const {
+        return mean;
+    }
+
+    double Variance() const {
+        return sampleCount > 1 ? S / (sampleCount - 1) : 0;
+    }
+
+    std::size_t Samples() const {
+        return sampleCount;
+    }
+
+    double RelativeVariance() const {
+        return mean == 0 ? 0 : 1.96 * std::sqrt(Variance()/sampleCount) / mean;
+    }
+private:
+    double S = 0;
+    double mean = 0;
+    std::size_t sampleCount = 0;
 };
 
-double gaussian(double r){
-    double sigma = 0.5;
-    double radius = 1.5;
-    return std::max<double>(0.,std::exp(-(r*r)/(2*sigma*sigma))/(sigma*std::sqrt(2*std::numbers::pi_v<double>)) - std::exp(-(radius*radius)/(2*sigma*sigma))/(std::sqrt(2*std::numbers::pi_v<double>*sigma*sigma)));
-}
-
-double gaussianIntegral(){
-    double sigma = 0.5;
-    double radius = 1.5;
-    return 0.5*(std::erf(radius/(sigma*std::numbers::sqrt2_v<double>))-std::erf(-radius/(sigma*std::numbers::sqrt2_v<double>))) - radius*2*std::exp(-(radius*radius)/(2*sigma*sigma))/(std::sqrt(2*std::numbers::pi_v<double>*sigma*sigma));
-}
-
-double Mitchell(double r){
-    double radius = 2;
-    double absX = std::abs(r);
-    double b = 1.0/3.0;
-    double c = 1.0/3.0;
-    if(absX < 1.0){
-        return 1.0/6.0 * ((12 - 9*b - 6*c)*absX*absX*absX + (-18 + 12*b + 6*c)*absX*absX + (6 -2*b));
-    }else if( absX >= 1 && absX < 2){
-        return 1.0/6.0 * ((-b - 6*c)*absX*absX*absX + (6*b+30*c)*absX*absX +(-12*b-48*c)*absX + (8*b + 24*c));
-    }else return 0;
-
-}
-
-double MitchellIntegral(){
-    double radius = 2;
-    return radius/2;//should be 1 ?
-}
-
-void renderPrimFilter(const ScenePrim& scene, int width, int height,const LightSamplerPrim& LIsampler){
-    stbi_set_flip_vertically_on_load(true);
-    std::vector<Pixel> screen(height*width); 
-
- 
-
-
-    
-    //Quad light_1 = Quad(glm::vec3(15, 1, 7), glm::vec3(-1,0,0), glm::vec3(0,0,-1), light);
-    //Sphere light_2 = Sphere(glm::vec3(14.5,1,6.5),glm::vec3(0,0,0),light,0.5);
-    
-  
 
 
 
-  
-    float fov = 1.7;
-    float halfWidth  = std::tan(fov * 0.5f);
-    float halfHeight = halfWidth * height / width;
+
+void renderPrimFilter(const Scene& scene, int width, int height,std::shared_ptr<LightSampler>& LIsampler, std::string outputImage,const std::shared_ptr<Filter>& filter){
+
+    double fov = 1.7;
+    //fov = 0.7;
+    fov = 1.7;//dragon
+    double halfWidth  = std::tan(fov * 0.5f);
+    double halfHeight = halfWidth * height / width;
 
  
     //20 sec
-    glm::vec3 up = {0,1,0};
-    glm::vec3 lookfrom = {-1000,300,0};
+    glm::dvec3 up = {0,1,0};
+    glm::dvec3 lookfrom = {-1000,300,0};
     lookfrom = {17.3,1.2,7.2};
-    //glm::vec3 lookfrom = {-900,300,0};
-    //glm::vec3 lookfrom = {1.6,1.6,1.8};
-    glm::vec3 lookat = {0,300,0};
+    //lookfrom = {278,278,-800};
+    lookfrom = {0.3,0.4,1};//dragon
+    //lookfrom = {0.3,0.2,1};
+    //glm::dvec3 lookfrom = {-900,300,0};
+    //glm::dvec3 lookfrom = {1.6,1.6,1.8};
+    glm::dvec3 lookat = {0,300,0};
     lookat = {0,0,0};
-    //glm::vec3 lookat = {-600,230,-200};
-    glm::vec3 w = glm::normalize(lookfrom-lookat);
-    glm::vec3 u = glm::normalize(glm::cross(up,w));
-    glm::vec3 v = glm::cross(w,u);
+    //lookat = {278,278,0};
+    //lookat = {0,0,0};//dragon
+    //glm::dvec3 lookat = {-600,230,-200};
+    glm::dvec3 w = glm::normalize(lookfrom-lookat);
+    glm::dvec3 u = glm::normalize(glm::cross(up,w));
+    glm::dvec3 v = glm::cross(w,u);
 
-    float defocus_angle = 0;
-    float focus_dist = 10;
-    float defocus_radius = focus_dist * std::tan(defocus_angle/2.0f);
-    glm::vec3 defocus_disk_u = u * defocus_radius;
-    glm::vec3 defocus_disk_v = v * defocus_radius;
+    double defocus_angle = 0;
+    double focus_dist = 6;
+    focus_dist = 1;
+    double defocus_radius = focus_dist * std::tan(defocus_angle/2.0f);
+    glm::dvec3 defocus_disk_u = u * defocus_radius;
+    glm::dvec3 defocus_disk_v = v * defocus_radius;
     
-    unsigned threads = std::thread::hardware_concurrency();
+    unsigned int threads = std::thread::hardware_concurrency();
     std::vector<std::thread> workers;
     std::atomic<int> done{0};
     auto start = std::chrono::high_resolution_clock::now();
 
 
 
-    int samples = 64;//64*16*4 -> 4 hours
+    int samples = 64*4;//64*16*4 -> 4 hours
     int sqrts = std::sqrt(samples);
 
-    double Integral = gaussianIntegral();
-    double MitIntegral = MitchellIntegral();
+    Film film({width,height},filter);
+    constexpr int tileSize = 32;
+    int tileCount = ((width + tileSize - 1) / tileSize) * ((height + tileSize - 1) / tileSize);
+    std::mutex consoleMutex;
+    Camera camera(lookfrom,lookat,fov,&film);
     auto lamb = [&](){
         int k;
-        while((k = done.fetch_add(2, std::memory_order_relaxed))<height){
-            std::cout<<k<<"\n";
-            //auto duration = std::chrono::high_resolution_clock::now() - start;
-            //float expected_time = float(std::chrono::duration_cast<std::chrono::seconds>(duration).count())*height/float(k);
-            //std::cout<<"seconds left: "<<expected_time - float(std::chrono::duration_cast<std::chrono::seconds>(duration).count())<<"\n";
-            for(int i = k;i<std::min(k+2,height);i++){
-                for(int j = 0;j<width;j++){
-     
+        std::shared_ptr<Sampler> sampler = std::make_shared<StratifiedSampler>(sqrts,sqrts);
+        while((k = done.fetch_add(1, std::memory_order_relaxed))<tileCount){
+            int tileX = k % ((width + tileSize - 1) / tileSize);//k % 61
+            int tileY = k / ((width + tileSize - 1) / tileSize);
+            int minX = tileX * tileSize;
+            int minY = tileY * tileSize;
+            int maxX = std::min((tileX + 1) * tileSize, width);
+            int maxY = std::min((tileY + 1) * tileSize, height);
 
+            FilmTile tile = camera.GetFilm()->GetFilmTile({{minX,minY},{maxX,maxY}});
+
+            consoleMutex.lock();
+            std::cout<<"\rFinished:"<<std::setw(7)<<std::right<<std::fixed<<std::setprecision(2)<<100 * (done.load())/float(tileCount)<<"%"<<std::flush;
+            consoleMutex.unlock();
+
+            for(int y = minY; y<maxY;y++){
+                for(int x = minX;x<maxX;x++){
+
+                    VarianceEstimator estimator[3];
                     
-                    std::array<std::array<glm::dvec3,3>,3> grid{glm::dvec3(0,0,0)};
-                    
-                    //test out uniform sampling with 25 x samples ?
-                    int sample_count = 0;
-                    double acc = 0;
-                    double acc_2 = 0;
-                    while(sample_count < 256*samples){//was 32
-                        StratifiedSampler stratified_sampler(sqrts,sqrts);
+                    while(estimator[0].Samples() < 128*samples){//was 32
                         for(int sample_index = 0;sample_index < samples; sample_index++){
-                            stratified_sampler.StartPixelSample(j,i,sample_index);
-                            glm::vec2 pixel_sample = stratified_sampler.GetPixel2D();
-                            float u_coord = (pixel_sample.x + j) / float(width);
-                            float v_coord = (pixel_sample.y + i) / float(height);
-                            glm::vec3 direction = glm::normalize( -w + (2.0f * u_coord - 1.0f) * halfWidth * u + (2.0f * v_coord - 1.0f) * halfHeight * v)*focus_dist;
-                            glm::vec3 p = random_in_unit_disk();
-                            glm::vec3 offset = p.x * defocus_disk_u + p.y * defocus_disk_v;
+                            sampler->StartPixelSample({x,y},sample_index);
+
+                            glm::dvec2 p = glm::dvec2{x,y} + sampler->GetPixel2D();
+                            Ray ray = camera.GenerateRay(p,{0,0},0);
+                            /*
+                            double u_coord = p.x / double(width);
+                            double v_coord = p.y / double(height);
+                            glm::dvec3 direction = glm::normalize( -w + (2.0f * u_coord - 1.0f) * halfWidth * u + (2.0f * v_coord - 1.0f) * halfHeight * v)*focus_dist;
+                            glm::dvec3 p = random_in_unit_disk();
+                            glm::dvec3 offset = p.x * defocus_disk_u + p.y * defocus_disk_v;
+                            */
                             //color+=ray_color_iterative_model(Ray(lookfrom + offset,glm::normalize(direction - offset)),inline_bvh);
-                            glm::dvec3 temp_color = Li(Ray(lookfrom + offset,glm::normalize(direction - offset)),scene.scene_bvh, &stratified_sampler,LIsampler);
-                            if(temp_color.x != temp_color.x || temp_color.y != temp_color.y || temp_color.z != temp_color.z){
-                                std::cout<<"Nan:"<<i<<" "<<j<<"\n";
+                            glm::dvec3 color = Li2(ray,scene.scene_bvh, sampler,LIsampler);
+                            if(color.x != color.x || color.y != color.y || color.z != color.z){
+                                std::cout<<"Nan:"<<x<<" "<<y<<"\n";
                                 continue;
                             }
-                            ++sample_count;
-                            //if any is NaN -> total samples - 1 ??
-                            for(int ii = 0;ii<3;ii++){
-                                for(int jj = 0;jj<3;jj++){
-                                    float pixel_u = (-1 + jj + 0.5);
-                                    float pixel_v = (-1 + ii + 0.5);
-                                    //pixel sample.x [0,1)
-                                    //
-                                    //-0.5 - 
-                                    grid[ii][jj]+=gaussian(pixel_u-pixel_sample.x) * gaussian(pixel_v-pixel_sample.y) / (Integral * Integral)* temp_color;
-                                    //grid[ii][jj]+=Mitchell(pixel_u-pixel_sample.x) * Mitchell(pixel_v-pixel_sample.y) / (MitIntegral * MitIntegral)* temp_color;
-                                }
-                            }
-                            //color+=temp_color;
-                            double L = (temp_color.x + temp_color.y + temp_color.z); // should maybe evaluate over filter
                             
-                            acc += L;
-                            acc_2 += L*L;
+                            tile.Add(p,color);
+                            color *= glm::dvec3(0.2126f, 0.7152f, 0.0722f);
+                            for(int k = 0;k<3;k++)
+                                estimator[k].Add(color[k]);
+                            
                         }
-                    
-                        double sigma_2 = (acc_2 - acc*acc/sample_count)/(sample_count - 1);
-                        double mi = acc / sample_count;
-                        double I = 1.96 * std::sqrt(sigma_2/sample_count);
-          
-                        if(I <= 1.3*mi)break;//switch to 1.5
+                        float k = 1.5;//1.5
+                        if( estimator[0].RelativeVariance() <= k &&
+                            estimator[1].RelativeVariance() <= k &&
+                            estimator[2].RelativeVariance() <= k)break;
+
                     }
-                    //color/=static_cast<double>(sample_count);
-                    //screen[i*width + j].r.fetch_add(color.r,std::memory_order_relaxed);
-                    //screen[i*width + j].g.fetch_add(color.g,std::memory_order_relaxed);
-                    //screen[i*width + j].b.fetch_add(color.b,std::memory_order_relaxed);
-                    for(int ii = 0;ii<3;ii++){
-                        for(int jj = 0;jj<3;jj++){
-                            float pixel_j = (-1 + jj) + j;
-                            float pixel_i = (-1 + ii) + i;
-                            if(pixel_i < 0 || pixel_j < 0 || pixel_i >= height || pixel_j >= width)continue;
-                            grid[ii][jj]/=static_cast<double>(sample_count);
-                            screen[pixel_i*width + pixel_j].r.fetch_add(grid[ii][jj].r,std::memory_order_relaxed);
-                            screen[pixel_i*width + pixel_j].g.fetch_add(grid[ii][jj].g,std::memory_order_relaxed);
-                            screen[pixel_i*width + pixel_j].b.fetch_add(grid[ii][jj].b,std::memory_order_relaxed);
-                        }
-                    }
-                    //screen[i][j]+=color/double(sample_count);
+            
                 }
             }
+            camera.GetFilm()->Merge(tile);
         }
     };
     
@@ -970,98 +984,19 @@ void renderPrimFilter(const ScenePrim& scene, int width, int height,const LightS
     for(int t = 0;t<threads;t++){
         workers.emplace_back(lamb);
     }
-
     for(auto& worker : workers)worker.join();
+
+
+
     auto duration = std::chrono::high_resolution_clock::now() - start;
-    std::cout<<"ms: "<<std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()<<"\n";
+    std::cout<<"\nRender time in ms: "<<std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()<<"\n";
   
-
-    
-    std::ofstream out("out.ppm", std::ios::binary );
-    out << "P6\n" << width << " " << height << "\n255\n";
-    for(int i = height-1;i>=0;i--){
-        for(int j = 0;j<width;j++){
-            glm::dvec3 color = ACESFilm(glm::dvec3{screen[i*width + j].r.load(),screen[i*width + j].g.load(),screen[i*width + j].b.load()});
-            double r = linear_to_sRGB(color.r);
-            double g = linear_to_sRGB(color.g);
-            double b = linear_to_sRGB(color.b);
-            out << (char)(255.999*std::max(0.0,std::min(1.0,r))) << (char)(255.999*std::max(0.,std::min(1.,g))) << (char)(255.999*std::max(0.,std::min(1.,b)));
-        }
-    }
-    out.close();
-}
-inline glm::vec3 Li2(Ray curr_ray, const TLAS& BVH, Sampler* sampler, std::shared_ptr<LightSampler>& LIsampler) {
-    glm::vec3 color = {1,1,1};
-    glm::vec3 output = {0,0,0};
-
-    
-    int depth = 0;
-    int rr_depth = 0;
-    float prevPDF = 0;
-    float spec = true;
-    bool regularize = false;
-    while(depth++<64 && color.x + color.y + color.z != 0.0f){
-        SurfaceInteraction interaction;
-
-        if(!BVH.Intersect(curr_ray,interaction,1e30f)){
-            float a = 0.5f*(curr_ray.dir.y+1.0f);
-            return output + color * ((1.0f-a)*0.5f*glm::vec3(1,0.95,0.8) + a*glm::vec3(0.5,0.7,1));
-        }
-    
-        glm::vec2 random_variables = sampler->get2D();
-        glm::vec2 light_random_variables = sampler->get2D();
-        float light_selection_random_variable = sampler->get1D();
-        float rr_random_variable = sampler->get1D();
-        glm::vec3 L;
-        if(interaction.AreaLight && (L = interaction.AreaLight->L(interaction,curr_ray)) != glm::vec3(0,0,0)){
-            if(spec){
-                output += color * L;
-            }else{
-                //pmf * pdf
-                //float light_pdf = LIsampler.PMFWeight(rec.AreaLight) * (rec.t*rec.t) / (glm::dot(-curr_ray.dir,rec.normal) * rec.AreaLight->Area());//should incorporate PMF() ?
-                float light_pdf = LIsampler->PMF(interaction.AreaLight) * interaction.AreaLight->PDF(interaction,curr_ray);
-                float w = prevPDF * prevPDF / (prevPDF * prevPDF + light_pdf * light_pdf);
-                output += color * L * w;// * w;
-            }
-
-        }
-
-        Ray new_ray;
-        
-        //glm::vec3 emitted_color = rec.material->emitted(rec.u,rec.v,curr_ray.at(rec.t));
-        //output += color * emitted_color;
-        
-        
-        if(!interaction.mat->scatter(curr_ray,interaction,new_ray,random_variables)){
-            return output;//absorbed   
-        }
-        if(interaction.mat->is_specular(interaction)){
-            color *= interaction.mat->f_PDF(curr_ray,interaction,new_ray);
-            curr_ray = new_ray;
-            spec = true;
-            continue;
-        }
-        spec = false;
-        float brdfPDF = interaction.mat->PDF(curr_ray,interaction,new_ray);
-        prevPDF = brdfPDF;
-        output += color * LIsampler->SampleLd(curr_ray,interaction,brdfPDF,BVH,light_selection_random_variable,light_random_variables);
-        
-        glm::vec3 color_attenuation = interaction.mat->calc_attenuation(curr_ray,interaction,new_ray);
-
-        float rr_prob = rr_depth++ < 4 ? 1 : std::fmin(0.95,std::fmaxf(std::fmaxf(color_attenuation.x, color_attenuation.y), color_attenuation.z));
-        
-        if(rr_random_variable >= rr_prob || brdfPDF <= 0)break;
-        color *= color_attenuation / (brdfPDF * rr_prob);
-        curr_ray = new_ray;
-        
-        regularize = true;//if not specular and depth != 0
-        
-    }
-    return output;
+    film.WriteImage(outputImage);
 }
 
-void renderPrim2(const ScenePrim& scene, int width, int height,std::shared_ptr<LightSampler>& LIsampler, const std::string& outputImage){
-    stbi_set_flip_vertically_on_load(true);
+
+void renderPrim2(const Scene& scene, int width, int height,std::shared_ptr<LightSampler>& LIsampler, const std::string& outputImage){
+
     std::vector<std::vector<glm::dvec3>> screen(height,std::vector<glm::dvec3>(width,{0,0,0})); 
 
   
@@ -1074,11 +1009,11 @@ void renderPrim2(const ScenePrim& scene, int width, int height,std::shared_ptr<L
     glm::vec3 up = {0,1,0};
     glm::vec3 lookfrom = {-1000,300,0};
     lookfrom = {17.3,1.2,7.2};
-    //glm::vec3 lookfrom = {-900,300,0};
+    //lookfrom = {-900,300,0};
     //glm::vec3 lookfrom = {1.6,1.6,1.8};
     glm::vec3 lookat = {0,300,0};
     lookat = {0,0,0};
-    //glm::vec3 lookat = {-600,230,-200};
+    //lookat = {-600,230,-200};
     glm::vec3 w = glm::normalize(lookfrom-lookat);
     glm::vec3 u = glm::normalize(glm::cross(up,w));
     glm::vec3 v = glm::cross(w,u);
@@ -1121,17 +1056,17 @@ void renderPrim2(const ScenePrim& scene, int width, int height,std::shared_ptr<L
                     glm::dvec3 color = {0,0,0};
                     
                     while(sample_count < 128*samples){//was 32
-                        StratifiedSampler stratified_sampler(sqrts,sqrts);
+                        std::shared_ptr<Sampler> sampler = std::make_shared<StratifiedSampler>(sqrts,sqrts);
                         for(int sample_index = 0;sample_index < samples; sample_index++){
-                            stratified_sampler.StartPixelSample(j,i,sample_index);
-                            glm::vec2 pixel_sample = stratified_sampler.GetPixel2D();
+                            sampler->StartPixelSample({j,i},sample_index);
+                            glm::vec2 pixel_sample = sampler->GetPixel2D();
                             float u_coord = (pixel_sample.x + j) / float(width);
                             float v_coord = (pixel_sample.y + i) / float(height);
                             glm::vec3 direction = glm::normalize( -w + (2.0f * u_coord - 1.0f) * halfWidth * u + (2.0f * v_coord - 1.0f) * halfHeight * v)*focus_dist;
                             glm::vec3 p = random_in_unit_disk();
                             glm::vec3 offset = p.x * defocus_disk_u + p.y * defocus_disk_v;
                             //color+=ray_color_iterative_model(Ray(lookfrom + offset,glm::normalize(direction - offset)),inline_bvh);
-                            glm::dvec3 temp_color = Li2(Ray(lookfrom + offset,glm::normalize(direction - offset)),scene.scene_bvh, &stratified_sampler,LIsampler);
+                            glm::dvec3 temp_color = Li2(Ray(lookfrom + offset,glm::normalize(direction - offset)),scene.scene_bvh, sampler,LIsampler);
                             if(temp_color.x != temp_color.x || temp_color.y != temp_color.y || temp_color.z != temp_color.z){
                                 std::cout<<"Nan:"<<i<<" "<<j<<"\n";
                                 continue;
@@ -1149,7 +1084,7 @@ void renderPrim2(const ScenePrim& scene, int width, int height,std::shared_ptr<L
                         double mi = acc / sample_count;
                         double I = 1.96 * std::sqrt(sigma_2/sample_count);
           
-                        if(I <= 1.4*mi)break;//switch to 1.3
+                        if(I <= 1.5*mi)break;//switch to 1.3
                     }
                     screen[i][j]+=color/double(sample_count);
                 }
@@ -1178,6 +1113,7 @@ void renderPrim2(const ScenePrim& scene, int width, int height,std::shared_ptr<L
         }
     }
     */
+    
     for(int i = height-1;i>=0;i--){
         for(int j = 0;j<width;j++){
             //screen[i][j] = ACESFilm(screen[i][j]);
@@ -1192,46 +1128,118 @@ void renderPrim2(const ScenePrim& scene, int width, int height,std::shared_ptr<L
     out.close();
 }
 
+void dragon(){
+    Scene scene;
+    auto white = std::make_shared<lambertian>(glm::vec3(.73, .73, .73));
+    auto light = std::make_shared<lambertian>(glm::vec3(0));
+    auto ch =  std::make_shared<lambertian>(glm::vec3{.2,.3,.1});
+    
+    std::shared_ptr<AreaLight> area = std::make_shared<AreaLight>(std::make_shared<QuadShape>(glm::vec3(0.3,1.5,0), glm::vec3(-0.15,0,0), glm::vec3(0,0,-0.15)),glm::vec3(600),false);
+    //what if light color is 0 -> NaN
+    scene.Add(new GeometricPrimitive(new QuadShape(glm::vec3(0.3,1.5,0), glm::vec3(-0.15,0,0), glm::vec3(0,0,-0.15)), light, area, nullptr));//-0.3, -1
+    scene.Add(new GeometricPrimitive(new QuadShape(glm::vec3(-100,-0.3,-100), glm::vec3(1000,0,0), glm::vec3(0,0,1000)), ch, nullptr, nullptr));
+    //scene.Add(new Model("/home/markov/Documents/Coding/CPP/raytracing_in_one_weekend/temp_other.assbin"));
+    scene.Add(new Model("/home/markov/Documents/Coding/CPP/testing/models/temp_other.assbin"));
+
+    //scene.Add(new GeometricPrimitive(new SphereShape(glm::vec3(0,0.1,-1.2),0.5),std::make_shared<lambertian>(glm::vec3(0.1, 0.2, 0.5)),nullptr));
+    //scene.Add(new GeometricPrimitive(new SphereShape(glm::vec3(-1,0,-1),0.5),std::make_shared<dielectric>(1.5),nullptr));
+    //scene.Add(new GeometricPrimitive(new SphereShape(glm::vec3(-1,0,-1),0.4),std::make_shared<dielectric>(1/1.5),nullptr));
+    //scene.Add(new GeometricPrimitive(new SphereShape(glm::vec3(1,0,-1),0.5),std::make_shared<metal>(glm::vec3(0.8, 0.6, 0.2)),nullptr));
+        //d_list[1] = new Sphere{glm::vec3(-0.8,1,-0.5), 0.5,
+        //                        new Light(glm::vec3(8, 8, 8))};
+
+    std::shared_ptr<LightSampler> ls = std::make_shared<PowerLightSampler>();
+    scene.PreProcess();
+    ls->Add(scene.GetLights());
+    ls->PreProcess(scene.Bounding_box());
+    
+
+    //renderPrim2(scene,1920,1080,ls,"RenderedScene.ppm");
+    renderPrimFilter(scene,1920,1080,ls,"RenderedScene",std::make_shared<MitchellFilter>());
+}
 
 int main(){
-
-    ScenePrim scene;
+    
     stbi_set_flip_vertically_on_load(true);
-    scene.add(new Model("/home/markov/Documents/Coding/CPP/testing/models/HARD/temp.assbin"));
+
+    dragon();
+    return 0;
+    Scene scene;
+    /*
+    auto red   = std::make_shared<lambertian>(glm::vec3(.65, .05, .05));
+    auto white = std::make_shared<lambertian>(glm::vec3(.73, .73, .73));
+    auto green = std::make_shared<lambertian>(glm::vec3(.12, .45, .15));
+    auto light = std::make_shared<lambertian>(glm::vec3(0));
+    
+    scene.Add(new GeometricPrimitive(new QuadShape(glm::vec3(555,0,0), glm::vec3(0,555,0), glm::vec3(0,0,555)), green, nullptr));
+    scene.Add(new GeometricPrimitive(new QuadShape(glm::vec3(0,0,0), glm::vec3(0,555,0), glm::vec3(0,0,555)), red, nullptr));
+    std::shared_ptr<AreaLight> area = std::make_shared<AreaLight>(std::make_shared<QuadShape>(glm::vec3(343, 554, 332), glm::vec3(-130,0,0), glm::vec3(0,0,-105)),glm::vec3(15,15,15),false);
+    scene.Add(new GeometricPrimitive(new QuadShape(glm::vec3(343, 554, 332), glm::vec3(-130,0,0), glm::vec3(0,0,-105)), light, area));
+    scene.Add(new GeometricPrimitive(new QuadShape(glm::vec3(0,0,0), glm::vec3(555,0,0), glm::vec3(0,0,555)), white, nullptr));
+    scene.Add(new GeometricPrimitive(new QuadShape(glm::vec3(555,555,555), glm::vec3(-555,0,0), glm::vec3(0,0,-555)), white, nullptr));
+    scene.Add(new GeometricPrimitive(new QuadShape(glm::vec3(0,0,555), glm::vec3(555,0,0), glm::vec3(0,555,0)), white, nullptr));
+    scene.Add(new GeometricPrimitive(new SphereShape({212,120,147},110),std::make_shared<dielectric>(1.5,glm::vec3(1,1,1)),nullptr,std::make_shared<Medium>(glm::vec3(0.9,0.01,0.01))));
+    */
+    //std::shared_ptr<LightSampler> ls = std::make_shared<PowerLightSampler>();
+    
+    
+    glm::mat4 pos = glm::mat4(1);
+    //pos = glm::translate(pos,{0,-1,0});
+    //pos = glm::rotate(pos,glm::radians(-10.0f),glm::vec3(0,1,0));
+    //Primitive* modelp = new TransformedPrimitive(std::make_shared<Model>("/home/markov/Documents/Coding/CPP/testing/models/HARD/temp.assbin"),pos);
+    scene.Add(new Model("/home/markov/Documents/Coding/CPP/testing/models/HARD/temp.assbin"));
+    //scene.Add(new Model("/home/markov/Documents/Coding/CPP/gl/crytek-sponza/temp_other.assbin"));
    
     std::shared_ptr<LightSampler> ls = std::make_shared<PowerLightSampler>();
-    ls->Add(new InfiniteLight{glm::vec3(-1,6,1),6*3.f*glm::vec3(1,0.95,0.8)});
+    ls->Add(std::make_shared<InfiniteLight>(glm::vec3(-1,6,1),25.f*glm::vec3(1,0.93,0.83)));
+    /*
     for(int i = 0;i<4;i++){
         for(int j = 0;j<4;j++){
             glm::vec3 color = glm::vec3(3*std::pow((i*4 + j)/15.f,30.f) * 50,3*std::pow((i*4 + j)/15.f,30.f) * 50,3*std::pow((i*4 + j)/15.f,30.f) * 50);
-            //auto light = std::make_shared<LightMat>(color);//have lambertian mat and cook torrence separeta
-            Shape* shape = new QuadShape(glm::vec3(7,1.5,1)+glm::vec3(i*2,0,j*2),glm::vec3(0.5,0,0),glm::vec3(0,0,0.5));
-            AreaLight* area = new AreaLight(shape,color,true);
+            std::shared_ptr<Shape> shape = std::make_shared<QuadShape>(glm::vec3(7,1.5,1)+glm::vec3(i*2,0,j*2),glm::vec3(0.5,0,0),glm::vec3(0,0,0.5));
+            glm::mat4 matrix = glm::mat4(1);
+            matrix = glm::translate(matrix,{1,0,0});
             auto lightMaterial = std::make_shared<lambertian>(glm::vec3{0.7});
-            Primitive* pr = new GeometricPrimitive(shape,lightMaterial,area);
-            scene.add(pr);
+            std::shared_ptr<AreaLight> area = std::make_shared<AreaLight>(shape,color,true);
+            //Primitive* pr = new GeometricPrimitive(new QuadShape(glm::vec3(7,1.5,1)+glm::vec3(i*2,0,j*2),glm::vec3(0.5,0,0),glm::vec3(0,0,0.5)),lightMaterial,area);
+            //getLIghts return new Light(transform,light)
+            Primitive* pr = new TransformedPrimitive(std::make_shared<GeometricPrimitive>(new QuadShape(glm::vec3(7,1.5,1)+glm::vec3(i*2,0,j*2),glm::vec3(0.5,0,0),glm::vec3(0,0,0.5)),lightMaterial,area),matrix);
+            scene.Add(pr);
         }
     }
+    */
+    /*
+    Primitive* pr = new GeometricPrimitive(new SphereShape(glm::vec3(8,0,3),2),
+                                            std::make_shared<lambertian>(std::make_shared<Solid_color>(glm::vec3{1,0,0})),nullptr);
+    
+    scene.Add(pr);
+    pr = new GeometricPrimitive(new SphereShape(glm::vec3(8,-202,3),200),
+                                            std::make_shared<lambertian>(std::make_shared<Solid_color>(glm::vec3{0,0,1})),nullptr);
+    
+    scene.Add(pr);
+    pr = new GeometricPrimitive(new SphereShape(glm::vec3(7,0,1)+glm::vec3(3*2,0,3*2),1),
+                                            std::make_shared<dielectric>(1.5,glm::vec3{1}),nullptr);
+    
+    scene.Add(pr);
+    */
     /*
     Primitive* pr = new GeometricPrimitive(new QuadShape(glm::vec3(7,1,1)+glm::vec3(3*2,0,3*2),glm::vec3(0,1,0),glm::vec3(0,0,1)),
                                             std::make_shared<lambertian>(std::make_shared<Solid_color>(glm::vec3{1}),nullptr,std::make_shared<Solid_color>(glm::vec3{0}),std::make_shared<Solid_color>(glm::vec3{1})),nullptr);
-    scene.add(pr);
+    scene.Add(pr);
     pr = new GeometricPrimitive(new QuadShape(glm::vec3(7,1,1)+glm::vec3(3*2,0,2*2),glm::vec3(0,1,0),glm::vec3(0,0,1)),
                                             std::make_shared<lambertian>(std::make_shared<Solid_color>(glm::vec3{1}),nullptr,std::make_shared<Solid_color>(glm::vec3{0.011}),std::make_shared<Solid_color>(glm::vec3{1})),nullptr);
-    scene.add(pr);   
+    scene.Add(pr);   
     pr = new GeometricPrimitive(new QuadShape(glm::vec3(7,1,1)+glm::vec3(3*2,0,1*2),glm::vec3(0,1,0),glm::vec3(0,0,1)),
                                             std::make_shared<lambertian>(std::make_shared<Solid_color>(glm::vec3{1}),nullptr,std::make_shared<Solid_color>(glm::vec3{0.003}),std::make_shared<Solid_color>(glm::vec3{1})),nullptr);
-    scene.add(pr);    
+    scene.Add(pr);    
     */
     scene.PreProcess();
     ls->Add(scene.GetLights());
     ls->PreProcess(scene.Bounding_box());
     
-    
-
 
     //renderPrim(scene,1920,1080,LIsampler);
-    renderPrim2(scene,1920,1080,ls,"RenderedScene.ppm");
+    renderPrimFilter(scene,1920,1080,ls,"RenderedScene",std::make_shared<MitchellFilter>());
     //multi_mesh_test_2("/home/markov/Documents/Coding/CPP/testing/models/HARD/temp.assbin");
     //multi_mesh_test_2("/home/markov/Documents/Coding/CPP/gl/crytek-sponza/sponza.obj");
 

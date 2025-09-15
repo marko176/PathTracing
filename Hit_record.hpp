@@ -7,7 +7,7 @@
 #include <memory>
 
 class Material;
-
+class Medium;
 struct hittable;
 struct LightObject;
 
@@ -17,15 +17,20 @@ struct GeometricInteraction {
     glm::vec3 p = {0,0,0};
     glm::vec3 n = {0,0,0};//geometric normal
     glm::vec2 uv = {0,0};
-
+    std::shared_ptr<Medium> medium = nullptr;
+    
+    std::shared_ptr<Medium> getMedium(const glm::vec3& dir) const{
+        if(glm::dot(dir,n)<0)return medium;//going into surface
+        return nullptr;
+    }
     GeometricInteraction() = default;
-    GeometricInteraction(const glm::vec3& point, const glm::vec3& geometric_normal, const glm::vec2& uv) : p{point} , n{geometric_normal} , uv{uv} {
+    GeometricInteraction(const glm::vec3& point, const glm::vec3& geometric_normal, const glm::vec2& uv,const std::shared_ptr<Medium>& medium = nullptr) : p{point} , n{geometric_normal} , uv{uv} , medium(medium) {
 
     }
 };
 
 struct SurfaceInteraction : public GeometricInteraction{
-    SurfaceInteraction(const glm::vec3& point, const glm::vec3& geometric_normal, const glm::vec2& uv) : GeometricInteraction{point,geometric_normal,uv} {
+    SurfaceInteraction(const glm::vec3& point, const glm::vec3& geometric_normal, const glm::vec2& uv,const std::shared_ptr<Medium>& medium = nullptr) : GeometricInteraction{point,geometric_normal,uv,medium} {
 
     }
 
@@ -39,7 +44,21 @@ struct SurfaceInteraction : public GeometricInteraction{
     std::shared_ptr<Material> mat; // switch to material* no need for shared
     glm::vec3 tangent;
     glm::vec3 bitangent;
-    const Light* AreaLight;
+    std::shared_ptr<Light> AreaLight;
+};
+
+struct MediumInteraction : public GeometricInteraction {
+    MediumInteraction(const glm::vec3& point, const glm::vec3& geometric_normal, const glm::vec2& uv,const std::shared_ptr<Medium>& medium = nullptr) : GeometricInteraction{point,geometric_normal,uv,medium} {
+
+    }
+
+    MediumInteraction() = default;
+
+    bool isValid() const {
+        //phasefunc != null
+        return false;
+    }
+    //phase function
 };
 
 
@@ -124,16 +143,24 @@ struct AABB{
 
     
 
-    float min_(int n) const {
-        if (n == 1) return min.y;
-        if (n == 2) return min.z;
-        return min.x;
-    }
-
     inline float area() const { 
         glm::vec3 e = max - min; // box extent
         return e.x * e.y + e.y * e.z + e.z * e.x; 
     }
+
+    glm::vec3 operator[](int i) const { return (i == 0) ? min : max; }
+    glm::vec3 &operator[](int i) { return (i == 0) ? min : max; }
+
+    glm::vec3 Corner(int n){
+        return {(*this)[(n & 1)].x,
+                (*this)[(n & 2) ? 1 : 0].y,
+                (*this)[(n & 4) ? 1 : 0].z};
+    }
+};
+
+struct Bounds2i {
+    glm::ivec2 min = {0,0};
+    glm::ivec2 max = {0,0};
 };
 
 struct hittable {

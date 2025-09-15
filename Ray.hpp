@@ -3,15 +3,15 @@
 #include <glm/glm.hpp>
 #include <glm/gtx/intersect.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-
-
-
+#include <memory>
+class Medium;
 struct Ray{
-    glm::vec3 origin;
-    glm::vec3 dir;
-    glm::vec3 inv_dir;
+    glm::vec3 origin = {0,0,0};
+    glm::vec3 dir = {0,0,0};
+    glm::vec3 inv_dir = {0,0,0};
+    std::shared_ptr<Medium> medium = nullptr;
     Ray() = default;
-    Ray(const glm::vec3& origin, const glm::vec3& dir) : origin(origin), dir(dir), inv_dir(1.0f/dir) {}
+    Ray(const glm::vec3& origin, const glm::vec3& dir,const std::shared_ptr<Medium>& medium = nullptr) : origin(origin), dir(dir), inv_dir(1.0f/dir), medium(medium) {}
 
     inline glm::vec3 at(float t) const {
         return origin + t * dir;

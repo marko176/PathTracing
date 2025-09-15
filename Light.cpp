@@ -51,3 +51,39 @@ float AreaLight::PDF(const GeometricInteraction& interaction, const Ray& ray) co
 float AreaLight::Power() const  {
     return (oneSided ? 1 : 2) * shape->Area() * (color.x + color.y + color.z);
 }
+
+
+bool TransformedLight::isDelta() const  {
+    return light->isDelta();
+}
+glm::vec3 TransformedLight::L(const GeometricInteraction& interaction, const Ray& ray) const  {
+    GeometricInteraction temp;
+    temp.n = normalMatrix * interaction.n;
+    temp.p = transform * glm::vec4(interaction.p,1);
+    return light->L(interaction,ray);
+}
+LightSample TransformedLight::sample(const glm::vec2& uv) const {
+    LightSample lightSample = light->sample(uv);
+    lightSample.dir = transform * glm::vec4(lightSample.dir,0);
+    lightSample.interaction.p = transform * glm::vec4(lightSample.interaction.p,1);
+    lightSample.interaction.n = normalMatrix * lightSample.interaction.n;
+    return lightSample;
+}
+float TransformedLight::PDF(const GeometricInteraction& interaction) const {
+    glm::vec3 p = glm::vec3(invTransform * glm::vec4(interaction.p, 1.0f));
+    glm::vec3 n = glm::normalize(glm::vec3(invTransform * glm::vec4(interaction.n, 0.0f)));
+
+    // Compute object-space PDF
+    return light->PDF(GeometricInteraction(p,n,interaction.uv));
+}
+float TransformedLight::PDF(const GeometricInteraction& interaction, const Ray& ray) const {
+    glm::vec3 p = glm::vec3(invTransform * glm::vec4(interaction.p, 1.0f));
+    glm::vec3 n = glm::normalize(glm::vec3(invTransform * glm::vec4(interaction.n, 0.0f)));
+    Ray localRay(glm::vec3(invTransform * glm::vec4(ray.origin,1)),
+                    glm::normalize(glm::vec3(invTransform * glm::vec4(ray.dir,0))));
+
+    return light->PDF(GeometricInteraction(p,n,interaction.uv),localRay);
+}
+float TransformedLight::Power() const  {
+    return light->Power();
+}

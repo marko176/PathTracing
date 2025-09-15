@@ -20,7 +20,7 @@ public:
 
 class InfiniteLight : public Light {
 public:
-    InfiniteLight(const glm::vec3& light_dir, const glm::vec3& light_color,const std::function<float(float)>& powerFunc =  [](float r) -> float { return std::sqrt(r); }) : dir{light_dir} , color{light_color}, powerFunction{powerFunc} {}
+    InfiniteLight(const glm::vec3& light_dir, const glm::vec3& light_color,const std::function<float(float)>& powerFunc = [](float r) -> float { return std::sqrt(r); }) : dir{light_dir} , color{light_color}, powerFunction{powerFunc} {}
 
     bool isDelta() const final;
 
@@ -44,7 +44,7 @@ private:
 
 class AreaLight : public Light {
 public:
-    AreaLight(Shape* light_shape, const glm::vec3& light_color, bool oneSided = false) : shape{light_shape} , color{light_color}, oneSided{oneSided} {}
+    AreaLight(const std::shared_ptr<Shape>& light_shape, const glm::vec3& light_color, bool oneSided = false) : shape{light_shape} , color{light_color}, oneSided{oneSided} {}
 
     bool isDelta() const final;
 
@@ -57,9 +57,34 @@ public:
     float PDF(const GeometricInteraction& interaction, const Ray& ray) const override ;
 
     float Power() const override ;
+
+    //tranform -> changes shape to tranformed shape 
 private:
-    Shape* shape;
+    std::shared_ptr<Shape> shape;
     glm::vec3 color; //switch to texture/image
     bool oneSided; 
     //add alpha mask
+};
+
+class TransformedLight : public Light {
+public:
+    TransformedLight(const glm::mat4& transform,const std::shared_ptr<Light>& light) : transform(transform), light(light), normalMatrix(glm::transpose(glm::inverse(glm::mat3(transform)))), invTransform(glm::inverse(transform)) {}
+
+    bool isDelta() const final;
+
+    glm::vec3 L(const GeometricInteraction& interaction, const Ray& ray) const override ;
+
+    LightSample sample(const glm::vec2& uv) const override ;
+
+    float PDF(const GeometricInteraction& interaction) const override ;
+
+    float PDF(const GeometricInteraction& interaction, const Ray& ray) const override ;
+
+    float Power() const override ;
+
+private:
+    glm::mat4 transform;
+    std::shared_ptr<Light> light;
+    glm::mat3 normalMatrix;
+    glm::mat4 invTransform;
 };

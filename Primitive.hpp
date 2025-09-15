@@ -1,31 +1,50 @@
 #pragma once
 #include "Shape.hpp"
 #include "Light.hpp"
+#include "Medium.hpp"
 #include <chrono>
+
 class Primitive {
 public:
     virtual AABB Bounding_box() const = 0;
     virtual bool IntersectPred(const Ray& ray, float max = 1e30f) const = 0;
     virtual bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max = 1e30f) const = 0;
-    virtual std::vector<Light*> GetLights() const = 0;
+    virtual std::vector<std::shared_ptr<Light>> GetLights() const = 0;
+    //virtua Info GetInfo() const ;
 };
 
 class GeometricPrimitive : public Primitive{
 public:
 
-    GeometricPrimitive(Shape* primitive_shape, const std::shared_ptr<Material>& material,AreaLight* areaLight) : shape{primitive_shape} , material{material} , areaLight{areaLight} {
+    GeometricPrimitive(Shape* primitive_shape, const std::shared_ptr<Material>& material,const std::shared_ptr<AreaLight>& areaLight = nullptr,const std::shared_ptr<Medium>& medium = nullptr) : shape{primitive_shape} , material{material} , areaLight{areaLight} , medium(medium) {
 
     }
 
-    virtual AABB Bounding_box() const final ;
-    virtual bool IntersectPred(const Ray& ray, float max = 1e30f) const final ;
-    virtual bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max = 1e30f) const final ;
-    virtual std::vector<Light*> GetLights() const final ;
+    AABB Bounding_box() const final ;
+    bool IntersectPred(const Ray& ray, float max = 1e30f) const final ;
+    bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max = 1e30f) const final ;
+    std::vector<std::shared_ptr<Light>> GetLights() const final ;
 private:
-
     Shape* shape;
     std::shared_ptr<Material> material;
-    AreaLight* areaLight;
+    std::shared_ptr<AreaLight> areaLight;
+    std::shared_ptr<Medium> medium;
+};
+
+
+class TransformedPrimitive : public Primitive {
+public:
+    TransformedPrimitive(const std::shared_ptr<Primitive>& primitive,const glm::mat4& transform) : primitive(primitive), transform(transform) , invTransform(glm::inverse(transform)) {
+
+    }
+    AABB Bounding_box() const final ;
+    bool IntersectPred(const Ray& ray, float max = 1e30f) const final ;
+    bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max = 1e30f) const final ;
+    std::vector<std::shared_ptr<Light>> GetLights() const final ;
+private:
+    std::shared_ptr<Primitive> primitive;
+    glm::mat4 transform;
+    glm::mat4 invTransform;
 };
 
 struct BVH_NODE{
@@ -57,7 +76,7 @@ struct BVH : public Primitive{
     Mesh* mesh;
     std::vector<BVH_NODE> nodes;
     std::vector<T> primitives;
-
+    
     BVH() = default;
 
     BVH(const std::vector<T>& prims) {
@@ -67,7 +86,7 @@ struct BVH : public Primitive{
         std::vector<PrimitiveInfo> primitiveInfo;
         primitiveInfo.reserve(prims.size());
         for(int i = 0;i<prims.size();i++){
-            if constexpr(std::is_pointer_v<T>){
+            if constexpr(requires { prims[i]->Bounding_box(); }){
                 AABB bbox = prims[i]->Bounding_box();
                 primitiveInfo.emplace_back(i,bbox);
             }else{
@@ -251,7 +270,7 @@ struct BVH : public Primitive{
     inline bool intersectPrimitives(const Ray& ray, float& max, int right, int count, SurfaceInteraction& interaction) const {
         bool hit = false;
         for(int triangle_index = right;triangle_index<right+count;triangle_index++){
-            if constexpr(std::is_pointer_v<T>){
+            if constexpr(requires { primitives[triangle_index]->Intersect(ray,interaction,max); }){
                 if(primitives[triangle_index]->Intersect(ray,interaction,max)){
                     hit = true;
                     max = interaction.t;
@@ -269,7 +288,7 @@ struct BVH : public Primitive{
 
     inline bool intersectPrimitivesPred(const Ray& ray, float max, int right, int count) const {
         for(int triangle_index = right;triangle_index<right+count;triangle_index++){
-            if constexpr(std::is_pointer_v<T>){
+            if constexpr (requires { primitives[triangle_index]->IntersectPred(ray,max); }){
                 if(primitives[triangle_index]->IntersectPred(ray,max))return true;
             }else {
                 if(primitives[triangle_index].IntersectPred(ray,max))return true;
@@ -279,11 +298,11 @@ struct BVH : public Primitive{
     }
 
     
-    std::vector<Light*> GetLights() const final {
-        std::vector<Light*> lights;
+    std::vector<std::shared_ptr<Light>> GetLights() const final {
+        std::vector<std::shared_ptr<Light>> lights;
         for(const T& prim : primitives){
-            std::vector<Light*> primLights;
-            if constexpr(std::is_pointer_v<T>){
+            std::vector<std::shared_ptr<Light>> primLights;
+            if constexpr (requires { prim->GetLights(); }){
                 primLights = prim->GetLights();
             }else {
                 primLights = prim.GetLights();
@@ -410,11 +429,11 @@ struct TLAS_BVH_Prim : public Primitive{
         return nodes[0].bbox;
     }
 
-    std::vector<Light*> GetLights() const override {
-        std::vector<Light*> lights;
+    std::vector<std::shared_ptr<Light>> GetLights() const override {
+        std::vector<std::shared_ptr<Light>> lights;
         for(auto* prim : hittables){
             if(prim == nullptr)continue;
-            std::vector<Light*> primLights = prim->GetLights();
+            std::vector<std::shared_ptr<Light>> primLights = prim->GetLights();
             lights.insert(lights.end(),primLights.begin(),primLights.end());
         }
         return lights;
