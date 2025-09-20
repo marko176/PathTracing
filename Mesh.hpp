@@ -20,6 +20,14 @@ public:
     std::vector<glm::vec3> normals;
     std::vector<glm::vec2> texCoords;
     std::shared_ptr<Material> material;
-    std::vector<TriangleShape> shapes;
+    
+    const std::shared_ptr<std::vector<TriangleShape>>& getControlPtr() const {
+        return shapes;
+    }
+    TriangleShape* getShape(std::size_t index) const {
+        return &(*shapes)[index];
+    }
+private:
+    std::shared_ptr<std::vector<TriangleShape>> shapes;
 };
 

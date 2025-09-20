@@ -16,74 +16,54 @@ Model::Model(const std::string& path){
     if(!load_model(path)){
         std::cerr << "failed model";
     }else{
-
-        //std::vector<Primitive*> temp;
         std::vector<GeometricPrimitive> primitives;
         primitives.reserve(1'000'000);
-        auto mat = std::make_shared<dielectric>(1.5,glm::vec3(1));
-        std::shared_ptr<Medium> med = std::make_shared<HomogeneusMedium>(glm::vec3(0.0,0,0),glm::vec3(0.01,0.9,0.9),500.0f);
-        //mat = std::make_shared<dielectric>(1.5,glm::vec3(1,1,1));
-        //med = nullptr;
-        for(int i = 0;i<meshes.size();i++){
-            //mesh_bvhs.emplace_back(&mesh);
-            for(int j = 0;j<meshes[i].triangle_count;j++){
-                meshes[i].shapes[j] = TriangleShape(i,j);
-                //can just new TriangelShape
-                //std::shared_ptr<TriangleShape> p(tempPTR,&meshes[i].shapes[j]);
-
-
-                #if 1
-                //dragon
-                primitives.push_back(GeometricPrimitive(&meshes[i].shapes[j],mat,nullptr,med));
-                #else
-                primitives.push_back(GeometricPrimitive(&meshes[i].shapes[j],meshes[i].material,nullptr));
-                #endif
-
-
-                //primitives.push_back(GeometricPrimitive(std::make_shared<TriangleShape>(i,j),meshes[i].material,nullptr));
+        //auto mat = std::make_shared<dielectric>(1.5,glm::vec3(1));
+        //std::shared_ptr<Medium> med = std::make_shared<HomogeneusMedium>(glm::vec3(0.0,0,0),glm::vec3(0.01,0.9,0.9),50.0f);
+   
+        for(const std::shared_ptr<Mesh>& m : meshes){
+    
+            for(int j = 0;j<m->triangle_count;j++){
+                primitives.emplace_back(std::shared_ptr<Shape>(m->getControlPtr(),m->getShape(j)),m->material,nullptr,nullptr);
             }
         }
-        for(Mesh& m : meshes){
-            TriangleShape::addMesh(&m);
-        }
-        //for(auto& t : mesh_bvhs){
-            //temp.push_back(&t);
-        //}
-        model_bvh = BLAS(primitives);//was primitiveBVH
-        //temp.push_back(&primitiveBVH);
-        //model_bvh = TLAS_BVH_Prim(temp);
+        model_bvh = BLAS(std::move(primitives));
+    }
+    std::cout<<"MODEL BUILT\n";
+}
 
+Model::Model(const std::string& path,const std::shared_ptr<Material>& material, const std::shared_ptr<AreaLight>& areaLight, const std::shared_ptr<Medium>& medium){
+    if(!load_model(path)){
+        std::cerr << "failed model";
+    }else{
+        std::vector<GeometricPrimitive> primitives;
+        primitives.reserve(1'000'000);
+        //auto mat = std::make_shared<dielectric>(1.5,glm::vec3(1));
+        //std::shared_ptr<Medium> med = std::make_shared<HomogeneusMedium>(glm::vec3(0.0,0,0),glm::vec3(0.01,0.9,0.9),50.0f);
+   
+        for(const std::shared_ptr<Mesh>& m : meshes){
+            
+            for(int j = 0;j<m->triangle_count;j++){
+                primitives.emplace_back(std::shared_ptr<Shape>(m->getControlPtr(),m->getShape(j)),material,areaLight,medium);
+            }
+        }
+        model_bvh = BLAS(std::move(primitives));
     }
     std::cout<<"MODEL BUILT\n";
 }
 
 
 
-
-
 auto Model::load_model(std::string path) -> bool {
     Assimp::Importer importer;
-    /*
-    importer.SetPropertyInteger(
-        AI_CONFIG_PP_RVC_FLAGS,
-        aiComponent_NORMALS  // drop all per‐vertex normals
-    );
-    importer.SetPropertyFloat(
-        AI_CONFIG_PP_GSN_MAX_SMOOTHING_ANGLE,
-        89.0f          // 0° = treat every edge as “hard,” so no smoothing
-    );
-    maybe set something like 75 or 45 becouse san miguel breaks and 89
-    */
-    
-    
+
     const aiScene* scene = nullptr;
     int index = path.find_last_of('.');
     std::string suffix;
     if(index != std::string::npos){
         suffix = path.substr(index);
-
     }
-    if(suffix == ".assbin" || path == "/home/markov/Documents/Coding/CPP/testing/models/HARD/temp.assbin"){
+    if(suffix == ".assbin"){
         scene = importer.ReadFile(path,0);
         if(!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode){
             std::cout << "ERROR::ASSIMP::" << importer.GetErrorString() << "\n";
@@ -117,20 +97,18 @@ auto Model::load_model(std::string path) -> bool {
         exporter.Export(scene,"assbin",model_path + "temp_other.assbin");//model_path + temo.assbin
     }
 
-    
+
 
     model_path = path.substr(0,path.find_last_of('/'));
     model_path.append("/");
     std::cout<<"MODEL PATH"<<model_path<<"\n";
-    meshes.reserve(scene->mNumMeshes);
     process_node(scene->mRootNode,scene);
     importer.FreeScene();
     return true;
 }
-auto Model::process_node(aiNode* node, const aiScene* scene) -> void{
+auto Model::process_node(aiNode* node, const aiScene* scene) -> void {
 
     for(int i = 0;i< node->mNumMeshes;i++){
-
         aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
         meshes.push_back(process_mesh(mesh,scene));
     }
@@ -140,8 +118,9 @@ auto Model::process_node(aiNode* node, const aiScene* scene) -> void{
     }
 
 }
-auto Model::process_mesh(aiMesh* mesh, const aiScene* scene) -> Mesh{
+auto Model::process_mesh(aiMesh* mesh, const aiScene* scene) -> std::shared_ptr<Mesh>{
 
+    int n = mesh->mNumVertices;
     
     std::vector<glm::vec3> vertices;
     std::vector<glm::vec3> tangents;
@@ -149,8 +128,12 @@ auto Model::process_mesh(aiMesh* mesh, const aiScene* scene) -> Mesh{
     std::vector<glm::vec3> normals;
     std::vector<glm::vec2> texCoords;
     std::vector<uint32_t> indices;
-    indices.reserve(mesh->mNumFaces*2);//test out different
-    int n = mesh->mNumVertices;
+    vertices.reserve(n);
+    tangents.reserve(n);
+    bitangents.reserve(n);
+    normals.reserve(n);
+    texCoords.reserve(n*3/2);
+    indices.reserve(n*3/2);
     for(int i = 0;i<n;i++){
     
         if(mesh->HasPositions()){
@@ -291,13 +274,13 @@ auto Model::process_mesh(aiMesh* mesh, const aiScene* scene) -> Mesh{
             
         }
 
-        return Mesh(indices,vertices,tangents,bitangents,normals,texCoords,mat);
+        return std::make_shared<Mesh>(indices,vertices,tangents,bitangents,normals,texCoords,mat);
     }
     std::shared_ptr<Texture> tmp = std::make_shared<Solid_color>(glm::vec3(.65, .05, .05));
     std::shared_ptr<Material> mat = std::make_shared<lambertian>(tmp);
-    return Mesh(indices,vertices,tangents,bitangents,normals,texCoords,mat);
+    return std::make_shared<Mesh>(indices,vertices,tangents,bitangents,normals,texCoords,mat);
 }
 
-auto Model::get_meshes() const -> const std::vector<Mesh>& {
+auto Model::get_meshes() const -> const std::vector<std::shared_ptr<Mesh>>& {
     return meshes;
 }

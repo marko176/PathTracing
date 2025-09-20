@@ -7,6 +7,7 @@
 #include "Ray.hpp"
 #include "Hit_record.hpp"
 #include "Material.hpp"
+#include <mutex>
 
 class Mesh;
 class Shape {
@@ -27,29 +28,31 @@ public:
         bbox.expand(center-rvec);
         bbox.expand(center+rvec);
     }
-    virtual bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max = 1e30f) const override ;
+    bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max = 1e30f) const override ;
 
-    virtual bool IntersectPred(const Ray& ray, float max = 1e30f) const override ;
+    bool IntersectPred(const Ray& ray, float max = 1e30f) const override ;
 
-    virtual AABB Bounding_box() const override{
+    AABB Bounding_box() const override{
         return bbox;
     }
 
-    static void get_sphere_uv(const glm::vec3& p, float& u,float& v){
-        float theta = std::acos(-p.y);
-        float phi = std::atan2f(-p.z,p.x) + std::numbers::pi_v<float>;
-        u = phi / (2*std::numbers::pi_v<float>);
-        v = theta / std::numbers::pi_v<float>;
+    static glm::vec2 getSphereUV(const glm::vec3& p){
+        float theta = std::acos(std::clamp(p.y,-1.0f,1.0f));
+        float phi = std::atan2f(p.z,p.x);
+        if(phi < 0) phi += 2.0f * std::numbers::pi_v<float>;
+        float u = std::numbers::inv_pi_v<float> * phi * 0.5f;
+        float v = std::numbers::inv_pi_v<float> * theta;
+        return {u,v};
     }
 
 
-    virtual GeometricInteraction Sample(const glm::vec2& u) const override ;
+    GeometricInteraction Sample(const glm::vec2& u) const override ;
 
-    virtual float Area() const override ;
+    float Area() const override ;
 
-    virtual float PDF(const GeometricInteraction& interaction) const override ;
+    float PDF(const GeometricInteraction& interaction) const override ;
 
-    virtual float PDF(const GeometricInteraction& interaction,const Ray& ray) const override ;
+    float PDF(const GeometricInteraction& interaction,const Ray& ray) const override ;
 
 private:
     glm::vec3 center;
@@ -58,37 +61,38 @@ private:
 };
 
 class TriangleShape : public Shape {
-
 public:
-    TriangleShape(uint32_t meshIndex, uint32_t TriIndex) : MeshIndex(meshIndex), TriIndex(TriIndex) {
+    TriangleShape(uint32_t meshIndex, uint32_t TriIndex) : MeshIndex(meshIndex), TriIndex(TriIndex) {}
 
-    }
+    bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max = 1e30f) const override;
 
-    virtual bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max = 1e30f) const override ;
+    bool IntersectPred(const Ray& ray, float max = 1e30f) const override;
 
-    virtual bool IntersectPred(const Ray& ray, float max = 1e30f) const override ;
+    AABB Bounding_box() const override;
 
-    virtual AABB Bounding_box() const override;
+    GeometricInteraction Sample(const glm::vec2& u) const override;
 
-    virtual GeometricInteraction Sample(const glm::vec2& u) const override;
+    float Area() const override;
 
-    virtual float Area() const override;
+    float PDF(const GeometricInteraction& interaction) const override;
 
-    virtual float PDF(const GeometricInteraction& interaction) const override ;
+    float PDF(const GeometricInteraction& interaction,const Ray& ray) const override;
 
-    virtual float PDF(const GeometricInteraction& interaction,const Ray& ray) const override ;
-
-    static void addMesh(Mesh* mesh) {
+    //maybe move this to resource manager?
+    [[nodiscard]] static std::size_t addMesh(Mesh* mesh) {
+        const std::lock_guard<std::mutex> ml(meshListLock);
         for(int i = 0;i<meshList.size();i++){
-            if(meshList[i]==nullptr){
+            if(meshList[i]==nullptr || meshList[i] == mesh){
                 meshList[i]=mesh;
-                return;
+                return i;
             }
         }
         meshList.push_back(mesh);
+        return meshList.size()-1;
     }
     
     static void removeMesh(Mesh* mesh) {
+        const std::lock_guard<std::mutex> ml(meshListLock);
         for(int i = 0;i<meshList.size();i++){
             if(meshList[i]==mesh){
                 meshList[i]=nullptr;
@@ -99,6 +103,7 @@ private:
     uint32_t MeshIndex;
     uint32_t TriIndex;
     static inline std::vector<Mesh*> meshList;
+    static inline std::mutex meshListLock;
 };
 
 class QuadShape : public Shape {
@@ -114,27 +119,27 @@ public:
         w = n / glm::dot(n,n);
     }
 
-    virtual bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max = 1e30f) const override ;
+    bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max = 1e30f) const override ;
 
-    virtual bool IntersectPred(const Ray& ray, float max = 1e30f) const override ;
+    bool IntersectPred(const Ray& ray, float max = 1e30f) const override ;
 
-    virtual AABB Bounding_box() const override{
+    AABB Bounding_box() const override{
         return bbox;
     }
 
-    virtual GeometricInteraction Sample(const glm::vec2& uv) const override{
+    GeometricInteraction Sample(const glm::vec2& uv) const override{
         return GeometricInteraction{Q + uv.x * u + uv.y * v, normal, uv};
     }
 
-    virtual float Area() const override{                                                      
-        return glm::length(glm::cross(u,v));;
+    float Area() const override{                                                      
+        return glm::length(glm::cross(u,v));
     }
 
-    virtual float PDF(const GeometricInteraction& interaction) const override {
-        return 1.0f/Area(); //need to sample only visible part! -> put into another function for eg sampleCone, PDFCone ?
+    float PDF(const GeometricInteraction& interaction) const override {
+        return 1.0f/Area();
     }
 
-    virtual float PDF(const GeometricInteraction& interaction,const Ray& ray) const override {
+    float PDF(const GeometricInteraction& interaction,const Ray& ray) const override {
         glm::vec3 to_shape = interaction.p - ray.origin;
         float dist_squared = glm::dot(to_shape,to_shape);
         float light_cosine = std::abs(glm::dot(-ray.dir,interaction.n));
@@ -145,27 +150,14 @@ public:
 private:
 
     static bool is_interior(float a, float b, GeometricInteraction& interaction) {
-    
-        // Given the hit point in plane coordinates, return false if it is outside the
-        // primitive, otherwise set the hit record UV coordinates and return true.
-
         if (a<0 || a>1 || b<0 || b>1)
             return false;
-
         interaction.uv = {a,b};
         return true;
     }
 
     static bool is_interior(float a, float b) {
-    
-        // Given the hit point in plane coordinates, return false if it is outside the
-        // primitive, otherwise set the hit record UV coordinates and return true.
-
-        if (a<0 || a>1 || b<0 || b>1)
-            return false;
-
-
-        return true;
+        return a>=0 && a<=1 && b>=0 && b<=1;
     }
     glm::vec3 Q;
     glm::vec3 u,v;
@@ -173,7 +165,6 @@ private:
     float D;
     glm::vec3 w;
     AABB bbox;
-
 };
 
 

@@ -19,13 +19,7 @@ auto ResourceManager::get_texture(const std::string& path, float tempSRGB) -> st
     return texture_cache.try_emplace(path,std::make_shared<Image_texture>(path,tempSRGB)).first->second;
 }
 
-auto ResourceManager::get_model(const std::string& path) -> std::shared_ptr<Model> {
-    auto it = model_cache.find(path);
-    if(it == model_cache.end()){
-        return model_cache.try_emplace(path,std::make_shared<Model>(path)).first->second;
-    }
-    return it->second;
-}
+
 
 auto ResourceManager::release_textures() -> void {
     

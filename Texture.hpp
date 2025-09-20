@@ -7,6 +7,8 @@
 #include "stb_image.h"
 #include <iostream>
 #include <array>
+#include "Hit_record.hpp"
+
 
 inline constexpr double linear_to_sRGB(double linear){
     if(linear != linear)std::cout<<"linera_component is NaN\n";
@@ -42,7 +44,7 @@ struct Image{
     int height;
     int channels;
 
-    Image(const std::string& filename,float tempSRGB = false);
+    Image(const std::string& filename,float gammaCorrection = false);
     glm::vec3 at(int x,int y) const;
     //getChannel
     float W(int x,int y) const;
@@ -52,51 +54,74 @@ struct Image{
 
 struct Texture{
     virtual ~Texture() = default;
-    virtual glm::vec3 color_value(float u,float v) const = 0;
     virtual float alpha(float u,float v) const {
         return 1;
     }
-    virtual int resolutionX() const {
-        return 0;
-    }
-    virtual int resolutionY() const {
-        return 0;
-    }
 
-    virtual glm::vec3 texel(int x, int y) const{
-        return {0,0,0};
-    }
+    virtual glm::vec3 Evaluate(const SurfaceInteraction& interaction) const = 0;
 };
 
 struct Solid_color : Texture {
     glm::vec3 albedo;
     Solid_color(const glm::vec3& color);
     Solid_color(float r,float g,float b);
-    glm::vec3 color_value(float u,float v) const override ;
-    virtual int resolutionX() const override{
-        return 0;
-    }
-    virtual int resolutionY() const override{
-        return 0;
-    }
 
-    virtual glm::vec3 texel(int x, int y) const override {
+
+    glm::vec3 Evaluate(const SurfaceInteraction& interaction) const override {
         return albedo;
     }
 };
 
 struct Image_texture : public Texture {
-    Image_texture(const std::string& filename,float tempSRGB = false);
+    Image_texture(const std::string& filename,float gammaCorrection = false);
 
-    glm::vec3 color_value(float u, float v) const override ;
     float alpha(float u,float v) const override;
+    
+    glm::vec3 Evaluate(const SurfaceInteraction& interaction) const override { //take enum? bilerp
+        float x = interaction.uv.x*image.width - 0.5f;
+        float y = interaction.uv.y*image.height - 0.5f;
+        int xi = std::floor(x);
+        int yi = std::floor(y);
+        float dx = x - xi;
+        float dy = y - yi;
+        
+        glm::vec3 a = texel(xi,yi);//image.texel
+        glm::vec3 b = texel(xi+1,yi);
+        glm::vec3 c = texel(xi,yi+1);
+        glm::vec3 d = texel(xi+1,yi+1);
+        return ((1 - dx) * (1 - dy) * a + dx * (1 - dy) * b +
+        (1 - dx) *      dy  * c + dx *      dy  * d);
+    }
+    
+private: 
+    glm::vec3 texel(int x, int y) const;
     Image image;
-    virtual int resolutionX() const override{
-        return image.width;
-    }
-    virtual int resolutionY() const override{
-        return image.height;
-    }
+};
 
-    virtual glm::vec3 texel(int x, int y) const override;
+struct CheckerTexture : public Texture {
+    CheckerTexture(const std::shared_ptr<Texture>& tex1, const std::shared_ptr<Texture>& tex2,const glm::vec2& scale) : tex1(tex1), tex2(tex2), invScale(1.0f/scale) {}
+    float alpha(float u,float v) const override;
+    
+
+    glm::vec3 Evaluate(const SurfaceInteraction& interaction) const override{
+        glm::ivec2 uv = glm::floor(interaction.uv * invScale);
+        if((uv.x+uv.y)%2 == 0)return tex1->Evaluate(interaction);
+        return tex2->Evaluate(interaction);
+    }
+private:
+    std::shared_ptr<Texture> tex1;
+    std::shared_ptr<Texture> tex2;
+    glm::vec2 invScale;
+};
+
+struct UVTexture : public Texture {
+    glm::vec3 Evaluate(const SurfaceInteraction& interaction) const override{
+        return {interaction.uv,0};
+    }
+};
+
+struct NormalTexture : public Texture {
+    glm::vec3 Evaluate(const SurfaceInteraction& interaction) const override{
+        return interaction.ns;
+    }
 };

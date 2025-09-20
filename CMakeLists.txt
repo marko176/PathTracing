@@ -15,9 +15,9 @@ set(CMAKE_CXX_FLAGS "-O3 -g -march=native ")
 
 set(INTERPROCEDURAL_OPTIMIZATION TRUE)
 
-add_executable(PathTracer 
+add_executable(PathTracer.exe 
             stb_image.cpp 
-            main_BVH.cpp 
+            main.cpp 
             Mesh.cpp 
             Model.cpp 
             Texture.cpp 
@@ -25,7 +25,9 @@ add_executable(PathTracer
             Primitive.cpp 
             Shape.cpp
             Light.cpp
-            LightSampler.cpp)
+            LightSampler.cpp
+            Scene.cpp
+            Integrators.cpp)
 
-target_include_directories(PathTracer PRIVATE ${CMAKE_SOURCE_DIR} "/usr/local/include/OpenImageDenoise")
-target_link_libraries(PathTracer PRIVATE assimp "/usr/local/lib/libOpenImageDenoise.so")
+target_include_directories(PathTracer.exe PRIVATE ${CMAKE_SOURCE_DIR} "/usr/local/include/OpenImageDenoise")
+target_link_libraries(PathTracer.exe PRIVATE assimp "/usr/local/lib/libOpenImageDenoise.so")

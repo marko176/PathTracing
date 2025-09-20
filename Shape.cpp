@@ -14,6 +14,7 @@ bool SphereShape::Intersect(const Ray& ray, SurfaceInteraction& interaction, flo
             interaction.n = interaction.ns;
             interaction.tangent = glm::vec3(0,0,0);
             interaction.p = ray.at(temp) + 0.0005f * interaction.n;
+            interaction.uv = getSphereUV(interaction.n);
             return true;
         }
         temp = (-b + std::sqrt(discriminant)) / a;
@@ -23,6 +24,7 @@ bool SphereShape::Intersect(const Ray& ray, SurfaceInteraction& interaction, flo
             interaction.n = interaction.ns;
             interaction.tangent = glm::vec3(0,0,0);
             interaction.p = ray.at(temp) + 0.0005f * interaction.n;
+            interaction.uv = getSphereUV(interaction.n);
             return true;
         }
     }

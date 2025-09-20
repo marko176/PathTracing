@@ -183,7 +183,7 @@ class lambertian : public Material {
     bool scatter(const Ray& r_in, const SurfaceInteraction& interaction, Ray& scattered,const glm::vec2& UV) const final {
         
         float u1 = UV.x, u2 = UV.y;
-        float roughness = BiLerp(interaction.uv,roughnessTexture).x;
+        float roughness = roughnessTexture->Evaluate(interaction).x;
         
         float prob = is_specular(interaction) ? 0 : SampleCosOnly(roughness) ? 1 : 0.5;
         onb TBN(interaction);
@@ -270,7 +270,7 @@ class lambertian : public Material {
         onb TBN(interaction);
         
 
-        float roughness = BiLerp(interaction.uv,roughnessTexture).x;   
+        float roughness = roughnessTexture->Evaluate(interaction).x;   
         float prob = is_specular(interaction) ? 0 : SampleCosOnly(roughness) ? 1 : 0.5;
         //float pdf = prob * std::max(glm::dot(interaction.normal,scattered.dir) * std::numbers::inv_pi_v<float>, 0.f) + (1.0f - prob) * distributionGGX(glm::dot(n,h),roughness) * glm::dot(n,h) / (4.0f * std::fabs(dotVH));
         //pdf = prob * std::max(glm::dot(interaction.normal,scattered.dir) * std::numbers::inv_pi_v<float>, 0.f) + (1.0f - prob) * distributionGGX(glm::dot(n,h),roughness) * G1(TBN.toLocal(v),roughness) / (4.0f * std::fabs(dotVH));
@@ -306,7 +306,7 @@ class lambertian : public Material {
         onb TBN(interaction);
         glm::vec3 Ve = TBN.toLocal(V);
         glm::vec3 Ne = TBN.toLocal(H);
-        float roughness = BiLerp(interaction.uv,roughnessTexture).x;
+        float roughness = roughnessTexture->Evaluate(interaction).x;
         pdf = G1(Ve,roughness) * std::max<float>(0,glm::dot(Ve,Ne)) / (4.0f * glm::dot(Ve,Ne) * Ve.z );
         if(pdf == 0 || pdf != pdf)return glm::vec3(0,0,0);
 
@@ -315,8 +315,8 @@ class lambertian : public Material {
         
         float reflectance = 1;
         //glm::vec3 F0 = fresnel * (reflectance * reflectance);
-        float metallic = metallicTexture->color_value(interaction.uv.x,interaction.uv.y).x;
-        glm::vec3 textureColor = BiLerp(interaction.uv,tex);
+        float metallic = metallicTexture->Evaluate(interaction).x;
+        glm::vec3 textureColor = tex->Evaluate(interaction);
         glm::vec3 F0 = glm::mix(fresnel * (reflectance * reflectance),textureColor,metallic);
         
 
@@ -358,7 +358,7 @@ class lambertian : public Material {
     }
 
     bool is_specular(const SurfaceInteraction& interaction) const final {
-        float roughness = BiLerp(interaction.uv,roughnessTexture).x;
+        float roughness = roughnessTexture->Evaluate(interaction).x;
         return roughness <= 0.02f;
     }
     //f / pdf -> how can we remove D_GGX_aniso(NN,alpha,alpha) from PDF and f ? -> they are always the same ! 
@@ -371,8 +371,8 @@ class lambertian : public Material {
         
         float reflectance = 1;
         //glm::vec3 F0 = fresnel * (reflectance * reflectance);
-        float metallic = metallicTexture->color_value(interaction.uv.x,interaction.uv.y).x;
-        glm::vec3 textureColor = BiLerp(interaction.uv,tex);
+        float metallic = metallicTexture->Evaluate(interaction).x;
+        glm::vec3 textureColor = tex->Evaluate(interaction);
         glm::vec3 F0 = glm::mix(fresnel * (reflectance * reflectance),textureColor,metallic);//dont know if needed
         glm::vec3 H = glm::normalize(V + L);
 
@@ -384,7 +384,7 @@ class lambertian : public Material {
         float VdotH = glm::clamp(glm::dot(V, H), 0.0f, 1.0f);
 
         // 1) D term
-        float roughness = BiLerp(interaction.uv,roughnessTexture).x;
+        float roughness = roughnessTexture->Evaluate(interaction).x;
         onb TBN(interaction);//switch to interaction for multimesh models -> need to put tangent and bitangent on quad intersection!!!!
 
 
@@ -429,11 +429,11 @@ class lambertian : public Material {
     }
     float Alpha(float u,float v) const final {
         if(alpha){
-            return BiLerp({u,v},alpha).x;//alpha->color_value(u,v).x
+            return alpha->Evaluate(SurfaceInteraction({0,0,0},{0,0,0},{u,v})).x;//alpha->color_value(u,v).x
         }
         return tex->alpha(u,v);//should just give 1 channel tex->getChannel( 3 );
     }
-
+    /*
     glm::vec3 BiLerp(const glm::vec2& uv,const std::shared_ptr<Texture>& texture) const{
         float x = uv.x*texture->resolutionX() - 0.5f;
         float y = uv.y*texture->resolutionY() - 0.5f;
@@ -449,6 +449,7 @@ class lambertian : public Material {
         return ((1 - dx) * (1 - dy) * a + dx * (1 - dy) * b +
                (1 - dx) *      dy  * c + dx *      dy  * d);
     }
+    */
 
     glm::vec3 sample_normalMap(const SurfaceInteraction& interaction) const final {
         if(norm == nullptr)return interaction.ns;
@@ -456,7 +457,7 @@ class lambertian : public Material {
 
 
 
-        glm::vec3 n_norm = glm::normalize(2.0f * BiLerp(interaction.uv,norm) - glm::vec3(1,1,1));
+        glm::vec3 n_norm = glm::normalize(2.0f * norm->Evaluate(interaction) - glm::vec3(1,1,1));
 
 
 
@@ -606,7 +607,7 @@ class metal : public Material {
     public:
     metal(const glm::vec3& albedo) : albedo(albedo) {}
   
-    bool scatter(const Ray& r_in, const SurfaceInteraction& interaction, Ray& scattered,const glm::vec2& UV = glm::vec2(-1,-1))const final {
+    bool scatter(const Ray& r_in, const SurfaceInteraction& interaction, Ray& scattered,const glm::vec2& UV)const final {
         scattered = Ray(interaction.p,glm::normalize(glm::reflect(r_in.dir,interaction.ns)));
         return glm::dot(scattered.dir, interaction.ns)>0;//always 1?
     }

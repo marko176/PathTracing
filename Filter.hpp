@@ -3,22 +3,28 @@
 #include <concepts>
 
 template <std::floating_point T>
-T Gaussian(T x, T sigma){
+inline constexpr T Gaussian(T x, T sigma){
     //return 1.0 / std::sqrt( 2 * std::numbers::pi_v<T> * sigma * sigma) * std::exp(-(x*x) / (2 * sigma * sigma));
     return std::numbers::inv_sqrtpi_v<T> / (sigma * std::numbers::sqrt2_v<T>) * std::exp(-(x*x) / (2 * sigma * sigma));
 }
 
 template <std::floating_point T>
-T GaussianIntegral(T x0, T x1, T sigma){
+inline constexpr T GaussianIntegral(T x0, T x1, T sigma){
     T sigmaRoot2 = sigma * std::numbers::sqrt2_v<T>;
-    return 0.5 * (std::erf(-x0 / sigmaRoot2) - std::erf(-x1 / sigmaRoot2));
+    return static_cast<T>(0.5) * (std::erf(-x0 / sigmaRoot2) - std::erf(-x1 / sigmaRoot2));
 }
 
-//template them to float or double ?
+template <std::floating_point T>
+inline constexpr T Sinc(T x){
+    if(static_cast<T>(1) - x*x == static_cast<T>(1))return static_cast<T>(1);
+    return std::sin(std::numbers::pi_v<T> * x) / (std::numbers::pi_v<T> * x);
+}
 
-class FilterBuffer;
-
-
+template <std::floating_point T>
+inline constexpr T WindowedSinc(T x, T radius, T tau){
+    if(std::abs(x)>radius)return 0;
+    return Sinc(x) * Sinc(x / tau);
+}
 
 class Filter {
     public:
@@ -97,8 +103,31 @@ private:
     double c;
 };
 
-class LanczosFilter{
-    
+class LanczosFilter : public Filter{
+public:
+    LanczosFilter(const glm::vec2& radius = glm::vec2{1.5f}, double tau = 3) : radius(radius), tau(tau) {}
+    glm::vec2 Radius() const final {
+        return radius;
+    }
+    double Evaluate(const glm::vec2& p) const final {
+        return WindowedSinc<double>(p.x, radius.x, tau) * WindowedSinc<double>(p.y, radius.y, tau);
+    }
+
+    double Integral() const final {
+        double acc = 0;
+        int samples = 100*100;
+        int sqrtSamples = std::sqrt(samples);
+        double area = 2 * radius.x * radius.y;
+        for(int y = 0;y < sqrtSamples; y++){
+            for(int x = 0; x < sqrtSamples; x++){
+                glm::vec2 u = glm::vec2{(x + random_double()), (y + random_double())} / static_cast<float>(sqrtSamples);
+                glm::vec2 p = glm::mix(-radius,radius,u);
+                acc += Evaluate(p);
+            }
+        }
+        return area * acc / samples;
+    }
 private:
     glm::vec2 radius;
+    double tau;
 };

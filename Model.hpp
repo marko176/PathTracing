@@ -9,11 +9,14 @@ struct aiNode;
 struct aiMesh;
 
 
-
+class Material;
 class Model : public Primitive{
     public:
     Model(const std::string& path);
-    auto get_meshes() const -> const std::vector<Mesh>&;
+    Model(const std::string& path,const std::shared_ptr<Material>& material, const std::shared_ptr<AreaLight>& areaLight, const std::shared_ptr<Medium>& medium);
+    //Model(std::vector<std::shared_ptr<Mesh>> meshes)
+    
+    auto get_meshes() const -> const std::vector<std::shared_ptr<Mesh>>&;
     bool Intersect(const Ray& ray,SurfaceInteraction& interaction, float max) const override{
         return model_bvh.Intersect(ray,interaction,max);
     }
@@ -28,18 +31,13 @@ class Model : public Primitive{
     std::vector<std::shared_ptr<Light>> GetLights() const override {
         return model_bvh.GetLights();
     }
+
     private:
     auto load_model(std::string path) -> bool;
     auto process_node(aiNode* node, const aiScene* scene) -> void;
-    auto process_mesh(aiMesh* mesh, const aiScene* scene) -> Mesh;
-    //std::vector<BVH> mesh_bvhs;
-    //std::vector<GeometricPrimitive> primitives;
-    std::vector<Mesh> meshes;// move to private!!!!
-    BLAS model_bvh;//was primitiveBVH
+    auto process_mesh(aiMesh* mesh, const aiScene* scene) -> std::shared_ptr<Mesh>;
+
+    std::vector<std::shared_ptr<Mesh>> meshes;
+    BLAS model_bvh;
     std::string model_path;
-
-
-    //std::shared_ptr<int> tempPTR;
-    //TLAS_BVH_Prim model_bvh;
-
 };

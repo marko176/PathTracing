@@ -10,22 +10,22 @@ public:
     virtual bool IntersectPred(const Ray& ray, float max = 1e30f) const = 0;
     virtual bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max = 1e30f) const = 0;
     virtual std::vector<std::shared_ptr<Light>> GetLights() const = 0;
-    //virtua Info GetInfo() const ;
 };
 
+//chech with all shared ptr
 class GeometricPrimitive : public Primitive{
 public:
-
-    GeometricPrimitive(Shape* primitive_shape, const std::shared_ptr<Material>& material,const std::shared_ptr<AreaLight>& areaLight = nullptr,const std::shared_ptr<Medium>& medium = nullptr) : shape{primitive_shape} , material{material} , areaLight{areaLight} , medium(medium) {
+ 
+    GeometricPrimitive(const std::shared_ptr<Shape>& primitive_shape, const std::shared_ptr<Material>& material,const std::shared_ptr<AreaLight>& areaLight = nullptr,const std::shared_ptr<Medium>& medium = nullptr) : shape{primitive_shape} , material{material} , areaLight{areaLight} , medium(medium) {
 
     }
-
+    
     AABB Bounding_box() const final ;
     bool IntersectPred(const Ray& ray, float max = 1e30f) const final ;
     bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max = 1e30f) const final ;
     std::vector<std::shared_ptr<Light>> GetLights() const final ;
 private:
-    Shape* shape;
+    std::shared_ptr<Shape> shape;
     std::shared_ptr<Material> material;
     std::shared_ptr<AreaLight> areaLight;
     std::shared_ptr<Medium> medium;
@@ -73,9 +73,7 @@ struct BVH : public Primitive{
         glm::vec3 centroid;
     };
 
-    Mesh* mesh;
-    std::vector<BVH_NODE> nodes;
-    std::vector<T> primitives;
+    
     
     BVH() = default;
 
@@ -316,14 +314,15 @@ struct BVH : public Primitive{
         return nodes.empty() ? AABB{} : nodes[0].bbox;
     }
 
-    //store nodes in flat array
-    //nodes hole left index, right index, is_leaf and ptr to hittable -> same as before but flat
-   
+private:
+    Mesh* mesh;
+    std::vector<BVH_NODE> nodes;
+    std::vector<T> primitives;
     
 };
 
 using BLAS = BVH<GeometricPrimitive>;
-using TLAS = BVH<Primitive*>;
+using TLAS = BVH<std::shared_ptr<Primitive>>;
 
 struct TLAS_BVH_Prim : public Primitive{
 

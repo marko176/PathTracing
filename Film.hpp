@@ -1,29 +1,30 @@
 #pragma once
-#include "Hit_record.hpp"
-
-double luminance(const glm::dvec3& v){
+#include "Filter.hpp"
+#include <atomic>
+#include <fstream>
+inline double luminance(const glm::dvec3& v){
     return dot(v, glm::dvec3(0.2126f, 0.7152f, 0.0722f));
 }
 
-glm::dvec3 change_luminance(const glm::dvec3& c_in, double l_out){
+inline glm::dvec3 change_luminance(const glm::dvec3& c_in, double l_out){
     double l_in = luminance(c_in);
     return c_in * (l_out / l_in);
 }
 
-glm::dvec3 reinhard_extended_luminance(const glm::dvec3& v, double max_white_l){
+inline glm::dvec3 reinhard_extended_luminance(const glm::dvec3& v, double max_white_l){
     double l_old = luminance(v);
     double numerator = l_old * (1.0 + (l_old / (max_white_l * max_white_l)));
     double l_new = numerator / (1.0 + l_old);
-    return change_luminance(v, l_new); //something doesnt work -> got NaN and whole screen bas
+    return change_luminance(v, l_new);
 }
 
-glm::dvec3 reinhard_jodie(const glm::dvec3& v){
+inline glm::dvec3 reinhard_jodie(const glm::dvec3& v){
     double l = luminance(v);
     glm::dvec3 tv = v / (1.0 + v);
     return glm::mix(v / (1.0 + l), tv, tv);
 }
 
-glm::dvec3 ACESFilm(glm::dvec3 color) {
+inline glm::dvec3 ACESFilm(glm::dvec3 color) {
     const double A = 2.51f;
     const double B = 0.03f;
     const double C = 2.43f;
@@ -102,7 +103,7 @@ public:
 
     }
 
-    FilmTile GetFilmTile(const Bounds2i& bounds) {
+    FilmTile GetFilmTile(const Bounds2i& bounds) const {
         glm::ivec2 lowerLeft = glm::clamp(bounds.min - glm::ivec2(glm::ceil(filter->Radius() - glm::vec2{0.5,0.5})),{0,0},{xResolution,yResolution}); 
         glm::ivec2 upperRight = glm::clamp(bounds.max + glm::ivec2(glm::ceil(filter->Radius() - glm::vec2{0.5,0.5})),{0,0},{xResolution,yResolution}); 
         Bounds2i tileBounds = {lowerLeft,upperRight};

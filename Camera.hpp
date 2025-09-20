@@ -14,13 +14,14 @@ public:
         halfHeight = halfWidth * film->Resolution().y / film->Resolution().x;
     };
 
-    Ray GenerateRay(const glm::vec2& p,const glm::vec2& pLens, float time = 0) {
+    Ray GenerateRay(const glm::vec2& p,const glm::vec2& LensUV = {0,0}, float time = 0) const {
         double u_coord = p.x / double(film->Resolution().x);
         double v_coord = p.y / double(film->Resolution().y);
         glm::dvec3 direction = glm::normalize(-w + (2.0f * u_coord - 1.0f) * halfWidth * u + (2.0f * v_coord - 1.0f) * halfHeight * v);
         if(FocusDistance == 0 || FocusAngle == 0){
             return Ray(lookFrom,direction);
         }
+        glm::vec2 pLens = inUnitDisk(LensUV);
         glm::dvec3 defocus_disk_u = u * defocusRadius;
         glm::dvec3 defocus_disk_v = v * defocusRadius;
         direction = direction*FocusDistance;

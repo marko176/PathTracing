@@ -140,15 +140,17 @@ public:
     virtual glm::dvec2 get2D() = 0;
 
     virtual glm::dvec2 GetPixel2D() = 0;
+
+    virtual std::shared_ptr<Sampler> Clone() const = 0;
 };
 
 class UniformSampler : public Sampler{
 public:
-    UniformSampler() : px(0), py(0) {
+    UniformSampler(uint32_t samples) : px(0), py(0) {
 
     }
 
-    constexpr int SamplesPerPixel() const final{ return 0; }
+    constexpr int SamplesPerPixel() const final{ return samples; }
 
     void StartPixelSample(const glm::ivec2& p,int index) final{
         px = p.x;
@@ -166,7 +168,12 @@ public:
     glm::dvec2 GetPixel2D() final{
         return get2D();
     }
+
+    std::shared_ptr<Sampler> Clone() const final {
+        return std::make_shared<UniformSampler>(samples);
+    }
 private:
+    uint32_t samples;
     uint32_t px;
     uint32_t py;
 };
@@ -214,6 +221,10 @@ public:
 
     glm::dvec2 GetPixel2D() final {
         return get2D();
+    }
+
+    std::shared_ptr<Sampler> Clone() const final {
+        return std::make_shared<StratifiedSampler>(xSamples,ySamples);
     }
 private:
     uint32_t px;

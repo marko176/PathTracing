@@ -19,7 +19,7 @@ class UniformLightSampler : public LightSampler {
 public:
     void Add(const std::shared_ptr<Light>& light) override ;
 
-    virtual void Add(const std::vector<std::shared_ptr<Light>>& lights) override;
+    void Add(const std::vector<std::shared_ptr<Light>>& lights) override;
 
     std::shared_ptr<Light> Sample(float u) const override ;
 
@@ -34,7 +34,7 @@ class PowerLightSampler : public LightSampler {
 public: 
     void Add(const std::shared_ptr<Light>& light) override ;
 
-    virtual void Add(const std::vector<std::shared_ptr<Light>>& lights) override;
+    void Add(const std::vector<std::shared_ptr<Light>>& lights) override;
        
     std::shared_ptr<Light> Sample(float u) const override ;
 
@@ -49,21 +49,3 @@ private:
     float totalPower;
 };
 
-class RISLightSampler : public LightSampler {
-public: 
-    RISLightSampler(int samplesPerLight, int N) : samplesPerLight(samplesPerLight), N(N) {}
-    void Add(const std::shared_ptr<Light>& light) override ;
-
-    virtual void Add(const std::vector<std::shared_ptr<Light>>& lights) override;
-       
-    std::shared_ptr<Light> Sample(float u) const override ;
-
-    float PMF(const std::shared_ptr<Light>& light) const override ;
-
-    glm::vec3 SampleLd(const Ray& curr_ray,const SurfaceInteraction& interaction,const TLAS& bvh,float u,glm::vec2& UV) const override ;
-
-private:
-    std::vector<std::shared_ptr<Light>> lights;
-    int samplesPerLight;
-    int N;
-};

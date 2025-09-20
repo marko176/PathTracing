@@ -1,9 +1,9 @@
 #include "Texture.hpp"
 #include <iostream>
 
-Image::Image(const std::string& filename,float tempSRGB) {
+Image::Image(const std::string& filename,float gammaCorrection) {
     data = stbi_load(filename.c_str(),&width,&height,&channels,0);
-    if(tempSRGB && data){
+    if(gammaCorrection && data){
         for(int y = 0;y<height;y++){
             for(int x = 0;x<width;x++){
                 for(int i = 0;i<std::min(channels,3);i++){
@@ -48,9 +48,6 @@ Image::~Image() {
 
 Solid_color::Solid_color(const glm::vec3& color) : albedo(color) {}
 Solid_color::Solid_color(float r,float g,float b) : albedo(r,g,b) {}
-glm::vec3 Solid_color::color_value(float u,float v) const {
-    return albedo;
-}
 
 
 
@@ -60,8 +57,10 @@ glm::vec3 Solid_color::color_value(float u,float v) const {
 
 
 
-Image_texture::Image_texture(const std::string& filename,float tempSRGB) : image(filename,tempSRGB) {}
 
+Image_texture::Image_texture(const std::string& filename,float gammaCorrection) : image(filename,gammaCorrection) {}
+
+/*
 glm::vec3 Image_texture::color_value(float u, float v) const {
     //glm::fract?
     u = glm::fract(u);
@@ -74,6 +73,7 @@ glm::vec3 Image_texture::color_value(float u, float v) const {
 
     return image.at(i,j);
 }
+*/
 
 inline int wrap_index(int i, int n) {
     int m = i % n;
@@ -101,4 +101,10 @@ float Image_texture::alpha(float u,float v) const {
     int j = std::min<int>(v * image.height,image.height-1);//floor to height-1
 
     return image.W(i,j);
+}
+
+float CheckerTexture::alpha(float u,float v) const {
+    glm::ivec2 uv = glm::floor(glm::vec2{u,v} * invScale);
+    if((uv.x+uv.y)%2 == 0)return tex1->alpha(u,v);
+    return tex2->alpha(u,v);
 }

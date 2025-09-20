@@ -28,6 +28,29 @@ void InfiniteLight::PreProcess(const AABB& bbox) {
     sceneRadius = glm::distance(bbox.max,center);
 }
 
+bool PointLight::isDelta() const {
+    return true;
+}
+glm::vec3 PointLight::L(const GeometricInteraction& interaction, const Ray& ray) const {
+    return color;
+}
+LightSample PointLight::sample(const glm::vec2& uv) const{
+    return {GeometricInteraction{p,glm::vec3{1,1,1},glm::vec2{0,0}},glm::vec3{0,0,0}};
+}
+float PointLight::PDF(const GeometricInteraction& interaction) const{
+    return 0;
+}
+float PointLight::PDF(const GeometricInteraction& interaction, const Ray& ray) const{
+    return 0;
+}
+float PointLight::Power() const {
+    return (color.x + color.y + color.z) * powerFunction(sceneRadius);//
+}
+void PointLight::PreProcess(const AABB& bbox) {
+    glm::vec3 center = (bbox.max + bbox.min ) * 0.5f;
+    sceneRadius = glm::distance(bbox.max,center);
+}
+
 
 bool AreaLight::isDelta() const  {
     return false;
