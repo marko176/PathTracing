@@ -16,21 +16,28 @@ class Light;
 struct GeometricInteraction {
     glm::vec3 p = {0,0,0};
     glm::vec3 n = {0,0,0};//geometric normal
-    glm::vec2 uv = {0,0};
     std::shared_ptr<Medium> medium = nullptr;
     
+    bool isSurfaceInteraction() const {
+        return n != glm::vec3(0,0,0);
+    }
+
+    bool isMediumInteraction() const {
+        return !isSurfaceInteraction();
+    }
+
     std::shared_ptr<Medium> getMedium(const glm::vec3& dir) const{
         if(glm::dot(dir,n)<0)return medium;//going into surface
         return nullptr;
     }
     GeometricInteraction() = default;
-    GeometricInteraction(const glm::vec3& point, const glm::vec3& geometric_normal, const glm::vec2& uv,const std::shared_ptr<Medium>& medium = nullptr) : p{point} , n{geometric_normal} , uv{uv} , medium(medium) {
+    GeometricInteraction(const glm::vec3& point, const glm::vec3& geometric_normal,const std::shared_ptr<Medium>& medium = nullptr) : p{point} , n{geometric_normal} , medium(medium) {
 
     }
 };
 
 struct SurfaceInteraction : public GeometricInteraction{
-    SurfaceInteraction(const glm::vec3& point, const glm::vec3& geometric_normal, const glm::vec2& uv,const std::shared_ptr<Medium>& medium = nullptr) : GeometricInteraction{point,geometric_normal,uv,medium} {
+    SurfaceInteraction(const glm::vec3& point, const glm::vec3& geometric_normal, const glm::vec2& uv,const std::shared_ptr<Medium>& medium = nullptr) : GeometricInteraction{point,geometric_normal,medium}, uv{uv} {
 
     }
 
@@ -38,7 +45,7 @@ struct SurfaceInteraction : public GeometricInteraction{
     SurfaceInteraction(const GeometricInteraction& interaction) : GeometricInteraction{interaction} {
 
     }
-
+    glm::vec2 uv = {0,0};
     float t;//we dont need t if we have point? t = glm::length(ray)
     glm::vec3 ns;
     std::shared_ptr<Material> mat; // switch to material* no need for shared
@@ -48,7 +55,7 @@ struct SurfaceInteraction : public GeometricInteraction{
 };
 
 struct MediumInteraction : public GeometricInteraction {
-    MediumInteraction(const glm::vec3& point, const glm::vec3& geometric_normal, const glm::vec2& uv,const std::shared_ptr<Medium>& medium = nullptr) : GeometricInteraction{point,geometric_normal,uv,medium} {
+    MediumInteraction(const glm::vec3& point, const glm::vec3& geometric_normal, const std::shared_ptr<Medium>& medium = nullptr) : GeometricInteraction{point,geometric_normal,medium} {
 
     }
 
@@ -56,8 +63,9 @@ struct MediumInteraction : public GeometricInteraction {
 
     bool isValid() const {
         //phasefunc != null
-        return false;
+        return valid;
     }
+    bool valid = false;
     //phase function
 };
 
@@ -124,7 +132,7 @@ struct AABB{
         // Over all axes
         float tEntry = std::max(std::max(tSmaller.x, tSmaller.y), tSmaller.z);
         float tExit  = std::min(std::min(tLarger.x,  tLarger.y),  tLarger.z);
-        return (tEntry <= tExit && tEntry <= max_t && tExit >= min_t) ? tEntry : 1e30f;
+        return (tEntry <= tExit && tEntry <= max_t && tExit >= min_t) ? tEntry : std::numeric_limits<float>::infinity();
     }
 
     inline float hit_other(const Ray& ray,float max_t) const {// add interval
@@ -138,7 +146,7 @@ struct AABB{
         // Over all axes
         float tEntry = std::max(std::max(tSmaller.x, tSmaller.y), tSmaller.z);
         float tExit  = std::min(std::min(tLarger.x,  tLarger.y),  tLarger.z);
-        return (tEntry <= tExit && tEntry <= max_t && tExit > 0.001f) ? tEntry : 1e30f;
+        return (tEntry <= tExit && tEntry <= max_t && tExit > 0.001f) ? tEntry : std::numeric_limits<float>::infinity();
     }
 
     
@@ -163,35 +171,7 @@ struct Bounds2i {
     glm::ivec2 max = {0,0};
 };
 
-struct hittable {
-    virtual ~hittable() = default;
-    virtual bool hit(const Ray& ray, float min, float max, SurfaceInteraction& interaction) const = 0;
-    virtual AABB bounding_box() const = 0;
-    virtual bool is_bvh_node() const {
-        return false;
-    }
-    virtual bool hit_bvh_info(const Ray& ray, float min, float max, SurfaceInteraction& interaction,int& bvh_tests,int& triangle_tests) const {
-        return false;
-    }
 
-    virtual bool intersectPred(const Ray& ray, float min, float max, SurfaceInteraction& interaction) const {
-        return hit(ray,min,max,interaction);
-    }
-
-    virtual float area() const {
-        return 0;
-    }
-
-    virtual glm::vec3 sampleSurface() const {
-        //should also return pdf if prob is not uniform
-        return {0,0,0};
-    }
-
-    virtual glm::vec3 sampleSurface(const glm::vec2& UV) const {
-        //should also return pdf if prob is not uniform
-        return {0,0,0};
-    }
-};
 
 
 

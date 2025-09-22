@@ -7,8 +7,8 @@
 class Primitive {
 public:
     virtual AABB Bounding_box() const = 0;
-    virtual bool IntersectPred(const Ray& ray, float max = 1e30f) const = 0;
-    virtual bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max = 1e30f) const = 0;
+    virtual bool IntersectPred(const Ray& ray, float max = std::numeric_limits<float>::infinity()) const = 0;
+    virtual bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max = std::numeric_limits<float>::infinity()) const = 0;
     virtual std::vector<std::shared_ptr<Light>> GetLights() const = 0;
 };
 
@@ -21,8 +21,8 @@ public:
     }
     
     AABB Bounding_box() const final ;
-    bool IntersectPred(const Ray& ray, float max = 1e30f) const final ;
-    bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max = 1e30f) const final ;
+    bool IntersectPred(const Ray& ray, float max = std::numeric_limits<float>::infinity()) const final ;
+    bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max = std::numeric_limits<float>::infinity()) const final ;
     std::vector<std::shared_ptr<Light>> GetLights() const final ;
 private:
     std::shared_ptr<Shape> shape;
@@ -38,8 +38,8 @@ public:
 
     }
     AABB Bounding_box() const final ;
-    bool IntersectPred(const Ray& ray, float max = 1e30f) const final ;
-    bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max = 1e30f) const final ;
+    bool IntersectPred(const Ray& ray, float max = std::numeric_limits<float>::infinity()) const final ;
+    bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max = std::numeric_limits<float>::infinity()) const final ;
     std::vector<std::shared_ptr<Light>> GetLights() const final ;
 private:
     std::shared_ptr<Primitive> primitive;
@@ -197,7 +197,7 @@ struct BVH : public Primitive{
         return index;
     }
 
-    bool IntersectPred(const Ray& ray, float max = 1e30f) const final {
+    bool IntersectPred(const Ray& ray, float max = std::numeric_limits<float>::infinity()) const final {
         if(!nodes[0].bbox.hit(ray,max))return false;
         uint32_t stack[32];
         int i = 0;
@@ -224,7 +224,7 @@ struct BVH : public Primitive{
     }
 
 
-    bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max = 1e30f) const final {
+    bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max = std::numeric_limits<float>::infinity()) const final {
         if(!nodes[0].bbox.hit(ray,max))return false;
         uint32_t stack[32];
         int i = 0;
@@ -247,10 +247,10 @@ struct BVH : public Primitive{
                     std::swap(dist_1,dist_2);
                     std::swap(child1,child2);
                 }
-                if(dist_2 != 1e30f){
+                if(dist_2 != std::numeric_limits<float>::infinity()){
                     stack[i++]=child2;
                     stack[i++]=child1;
-                }else if(dist_1 != 1e30f){
+                }else if(dist_1 != std::numeric_limits<float>::infinity()){
                     stack[i++]=child1;
                 }
         
@@ -389,11 +389,11 @@ struct TLAS_BVH_Prim : public Primitive{
                     }
                 }
                 float cost = left_count * left.area() + right_count * right.area();
-                return cost > 0 ? cost : 1e30f;
+                return cost > 0 ? cost : std::numeric_limits<float>::infinity();
             };
             int best_axis = 0;
             float bestPos = 0;
-            float bestCost = 1e30f;
+            float bestCost = std::numeric_limits<float>::infinity();
             for(int axis = 0;axis<3;axis++){
           
                     int count = 100;
@@ -438,7 +438,7 @@ struct TLAS_BVH_Prim : public Primitive{
         return lights;
     }
 
-    virtual bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max = 1e30f) const override {
+    virtual bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max = std::numeric_limits<float>::infinity()) const override {
         if(!nodes[0].bbox.hit(ray,max))return false;
         uint32_t stack[24];
         int i = 0;
@@ -461,10 +461,10 @@ struct TLAS_BVH_Prim : public Primitive{
                     std::swap(dist_1,dist_2);
                     std::swap(child1,child2);
                 }
-                if(dist_2 != 1e30f){
+                if(dist_2 != std::numeric_limits<float>::infinity()){
                     stack[i++]=child2;
                     stack[i++]=child1;
-                }else if(dist_1 != 1e30f){
+                }else if(dist_1 != std::numeric_limits<float>::infinity()){
                     stack[i++]=child1;
                 }
          
@@ -477,7 +477,7 @@ struct TLAS_BVH_Prim : public Primitive{
         return hit_anything;
     }
 
-    virtual bool IntersectPred(const Ray& ray, float max = 1e30f) const override{
+    virtual bool IntersectPred(const Ray& ray, float max = std::numeric_limits<float>::infinity()) const override{
         if(!nodes[0].bbox.hit(ray,max))return false;
         uint32_t stack[24];
         int i = 0;
@@ -512,6 +512,7 @@ struct TLAS_BVH_Prim : public Primitive{
             if(hittables[i]->Intersect(ray,interaction,max)){
                 hit = true;
                 max = interaction.t;
+                
             }
         }
         return hit;

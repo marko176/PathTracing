@@ -129,12 +129,16 @@ glm::vec3 PathIntegrator::Li(Ray ray) const {
         output += color * SampleLd(ray,interaction,light_selection_random_variable,light_random_variables);
         glm::vec3 color_attenuation = interaction.mat->calc_attenuation(ray,interaction,new_ray);
 
-        float rr_prob = rr_depth++ < 4 ? 1 : std::fmin(0.95f,std::fmaxf(std::fmaxf(color_attenuation.x, color_attenuation.y), color_attenuation.z));
+        if(brdfPDF <= 0)break;
+        color *= color_attenuation / (brdfPDF);
         
-        if(rr_random_variable >= rr_prob || brdfPDF <= 0)break;
-        color *= color_attenuation / (brdfPDF * rr_prob);
+        
+        if(rr_depth++>3){
+            float rr_prob = std::fmin(0.95f,std::fmaxf(std::fmaxf(color.x, color.y), color.z));
+            if(rr_random_variable >= rr_prob )break;
+            color /= rr_prob;
+        }
         ray = new_ray;
- 
         
     }
     return output;
@@ -186,30 +190,44 @@ glm::vec3 VolPathIntegrator::Li(Ray ray) const {
         SurfaceInteraction interaction;
         MediumInteraction medInteraction;
         
-        if(!scene->Intersect(ray,interaction,1e30f)){
+        if(!scene->Intersect(ray,interaction,std::numeric_limits<float>::infinity())){
             float a = 0.5f*(ray.dir.y+1.0f);
             return output + color * 1.5f * ((1.0f-a)*glm::vec3(1,0.85,0.55) + a*glm::vec3(0.45,0.65,1));
         }
+
         if(ray.medium){
-            color *= ray.medium->Tr(ray,interaction.t);
+            color *= ray.medium->Sample(ray,interaction.t,medInteraction);
         }
         
         glm::vec2 random_variables = sampler->get2D();
         glm::vec2 light_random_variables = sampler->get2D();
         float light_selection_random_variable = sampler->get1D();
         float rr_random_variable = sampler->get1D();
-        
-        glm::vec3 L = {0,0,0};
-        if(interaction.AreaLight && (L = interaction.AreaLight->L(interaction,ray)) != glm::vec3(0,0,0)){
-            if(spec){
-                output += color * L;
-            }else{
-                float light_pdf = lightSampler->PMF(interaction.AreaLight) * interaction.AreaLight->PDF(interaction,ray);
-                float w = prevPDF * prevPDF / (prevPDF * prevPDF + light_pdf * light_pdf);
-                output += color * L * w;
+        if(medInteraction.isValid()){
+            Ray newRay = Ray(medInteraction.p,random_unit_vector());
+            output += color * SampleLdMedium(ray,medInteraction,light_selection_random_variable,light_random_variables);
+            ray = newRay;
+            ray.medium = interaction.getMedium(ray.dir);
+            spec = false;
+        }else{
+            glm::vec3 L = {0,0,0};
+            if(interaction.AreaLight && (L = interaction.AreaLight->L(interaction,ray)) != glm::vec3(0,0,0)){
+                if(spec){
+                    output += color * L;
+                }else{
+                    float light_pdf = lightSampler->PMF(interaction.AreaLight) * interaction.AreaLight->PDF(interaction,ray);
+                    float w = prevPDF * prevPDF / (prevPDF * prevPDF + light_pdf * light_pdf);
+                    output += color * L * w;
+                }
             }
-        }
-        if(interaction.mat){
+
+            if(!interaction.mat){
+                ray.origin = ray.at(interaction.t);
+                ray.medium = interaction.getMedium(ray.dir);
+                spec = false;
+                continue;
+            }
+
             Ray new_ray;
     
             //if mat -> normal
@@ -224,7 +242,7 @@ glm::vec3 VolPathIntegrator::Li(Ray ray) const {
             if(interaction.mat->is_specular(interaction)){
                 color *= interaction.mat->f_PDF(ray,interaction,new_ray);
                 ray = new_ray;
-                spec = true;
+                depth--;
                 continue;
             }
             spec = false;
@@ -233,20 +251,21 @@ glm::vec3 VolPathIntegrator::Li(Ray ray) const {
             output += color * SampleLd(ray,interaction,light_selection_random_variable,light_random_variables);
             glm::vec3 color_attenuation = interaction.mat->calc_attenuation(ray,interaction,new_ray);
     
-            float rr_prob = rr_depth++ < 4 ? 1 : std::fmin(0.95f,std::fmaxf(std::fmaxf(color_attenuation.x, color_attenuation.y), color_attenuation.z));
             
-            if(rr_random_variable >= rr_prob || brdfPDF <= 0)break;
-            color *= color_attenuation / (brdfPDF * rr_prob);
+            if(brdfPDF <= 0)break;
+            color *= color_attenuation / (brdfPDF);
             ray = new_ray;
-        }else{
-            ray.origin = ray.at(interaction.t);
-            //ray = Ray(ray.at(interaction.t),ray.dir);//we have to have smaller shadow offset for this 0.0001f but for other scenes 0.0005
-                                                                    //even 0.0001 is not perfect
-            ray.medium = interaction.getMedium(ray.dir);
-            spec = false;
+
+            if(rr_depth++>3){
+                float rr_prob = std::fmin(0.95f,std::fmaxf(std::fmaxf(color.x, color.y), color.z));
+
+                if(rr_random_variable >= rr_prob )break;
+                color /= rr_prob;
+            }
         }
         
     }
+
     return output;
 }
 
@@ -310,4 +329,40 @@ glm::vec3 VolPathIntegrator::SampleLd(const Ray& ray,const SurfaceInteraction& i
     }
     return {0,0,0};
     */
+}
+
+glm::vec3 VolPathIntegrator::SampleLdMedium(const Ray& ray,const MediumInteraction& interaction,float u,const glm::vec2& UV) const {
+    std::shared_ptr<Light> sampled_light = lightSampler->Sample(u);
+    if(sampled_light == nullptr)return {0,0,0};
+    glm::vec3 Tr = {1,1,1};
+    SurfaceInteraction intr;
+
+    LightSample lightSample = sampled_light->sample(UV);
+    glm::vec3 lightDir;
+    float t = 0;
+    if(lightSample.interaction.n == glm::vec3{0,0,0}){
+        lightDir = lightSample.dir;
+        t = std::numeric_limits<float>::infinity();
+    }else{
+        lightDir = lightSample.interaction.p - interaction.p;
+        t = glm::length(lightDir) - 0.001f;
+    }
+    Ray shadow_ray(interaction.p, glm::normalize(lightDir));
+    if(scene->IntersectTr(shadow_ray,intr,Tr,t))return {0,0,0};
+
+    if(sampled_light->isDelta()){
+        float light_pdf = lightSampler->PMF(sampled_light);
+        if(light_pdf <= 0)return {0,0,0};
+        return Tr * sampled_light->L({},shadow_ray) * 1.0f/(4*std::numbers::pi_v<float>) / light_pdf;
+    }else{
+        float light_pdf = lightSampler->PMF(sampled_light) * sampled_light->PDF(lightSample.interaction,shadow_ray);
+        if(light_pdf <= 0)return {0,0,0};
+        float w2 = light_pdf*light_pdf;
+        float w1 = 1.0f/(4*std::numbers::pi_v<float>);
+        w1 = w1*w1;
+        float w_light = (w2) / (w1 + w2);
+        return Tr * sampled_light->L(lightSample.interaction,shadow_ray) * 1.0f/(4*std::numbers::pi_v<float>) * w_light / light_pdf;
+        
+    }
+    return {0,0,0};
 }

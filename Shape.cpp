@@ -8,7 +8,7 @@ bool SphereShape::Intersect(const Ray& ray, SurfaceInteraction& interaction, flo
     float discriminant = b*b - a*c;
     if (discriminant > 0) {
         float temp = (-b - std::sqrt(discriminant)) / a;
-        if (temp < max && temp > 0) {
+        if (temp < max && temp > 0.0001f) {
             interaction.t = temp;
             interaction.ns = (ray.at(temp) - center) / radius;
             interaction.n = interaction.ns;
@@ -18,7 +18,7 @@ bool SphereShape::Intersect(const Ray& ray, SurfaceInteraction& interaction, flo
             return true;
         }
         temp = (-b + std::sqrt(discriminant)) / a;
-        if (temp < max && temp > 0) {
+        if (temp < max && temp > 0.0001f) {
             interaction.t = temp;
             interaction.ns = (ray.at(temp) - center) / radius;
             interaction.n = interaction.ns;
@@ -71,7 +71,7 @@ GeometricInteraction SphereShape::Sample(const glm::vec2& u) const  {
     float phi  = 2.0f * std::numbers::pi_v<float> * u.y;
     glm::vec3 dir{ r * std::cos(phi), r * std::sin(phi), z };
     glm::vec3 p = center + radius * dir;  
-    return GeometricInteraction{p, (p-center)/ radius, u};      
+    return GeometricInteraction{p, (p-center)/ radius};      
 }
 
 
@@ -209,7 +209,7 @@ GeometricInteraction TriangleShape::Sample(const glm::vec2& u) const {
     glm::vec3 e2 = mesh->vertices[TriIndex*3+2] - mesh->vertices[TriIndex*3+0];
     glm::vec3 n = glm::normalize(glm::cross(e1,e2));
     glm::vec3 p = u.x * mesh->normals[mesh->indices[TriIndex*3+1]] + u.y * mesh->normals[mesh->indices[TriIndex*3+2]] + w * mesh->normals[mesh->indices[TriIndex*3+0]];
-    return GeometricInteraction{p,n,u};
+    return GeometricInteraction{p,n};
 }
 float TriangleShape::Area() const {   
     Mesh* mesh = meshList[MeshIndex];                                                   

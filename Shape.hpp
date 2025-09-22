@@ -13,8 +13,8 @@ class Mesh;
 class Shape {
 public:
     virtual AABB Bounding_box() const = 0;
-    virtual bool IntersectPred(const Ray& ray, float max = 1e30f) const = 0;
-    virtual bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max = 1e30f) const = 0;
+    virtual bool IntersectPred(const Ray& ray, float max) const = 0;
+    virtual bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max) const = 0;
     virtual float Area() const = 0;
     virtual GeometricInteraction Sample(const glm::vec2& u) const = 0;
     virtual float PDF(const GeometricInteraction& interaction) const = 0;
@@ -28,9 +28,9 @@ public:
         bbox.expand(center-rvec);
         bbox.expand(center+rvec);
     }
-    bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max = 1e30f) const override ;
+    bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max) const override ;
 
-    bool IntersectPred(const Ray& ray, float max = 1e30f) const override ;
+    bool IntersectPred(const Ray& ray, float max) const override ;
 
     AABB Bounding_box() const override{
         return bbox;
@@ -64,9 +64,9 @@ class TriangleShape : public Shape {
 public:
     TriangleShape(uint32_t meshIndex, uint32_t TriIndex) : MeshIndex(meshIndex), TriIndex(TriIndex) {}
 
-    bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max = 1e30f) const override;
+    bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max) const override;
 
-    bool IntersectPred(const Ray& ray, float max = 1e30f) const override;
+    bool IntersectPred(const Ray& ray, float max) const override;
 
     AABB Bounding_box() const override;
 
@@ -119,16 +119,16 @@ public:
         w = n / glm::dot(n,n);
     }
 
-    bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max = 1e30f) const override ;
+    bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max) const override ;
 
-    bool IntersectPred(const Ray& ray, float max = 1e30f) const override ;
+    bool IntersectPred(const Ray& ray, float max) const override ;
 
     AABB Bounding_box() const override{
         return bbox;
     }
 
     GeometricInteraction Sample(const glm::vec2& uv) const override{
-        return GeometricInteraction{Q + uv.x * u + uv.y * v, normal, uv};
+        return GeometricInteraction{Q + uv.x * u + uv.y * v, normal};
     }
 
     float Area() const override{                                                      
@@ -149,7 +149,7 @@ public:
     }
 private:
 
-    static bool is_interior(float a, float b, GeometricInteraction& interaction) {
+    static bool is_interior(float a, float b, SurfaceInteraction& interaction) {
         if (a<0 || a>1 || b<0 || b>1)
             return false;
         interaction.uv = {a,b};

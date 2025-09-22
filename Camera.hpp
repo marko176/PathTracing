@@ -2,10 +2,10 @@
 #include "Film.hpp"
 class Camera {
 public: 
-    Camera(const glm::dvec3& lookFrom, const glm::dvec3& lookAt, double fov,Film* film) : Camera(lookFrom,lookAt,fov,film,0,0) {
+    Camera(const glm::dvec3& lookFrom, const glm::dvec3& lookAt, double fov,const std::shared_ptr<Film>& film) : Camera(lookFrom,lookAt,fov,film,0,0) {
 
     };
-    Camera(const glm::dvec3& lookFrom, const glm::dvec3& lookAt, double fov,Film* film, double FocusAngle,double FocusDistance) : lookFrom(lookFrom), lookAt(lookAt) , Fov(fov) , film(film), FocusAngle(FocusAngle), FocusDistance(FocusDistance) {
+    Camera(const glm::dvec3& lookFrom, const glm::dvec3& lookAt, double fov,const std::shared_ptr<Film>& film, double FocusAngle,double FocusDistance) : lookFrom(lookFrom), lookAt(lookAt) , Fov(fov) , film(film), FocusAngle(FocusAngle), FocusDistance(FocusDistance) {
         w = glm::normalize(lookFrom-lookAt);
         u = glm::normalize(glm::cross({0,1,0},w));//up is {0,1,0}
         v = glm::cross(w,u);
@@ -29,14 +29,14 @@ public:
         return Ray(lookFrom + offset,glm::normalize(direction - offset));
     }
 
-    Film* GetFilm() const {
+    std::shared_ptr<Film> GetFilm() const {
         return film;
     }
 protected:
     glm::dvec3 lookFrom;
     glm::dvec3 lookAt;
     double Fov;
-    Film* film;
+    std::shared_ptr<Film> film;
     double FocusAngle;
     double FocusDistance;
     glm::dvec3 w;

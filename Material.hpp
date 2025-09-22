@@ -433,23 +433,6 @@ class lambertian : public Material {
         }
         return tex->alpha(u,v);//should just give 1 channel tex->getChannel( 3 );
     }
-    /*
-    glm::vec3 BiLerp(const glm::vec2& uv,const std::shared_ptr<Texture>& texture) const{
-        float x = uv.x*texture->resolutionX() - 0.5f;
-        float y = uv.y*texture->resolutionY() - 0.5f;
-        int xi = std::floor(x);
-        int yi = std::floor(y);
-        float dx = x - xi;
-        float dy = y - yi;
-
-        glm::vec3 a = texture->texel(xi,yi);
-        glm::vec3 b = texture->texel(xi+1,yi);
-        glm::vec3 c = texture->texel(xi,yi+1);
-        glm::vec3 d = texture->texel(xi+1,yi+1);
-        return ((1 - dx) * (1 - dy) * a + dx * (1 - dy) * b +
-               (1 - dx) *      dy  * c + dx *      dy  * d);
-    }
-    */
 
     glm::vec3 sample_normalMap(const SurfaceInteraction& interaction) const final {
         if(norm == nullptr)return interaction.ns;

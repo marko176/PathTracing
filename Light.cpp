@@ -35,7 +35,7 @@ glm::vec3 PointLight::L(const GeometricInteraction& interaction, const Ray& ray)
     return color;
 }
 LightSample PointLight::sample(const glm::vec2& uv) const{
-    return {GeometricInteraction{p,glm::vec3{1,1,1},glm::vec2{0,0}},glm::vec3{0,0,0}};
+    return {GeometricInteraction{p,glm::vec3{1,1,1}},glm::vec3{0,0,0}};
 }
 float PointLight::PDF(const GeometricInteraction& interaction) const{
     return 0;
@@ -97,7 +97,7 @@ float TransformedLight::PDF(const GeometricInteraction& interaction) const {
     glm::vec3 n = glm::normalize(glm::vec3(invTransform * glm::vec4(interaction.n, 0.0f)));
 
     // Compute object-space PDF
-    return light->PDF(GeometricInteraction(p,n,interaction.uv));
+    return light->PDF(GeometricInteraction(p,n));
 }
 float TransformedLight::PDF(const GeometricInteraction& interaction, const Ray& ray) const {
     glm::vec3 p = glm::vec3(invTransform * glm::vec4(interaction.p, 1.0f));
@@ -105,7 +105,7 @@ float TransformedLight::PDF(const GeometricInteraction& interaction, const Ray& 
     Ray localRay(glm::vec3(invTransform * glm::vec4(ray.origin,1)),
                     glm::normalize(glm::vec3(invTransform * glm::vec4(ray.dir,0))));
 
-    return light->PDF(GeometricInteraction(p,n,interaction.uv),localRay);
+    return light->PDF(GeometricInteraction(p,n),localRay);
 }
 float TransformedLight::Power() const  {
     return light->Power();

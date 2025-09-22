@@ -5,7 +5,7 @@ bool Scene::IntersectPred(const Ray& ray, float max) const {
 }
 bool Scene::IntersectTr(Ray ray, SurfaceInteraction& interaction, glm::vec3& Tr, float max) const {
     Tr = {1,1,1};
-    while(true){
+    while(max > 0){
         bool hit = Intersect(ray,interaction,max);
         if(ray.medium)
             Tr *= ray.medium->Tr(ray,interaction.t);
