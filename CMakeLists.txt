@@ -27,7 +27,8 @@ add_executable(PathTracer.exe
             Light.cpp
             LightSampler.cpp
             Scene.cpp
-            Integrators.cpp)
+            Integrators.cpp
+            PhaseFunction.cpp)
 
 target_include_directories(PathTracer.exe PRIVATE ${CMAKE_SOURCE_DIR} "/usr/local/include/OpenImageDenoise")
 target_link_libraries(PathTracer.exe PRIVATE assimp "/usr/local/lib/libOpenImageDenoise.so")

@@ -1,5 +1,5 @@
 #include "Scene.hpp"
-
+#include "Medium.hpp"
 bool Scene::IntersectPred(const Ray& ray, float max) const {
     return scene_bvh.IntersectPred(ray,max);
 }
@@ -8,10 +8,11 @@ bool Scene::IntersectTr(Ray ray, SurfaceInteraction& interaction, glm::vec3& Tr,
     while(max > 0){
         bool hit = Intersect(ray,interaction,max);
         if(ray.medium)
-            Tr *= ray.medium->Tr(ray,interaction.t);
+            Tr *= ray.medium->Tr(ray,interaction.t);//can be here becouse if t is inf we didnt hit
         
         if(!hit)
             return false;
+
         if(interaction.mat != nullptr)
             return true;
         ray = Ray(ray.at(interaction.t),ray.dir,interaction.getMedium(ray.dir));
@@ -37,4 +38,12 @@ void Scene::PreProcess() {
 
 AABB Scene::BoundingBox() const {
     return scene_bvh.BoundingBox();
+}
+
+std::shared_ptr<Medium> Scene::GetMedium() const {
+    return sceneMedium;
+}
+
+void Scene::SetMedium(const std::shared_ptr<Medium>& medium) {
+    sceneMedium = medium;
 }

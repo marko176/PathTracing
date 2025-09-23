@@ -1,8 +1,12 @@
 #pragma once
 #include "Hit_record.hpp"
 #include "Primitive.hpp"
+class Medium;
 class Scene {
 public:
+
+    Scene() = default;
+    Scene(const std::shared_ptr<Medium>& medium) : sceneMedium(medium) {}
 
     bool IntersectPred(const Ray& ray, float max = std::numeric_limits<float>::infinity()) const;
 
@@ -15,10 +19,15 @@ public:
     std::vector<std::shared_ptr<Light>> GetLights() const;
     
     void PreProcess();
-    
+
+    std::shared_ptr<Medium> GetMedium() const;
+
+    void SetMedium(const std::shared_ptr<Medium>& medium);
+
     AABB BoundingBox() const;
 
     TLAS scene_bvh;//tlas bvh should take shared ptrs / unique ptrs and own them
 private:
     std::vector<std::shared_ptr<Primitive>> primitives;
+    std::shared_ptr<Medium> sceneMedium;
 };

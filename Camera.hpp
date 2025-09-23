@@ -1,11 +1,12 @@
 #pragma once
 #include "Film.hpp"
+#include "Medium.hpp"
 class Camera {
 public: 
     Camera(const glm::dvec3& lookFrom, const glm::dvec3& lookAt, double fov,const std::shared_ptr<Film>& film) : Camera(lookFrom,lookAt,fov,film,0,0) {
 
     };
-    Camera(const glm::dvec3& lookFrom, const glm::dvec3& lookAt, double fov,const std::shared_ptr<Film>& film, double FocusAngle,double FocusDistance) : lookFrom(lookFrom), lookAt(lookAt) , Fov(fov) , film(film), FocusAngle(FocusAngle), FocusDistance(FocusDistance) {
+    Camera(const glm::dvec3& lookFrom, const glm::dvec3& lookAt, double fov,const std::shared_ptr<Film>& film, double FocusAngle,double FocusDistance, const std::shared_ptr<Medium>& medium = nullptr) : lookFrom(lookFrom), lookAt(lookAt) , Fov(fov) , film(film), FocusAngle(FocusAngle), FocusDistance(FocusDistance), cameraMedium(medium) {
         w = glm::normalize(lookFrom-lookAt);
         u = glm::normalize(glm::cross({0,1,0},w));//up is {0,1,0}
         v = glm::cross(w,u);
@@ -19,18 +20,26 @@ public:
         double v_coord = p.y / double(film->Resolution().y);
         glm::dvec3 direction = glm::normalize(-w + (2.0f * u_coord - 1.0f) * halfWidth * u + (2.0f * v_coord - 1.0f) * halfHeight * v);
         if(FocusDistance == 0 || FocusAngle == 0){
-            return Ray(lookFrom,direction);
+            return Ray(lookFrom,direction,GetMedium());
         }
         glm::vec2 pLens = inUnitDisk(LensUV);
         glm::dvec3 defocus_disk_u = u * defocusRadius;
         glm::dvec3 defocus_disk_v = v * defocusRadius;
         direction = direction*FocusDistance;
         glm::dvec3 offset = glm::dvec3(pLens.x) * defocus_disk_u + glm::dvec3(pLens.y) * defocus_disk_v;
-        return Ray(lookFrom + offset,glm::normalize(direction - offset));
+        return Ray(lookFrom + offset,glm::normalize(direction - offset),GetMedium());
     }
 
     std::shared_ptr<Film> GetFilm() const {
         return film;
+    }
+
+    std::shared_ptr<Medium> GetMedium() const {
+        return cameraMedium;
+    }
+
+    void SetMedium(const std::shared_ptr<Medium>& medium) {
+        cameraMedium = medium;
     }
 protected:
     glm::dvec3 lookFrom;
@@ -45,4 +54,5 @@ protected:
     double defocusRadius;
     double halfWidth;
     double halfHeight;
+    std::shared_ptr<Medium> cameraMedium;
 };

@@ -10,7 +10,7 @@ class Material;
 class Medium;
 struct hittable;
 struct LightObject;
-
+class PhaseFunction;
 class Light;
 
 struct GeometricInteraction {
@@ -62,11 +62,9 @@ struct MediumInteraction : public GeometricInteraction {
     MediumInteraction() = default;
 
     bool isValid() const {
-        //phasefunc != null
-        return valid;
+        return phaseFunction != nullptr;
     }
-    bool valid = false;
-    //phase function
+    std::shared_ptr<PhaseFunction> phaseFunction;
 };
 
 

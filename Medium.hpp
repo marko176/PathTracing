@@ -1,6 +1,7 @@
 #pragma once
 #include "Ray.hpp"
 #include "Hit_record.hpp"
+#include "PhaseFunction.hpp"
 class Medium{
 public:
     virtual glm::vec3 Tr(const Ray& ray, float t) const = 0;
@@ -10,8 +11,8 @@ public:
 
 class HomogeneusMedium : public Medium {
 public:
-    HomogeneusMedium(const glm::vec3& sigma_a, const glm::vec3& sigma_s,float density) : sigma_a(density*sigma_a) , sigma_s(density*sigma_s), sigma_t(density*(sigma_a+sigma_s)){
-
+    HomogeneusMedium(const glm::vec3& sigma_a, const glm::vec3& sigma_s,const std::shared_ptr<PhaseFunction> phaseFunction,float density = 1.0f) : sigma_a(density*sigma_a) , sigma_s(density*sigma_s), sigma_t(density*(sigma_a+sigma_s)), phaseFunction(phaseFunction){
+        
     }
 
     glm::vec3 Tr(const Ray& ray, float t) const override {
@@ -24,10 +25,10 @@ public:
 
         float scatterDist = std::min<float>(-std::log(1.0 - random_float()) / sigma_t[channel], t);//use sampeler variable
         bool sampledMedium = scatterDist < t;
-        interaction.valid = false;
+        interaction.phaseFunction = nullptr;
         if(sampledMedium){
             interaction = MediumInteraction(ray.at(scatterDist),{0,0,0},ray.medium);//should set medium to itself but it is shared ptr?
-            interaction.valid = true;
+            interaction.phaseFunction = phaseFunction;
         }
 
         glm::vec3 tr = Tr(ray,scatterDist);
@@ -44,4 +45,5 @@ private:
     glm::vec3 sigma_a;
     glm::vec3 sigma_s;
     glm::vec3 sigma_t;
+    std::shared_ptr<PhaseFunction> phaseFunction;
 };

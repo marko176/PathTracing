@@ -10,7 +10,7 @@ bool Integrator::Unoccluded(const Ray& ray, float t) const {
     return !scene->IntersectPred(ray,t);
 }
 
-bool Integrator::Intersect(const Ray& ray, SurfaceInteraction& interaction, float max = std::numeric_limits<float>::infinity()) const {
+bool Integrator::Intersect(const Ray& ray, SurfaceInteraction& interaction, float max) const {
     return scene->Intersect(ray,interaction,max);
 }
 
@@ -195,23 +195,28 @@ glm::vec3 VolPathIntegrator::Li(Ray ray) const {
         MediumInteraction medInteraction;
         
         if(!Intersect(ray,interaction,std::numeric_limits<float>::infinity())){
+            //doesnt work well for scene mediums -> dist = inf -> Tr = 0
             float a = 0.5f*(ray.dir.y+1.0f);
             return output + color * 1.5f * ((1.0f-a)*glm::vec3(1,0.85,0.55) + a*glm::vec3(0.45,0.65,1));
         }
 
-        if(ray.medium){
+        if(!ray.medium)
+            ray.medium = scene->GetMedium();
+
+        if(ray.medium)
             color *= ray.medium->Sample(ray,interaction.t,medInteraction);
-        }
+        //doesnt work form medium to medium better would be to get medium here?
         
         glm::vec2 random_variables = sampler->get2D();
         glm::vec2 light_random_variables = sampler->get2D();
         float light_selection_random_variable = sampler->get1D();
         float rr_random_variable = sampler->get1D();
+        glm::vec2 phase_random_variables = sampler->get2D();
         if(medInteraction.isValid()){
-            Ray newRay = Ray(medInteraction.p,random_unit_vector());
             output += color * SampleLdMedium(ray,medInteraction,light_selection_random_variable,light_random_variables);
-            ray = newRay;
-            ray.medium = interaction.getMedium(ray.dir);
+            glm::vec3 scattered;
+            medInteraction.phaseFunction->Sample(ray.dir,scattered,phase_random_variables);
+            ray = Ray(medInteraction.p,scattered,interaction.getMedium(scattered));
             spec = false;
         }else{
             glm::vec3 L = {0,0,0};
@@ -240,8 +245,13 @@ glm::vec3 VolPathIntegrator::Li(Ray ray) const {
             if(!interaction.mat->scatter(ray,interaction,new_ray,random_variables)){
                 return output;//absorbed   
             }
-            
-            new_ray.medium = interaction.getMedium(new_ray.dir);
+
+            //this helps when medium intersect another object
+            if(glm::dot(ray.dir,interaction.ns)>0) {
+                new_ray.medium = interaction.getMedium(new_ray.dir);
+            }else{
+                new_ray.medium = ray.medium;
+            }
     
             if(interaction.mat->is_specular(interaction)){
                 color *= interaction.mat->f_PDF(ray,interaction,new_ray);
@@ -354,18 +364,20 @@ glm::vec3 VolPathIntegrator::SampleLdMedium(const Ray& ray,const MediumInteracti
     Ray shadow_ray(interaction.p, glm::normalize(lightDir),ray.medium);
     if(scene->IntersectTr(shadow_ray,intr,Tr,t))return {0,0,0};
 
+
+    float pPhase = interaction.phaseFunction->PDF(ray.dir,shadow_ray.dir);
     if(sampled_light->isDelta()){
         float light_pdf = lightSampler->PMF(sampled_light);
         if(light_pdf <= 0)return {0,0,0};
-        return Tr * sampled_light->L({},shadow_ray) * 1.0f/(4*std::numbers::pi_v<float>) / light_pdf;
+        return Tr * sampled_light->L({},shadow_ray) * pPhase / light_pdf;
     }else{
         float light_pdf = lightSampler->PMF(sampled_light) * sampled_light->PDF(lightSample.interaction,shadow_ray);
         if(light_pdf <= 0)return {0,0,0};
         float w2 = light_pdf*light_pdf;
-        float w1 = 1.0f/(4*std::numbers::pi_v<float>);
+        float w1 = pPhase;
         w1 = w1*w1;
         float w_light = (w2) / (w1 + w2);
-        return Tr * sampled_light->L(lightSample.interaction,shadow_ray) * 1.0f/(4*std::numbers::pi_v<float>) * w_light / light_pdf;
+        return Tr * sampled_light->L(lightSample.interaction,shadow_ray) * pPhase * w_light / light_pdf;
         
     }
     return {0,0,0};
