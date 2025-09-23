@@ -504,6 +504,7 @@ void temp(){
     auto light = std::make_shared<lambertian>(glm::vec3(0));
     auto ch =  std::make_shared<lambertian>(glm::vec3{.2,.3,.1});
     auto glass = std::make_shared<dielectric>(1.5,glm::vec3(1));
+    auto checker = std::make_shared<lambertian>(std::make_shared<CheckerTexture>(white,green,glm::vec2{0.02}));
     ch =  std::make_shared<lambertian>(std::make_shared<CheckerTexture>(white,green,glm::vec2{0.001,0.001}));
     std::shared_ptr<AreaLight> area = std::make_shared<AreaLight>(std::make_shared<QuadShape>(glm::vec3(0.3,1.5,0), glm::vec3(-0.15,0,0), glm::vec3(0,0,-0.15)),glm::vec3(600),false);
     
@@ -516,7 +517,7 @@ void temp(){
     //scene->Add(new GeometricPrimitive(new SphereShape(glm::vec3(-1,0,-1),0.5),std::make_shared<dielectric>(1.5),nullptr));
     //scene->Add(new GeometricPrimitive(new SphereShape(glm::vec3(-1,0,-1),0.4),std::make_shared<dielectric>(1/1.5),nullptr));
     //scene->Add(new GeometricPrimitive(new SphereShape(glm::vec3(1,0,-1),0.5),std::make_shared<metal>(glm::vec3(0.8, 0.6, 0.2)),nullptr));
-    auto checker = std::make_shared<lambertian>(std::make_shared<CheckerTexture>(white,green,glm::vec2{0.02}));
+    
     scene->Add(std::make_shared<GeometricPrimitive>(std::make_shared<SphereShape>(glm::vec3(1,0,-1),0.5),nullptr,nullptr,std::make_shared<HomogeneusMedium>(glm::vec3{0.01f, 0.9f, 0.9f},glm::vec3{1.0f, 0.1f, 0.1f},25.0f)));
         //d_list[1] = new Sphere{glm::vec3(-0.8,1,-0.5), 0.5,
         //                        new Light(glm::vec3(8, 8, 8))};
@@ -525,7 +526,7 @@ void temp(){
     scene->PreProcess();
     ls->Add(scene->GetLights());
     //ls->Add(std::make_shared<PointLight>(glm::vec3(0.3,1.5,0),glm::vec3(6)));
-    ls->PreProcess(scene->Bounding_box());
+    ls->PreProcess(scene->BoundingBox());
     
     double fov = 1.7;
 
@@ -539,7 +540,7 @@ void temp(){
     lookat = {0,0,0};
 
 
-    int samples = 64;//64*16*4 -> 4 hours
+    int samples = 100*4;//64*16*4 -> 4 hours
     int sqrts = std::sqrt(samples);
 
     std::shared_ptr<Film> film = std::make_shared<Film>(glm::ivec2{1920,1080},std::make_shared<MitchellFilter>());
@@ -577,7 +578,7 @@ void dragon(){
     std::shared_ptr<LightSampler> ls = std::make_shared<PowerLightSampler>();
     scene.PreProcess();
     ls->Add(scene.GetLights());
-    ls->PreProcess(scene.Bounding_box());
+    ls->PreProcess(scene.BoundingBox());
     
 
     //renderPrim2(scene,1920,1080,ls,"RenderedScene.ppm");
@@ -662,7 +663,7 @@ int main(){
     */
     scene.PreProcess();
     ls->Add(scene.GetLights());
-    ls->PreProcess(scene.Bounding_box());
+    ls->PreProcess(scene.BoundingBox());
     
 
     //renderPrim(scene,1920,1080,LIsampler);

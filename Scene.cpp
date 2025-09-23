@@ -35,6 +35,6 @@ void Scene::PreProcess() {
     scene_bvh = TLAS(primitives);
 }
 
-AABB Scene::Bounding_box() const {
-    return scene_bvh.Bounding_box();
+AABB Scene::BoundingBox() const {
+    return scene_bvh.BoundingBox();
 }

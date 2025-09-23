@@ -16,7 +16,7 @@ public:
     
     void PreProcess();
     
-    AABB Bounding_box() const;
+    AABB BoundingBox() const;
 
     TLAS scene_bvh;//tlas bvh should take shared ptrs / unique ptrs and own them
 private:

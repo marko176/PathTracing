@@ -10,6 +10,10 @@ bool Integrator::Unoccluded(const Ray& ray, float t) const {
     return !scene->IntersectPred(ray,t);
 }
 
+bool Integrator::Intersect(const Ray& ray, SurfaceInteraction& interaction, float max = std::numeric_limits<float>::infinity()) const {
+    return scene->Intersect(ray,interaction,max);
+}
+
 void TileIntegrator::Render() const {
     unsigned int threads = std::thread::hardware_concurrency();
     std::vector<std::thread> workers;
@@ -87,7 +91,7 @@ glm::vec3 PathIntegrator::Li(Ray ray) const {
     while(depth++<maxDepth && (color.x + color.y + color.z) != 0.0f){
         SurfaceInteraction interaction;
         
-        if(!scene->Intersect(ray,interaction,1e30f)){
+        if(!Intersect(ray,interaction,1e30f)){
             float a = 0.5f*(ray.dir.y+1.0f);
             return output + color * 1.5f * ((1.0f-a)*glm::vec3(1,0.85,0.55) + a*glm::vec3(0.45,0.65,1));
         }
@@ -190,7 +194,7 @@ glm::vec3 VolPathIntegrator::Li(Ray ray) const {
         SurfaceInteraction interaction;
         MediumInteraction medInteraction;
         
-        if(!scene->Intersect(ray,interaction,std::numeric_limits<float>::infinity())){
+        if(!Intersect(ray,interaction,std::numeric_limits<float>::infinity())){
             float a = 0.5f*(ray.dir.y+1.0f);
             return output + color * 1.5f * ((1.0f-a)*glm::vec3(1,0.85,0.55) + a*glm::vec3(0.45,0.65,1));
         }
@@ -286,7 +290,7 @@ glm::vec3 VolPathIntegrator::SampleLd(const Ray& ray,const SurfaceInteraction& i
         lightDir = lightSample.interaction.p - interaction.p;
         t = glm::length(lightDir) - 0.001f;
     }
-    Ray shadow_ray(interaction.p, glm::normalize(lightDir));
+    Ray shadow_ray(interaction.p, glm::normalize(lightDir),ray.medium);
     if(glm::dot(interaction.ns,shadow_ray.dir) <= 0 || scene->IntersectTr(shadow_ray,intr,Tr,t))return {0,0,0};
 
     if(sampled_light->isDelta()){
@@ -347,7 +351,7 @@ glm::vec3 VolPathIntegrator::SampleLdMedium(const Ray& ray,const MediumInteracti
         lightDir = lightSample.interaction.p - interaction.p;
         t = glm::length(lightDir) - 0.001f;
     }
-    Ray shadow_ray(interaction.p, glm::normalize(lightDir));
+    Ray shadow_ray(interaction.p, glm::normalize(lightDir),ray.medium);
     if(scene->IntersectTr(shadow_ray,intr,Tr,t))return {0,0,0};
 
     if(sampled_light->isDelta()){

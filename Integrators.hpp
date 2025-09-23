@@ -14,6 +14,7 @@ public:
     Integrator(const std::shared_ptr<Scene>& scene, const std::shared_ptr<Camera>& camera,const std::shared_ptr<Sampler>& sampler) : scene(scene), camera(camera), sampler(sampler) {}
     bool Unoccluded(const Ray& ray, float t) const;
     virtual glm::vec3 Li(Ray ray) const = 0;
+    bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max = std::numeric_limits<float>::infinity()) const ;
 protected:
     std::shared_ptr<Scene> scene;
     std::shared_ptr<Camera> camera;

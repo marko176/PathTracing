@@ -54,15 +54,18 @@ Model::Model(const std::string& path,const std::shared_ptr<Material>& material, 
 
 
 
-auto Model::load_model(std::string path) -> bool {
+auto Model::load_model(const std::string& path) -> bool {
     Assimp::Importer importer;
 
     const aiScene* scene = nullptr;
+    model_path = path.substr(0,path.find_last_of('/'));
+    model_path.append("/");
     int index = path.find_last_of('.');
     std::string suffix;
     if(index != std::string::npos){
         suffix = path.substr(index);
     }
+    
     if(suffix == ".assbin"){
         scene = importer.ReadFile(path,0);
         if(!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode){
@@ -91,16 +94,13 @@ auto Model::load_model(std::string path) -> bool {
             importer.FreeScene();
             return false;
         }
-        model_path = path.substr(0,path.find_last_of('/'));
-        model_path.append("/");
+
         Assimp::Exporter exporter;
-        exporter.Export(scene,"assbin",model_path + "temp_other.assbin");//model_path + temo.assbin
+        exporter.Export(scene,"assbin",model_path + "temp_other.assbin");//model_path + temp.assbin
     }
 
 
 
-    model_path = path.substr(0,path.find_last_of('/'));
-    model_path.append("/");
     std::cout<<"MODEL PATH"<<model_path<<"\n";
     process_node(scene->mRootNode,scene);
     importer.FreeScene();
@@ -118,6 +118,10 @@ auto Model::process_node(aiNode* node, const aiScene* scene) -> void {
     }
 
 }
+
+
+//we should pass function to process mesh!
+//std::shared_ptr<Mesh> foo(aiMesh* mesh, const aiScene* scene){}
 auto Model::process_mesh(aiMesh* mesh, const aiScene* scene) -> std::shared_ptr<Mesh>{
 
     int n = mesh->mNumVertices;
@@ -281,6 +285,6 @@ auto Model::process_mesh(aiMesh* mesh, const aiScene* scene) -> std::shared_ptr<
     return std::make_shared<Mesh>(indices,vertices,tangents,bitangents,normals,texCoords,mat);
 }
 
-auto Model::get_meshes() const -> const std::vector<std::shared_ptr<Mesh>>& {
+auto Model::GetMeshes() const -> const std::vector<std::shared_ptr<Mesh>>& {
     return meshes;
 }

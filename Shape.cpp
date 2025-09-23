@@ -87,34 +87,21 @@ bool TriangleShape::Intersect(const Ray& ray, SurfaceInteraction& interaction,fl
     bool hit_triangle = glm::intersectRayTriangle(ray.origin,ray.dir,mesh->vertices[index0]
                                                                     ,mesh->vertices[index1]
                                                                     ,mesh->vertices[index2],baryPos,t);
-    if(!hit_triangle || t > max || t <= 0.001f)return false;
+    if(!hit_triangle || t > max || t < 0.001f)return false;
         
     float u = baryPos.x;
     float v = baryPos.y;
     float w = 1.0f - u - v;
     
-    //mesh->normal.at(u,v);
-
-
-    // DONT KNOW IF THIS IS CORRECT BUT HELPS TREE IN SAN MIGUEL -> NdotV is > 0
-    //if (glm::dot(ray.dir,norm_normal)>0.0f)
-        //norm_normal = -norm_normal;    
     glm::vec2 uv =  u * mesh->texCoords[index1] +
                     v * mesh->texCoords[index2]+
                     w * mesh->texCoords[index0];
-    /*
-    if(std::shared_ptr<Texture> alpha = mesh->material->getAlphaMask()){
-        float a = alpha->color_value(uv.x,uv.y,glm::vec3(0,0,0)).x;
-        //maybe just if < 0.5 discard
-        if(random_float()>a)continue;
-    } 
-    */
+
     if(random_float()>mesh->material->Alpha(u,v))return 0;
     glm::vec3 norm_normal = glm::normalize( u * mesh->normals[index1] +
                                             v * mesh->normals[index2] +
                                             w * mesh->normals[index0]);
                                             
-    //if(mesh->normals[mesh->indices[TriIndex*3]] != mesh->normals[index1])std::cout<<"FAIL";
     glm::vec3 e1 = mesh->vertices[index1] - mesh->vertices[index0];
     glm::vec3 e2 = mesh->vertices[index2] - mesh->vertices[index0];
     glm::vec3 N = glm::normalize(glm::cross(e1,e2));
@@ -126,6 +113,8 @@ bool TriangleShape::Intersect(const Ray& ray, SurfaceInteraction& interaction,fl
     interaction.t = t;
     interaction.ns = norm_normal;  
     interaction.uv = uv;
+
+    //if angle small do just ray.at(t- eps) ? 
     interaction.p = ray.at(t) + 0.0005f * N;//was 0.0005 * N should be 0.0001f for dragon
     //interaction.n = N;
     interaction.AreaLight = nullptr;//(hittable*)&primitives[TriIndex];
@@ -177,24 +166,16 @@ bool TriangleShape::IntersectPred(const Ray& ray, float max) const {
         norm_normal = -norm_normal;
         N*=-1;
     }
-    // DONT KNOW IF THIS IS CORRECT BUT HELPS TREE IN SAN MIGUEL -> NdotV is > 0
-    //if (glm::dot(ray.dir,norm_normal)>0.0f)
-        //norm_normal = -norm_normal;    
+  
     glm::vec2 uv =  u * mesh->texCoords[index1] +
                     v * mesh->texCoords[index2]+
                     w * mesh->texCoords[index0];
-    /*
-    if(std::shared_ptr<Texture> alpha = mesh->material->getAlphaMask()){
-        float a = alpha->color_value(uv.x,uv.y,glm::vec3(0,0,0)).x;
-        //maybe just if < 0.5 discard
-        if(random_float()>a)continue;
-    } 
-    */
-    if(random_float()>mesh->material->Alpha(u,v))return 0;
-    return true;
+
+    //if(random_float()>mesh->material->Alpha(u,v))return false;
+    return random_float()<=mesh->material->Alpha(u,v);
 }
 
-AABB TriangleShape::Bounding_box() const {
+AABB TriangleShape::BoundingBox() const {
     Mesh* mesh = meshList[MeshIndex];
     AABB bbox(mesh->vertices[mesh->indices[TriIndex*3+0]]);
     bbox.expand(mesh->vertices[mesh->indices[TriIndex*3+1]]);
@@ -265,7 +246,5 @@ bool QuadShape::IntersectPred(const Ray& ray, float max) const {
     glm::vec3 planar_hit = ray.at(t) - Q;
     float alpha = glm::dot(w,glm::cross(planar_hit,v));
     float beta = glm::dot(w,glm::cross(u,planar_hit));
-    if(!is_interior(alpha,beta))return false;
-    return true;
-
+    return is_interior(alpha,beta);
 }

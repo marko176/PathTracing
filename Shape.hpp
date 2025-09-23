@@ -12,7 +12,7 @@
 class Mesh;
 class Shape {
 public:
-    virtual AABB Bounding_box() const = 0;
+    virtual AABB BoundingBox() const = 0;
     virtual bool IntersectPred(const Ray& ray, float max) const = 0;
     virtual bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max) const = 0;
     virtual float Area() const = 0;
@@ -32,7 +32,7 @@ public:
 
     bool IntersectPred(const Ray& ray, float max) const override ;
 
-    AABB Bounding_box() const override{
+    AABB BoundingBox() const override{
         return bbox;
     }
 
@@ -68,7 +68,7 @@ public:
 
     bool IntersectPred(const Ray& ray, float max) const override;
 
-    AABB Bounding_box() const override;
+    AABB BoundingBox() const override;
 
     GeometricInteraction Sample(const glm::vec2& u) const override;
 
@@ -123,7 +123,7 @@ public:
 
     bool IntersectPred(const Ray& ray, float max) const override ;
 
-    AABB Bounding_box() const override{
+    AABB BoundingBox() const override{
         return bbox;
     }
 

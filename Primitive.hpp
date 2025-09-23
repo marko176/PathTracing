@@ -6,7 +6,7 @@
 
 class Primitive {
 public:
-    virtual AABB Bounding_box() const = 0;
+    virtual AABB BoundingBox() const = 0;
     virtual bool IntersectPred(const Ray& ray, float max = std::numeric_limits<float>::infinity()) const = 0;
     virtual bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max = std::numeric_limits<float>::infinity()) const = 0;
     virtual std::vector<std::shared_ptr<Light>> GetLights() const = 0;
@@ -16,11 +16,9 @@ public:
 class GeometricPrimitive : public Primitive{
 public:
  
-    GeometricPrimitive(const std::shared_ptr<Shape>& primitive_shape, const std::shared_ptr<Material>& material,const std::shared_ptr<AreaLight>& areaLight = nullptr,const std::shared_ptr<Medium>& medium = nullptr) : shape{primitive_shape} , material{material} , areaLight{areaLight} , medium(medium) {
-
-    }
+    GeometricPrimitive(const std::shared_ptr<Shape>& primitive_shape, const std::shared_ptr<Material>& material,const std::shared_ptr<AreaLight>& areaLight = nullptr,const std::shared_ptr<Medium>& medium = nullptr) : shape{primitive_shape} , material{material} , areaLight{areaLight} , medium(medium) {}
     
-    AABB Bounding_box() const final ;
+    AABB BoundingBox() const final ;
     bool IntersectPred(const Ray& ray, float max = std::numeric_limits<float>::infinity()) const final ;
     bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max = std::numeric_limits<float>::infinity()) const final ;
     std::vector<std::shared_ptr<Light>> GetLights() const final ;
@@ -37,7 +35,7 @@ public:
     TransformedPrimitive(const std::shared_ptr<Primitive>& primitive,const glm::mat4& transform) : primitive(primitive), transform(transform) , invTransform(glm::inverse(transform)) {
 
     }
-    AABB Bounding_box() const final ;
+    AABB BoundingBox() const final ;
     bool IntersectPred(const Ray& ray, float max = std::numeric_limits<float>::infinity()) const final ;
     bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max = std::numeric_limits<float>::infinity()) const final ;
     std::vector<std::shared_ptr<Light>> GetLights() const final ;
@@ -84,11 +82,11 @@ struct BVH : public Primitive{
         std::vector<PrimitiveInfo> primitiveInfo;
         primitiveInfo.reserve(prims.size());
         for(int i = 0;i<prims.size();i++){
-            if constexpr(requires { prims[i]->Bounding_box(); }){
-                AABB bbox = prims[i]->Bounding_box();
+            if constexpr(requires { prims[i]->BoundingBox(); }){
+                AABB bbox = prims[i]->BoundingBox();
                 primitiveInfo.emplace_back(i,bbox);
             }else{
-                AABB bbox = prims[i].Bounding_box();
+                AABB bbox = prims[i].BoundingBox();
                 primitiveInfo.emplace_back(i,bbox);
             }
         }
@@ -310,7 +308,7 @@ struct BVH : public Primitive{
         return lights;
     }
 
-    AABB Bounding_box() const final{
+    AABB BoundingBox() const final{
         return nodes.empty() ? AABB{} : nodes[0].bbox;
     }
 
@@ -361,7 +359,7 @@ struct TLAS_BVH_Prim : public Primitive{
         int index = nodes.size();
         BVH_NODE& node = nodes.emplace_back();
         for(int i = first_triangle;i<last_triangle;i++){
-            node.bbox.expand(hittables[i]->Bounding_box());
+            node.bbox.expand(hittables[i]->BoundingBox());
         }
 
       
@@ -379,13 +377,13 @@ struct TLAS_BVH_Prim : public Primitive{
                 int left_count = 0;
                 int right_count = 0;
                 for(int i = first;i<last;i++){
-                    float triangle_centroid = (hittables[i]->Bounding_box().max[axis]+hittables[i]->Bounding_box().min[axis])/2;
+                    float triangle_centroid = (hittables[i]->BoundingBox().max[axis]+hittables[i]->BoundingBox().min[axis])/2;
                     if(triangle_centroid < pos){
                         left_count++;
-                        left.expand(hittables[i]->Bounding_box());
+                        left.expand(hittables[i]->BoundingBox());
                     }else{
                         right_count++;
-                        right.expand(hittables[i]->Bounding_box());
+                        right.expand(hittables[i]->BoundingBox());
                     }
                 }
                 float cost = left_count * left.area() + right_count * right.area();
@@ -414,7 +412,7 @@ struct TLAS_BVH_Prim : public Primitive{
 
             
             int mid = std::partition(hittables.begin() + first_triangle,hittables.begin() + last_triangle,[&](Primitive* h){
-                 float triangle_centroid = (h->Bounding_box().max[best_axis]+h->Bounding_box().min[best_axis])/2;
+                 float triangle_centroid = (h->BoundingBox().max[best_axis]+h->BoundingBox().min[best_axis])/2;
                 return triangle_centroid < bestPos;
             }) - hittables.begin();
         
@@ -424,7 +422,7 @@ struct TLAS_BVH_Prim : public Primitive{
         }
         return index;
     }
-    AABB Bounding_box() const override{
+    AABB BoundingBox() const override{
         return nodes[0].bbox;
     }
 

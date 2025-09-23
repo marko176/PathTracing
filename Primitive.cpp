@@ -1,7 +1,7 @@
 #include "Primitive.hpp"
 #include <chrono>
-AABB GeometricPrimitive::Bounding_box() const {
-    return shape->Bounding_box();
+AABB GeometricPrimitive::BoundingBox() const {
+    return shape->BoundingBox();
 }
 bool GeometricPrimitive::IntersectPred(const Ray& ray, float max) const {
     bool hit = shape->IntersectPred(ray,max);
@@ -22,9 +22,9 @@ std::vector<std::shared_ptr<Light>> GeometricPrimitive::GetLights() const {
     return areaLight != nullptr ? std::vector<std::shared_ptr<Light>>{areaLight} : std::vector<std::shared_ptr<Light>>{};
 }
 
-AABB TransformedPrimitive::Bounding_box() const {
+AABB TransformedPrimitive::BoundingBox() const {
     AABB bbox;
-    AABB temp = primitive->Bounding_box();
+    AABB temp = primitive->BoundingBox();
     for(int i = 0;i<8;i++){
         bbox.expand(transform * glm::vec4(temp.Corner(i),1));
     }

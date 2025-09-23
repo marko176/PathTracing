@@ -14,14 +14,17 @@ class Model : public Primitive{
     public:
     Model(const std::string& path);
     Model(const std::string& path,const std::shared_ptr<Material>& material, const std::shared_ptr<AreaLight>& areaLight, const std::shared_ptr<Medium>& medium);
-    //Model(std::vector<std::shared_ptr<Mesh>> meshes)
-    
-    auto get_meshes() const -> const std::vector<std::shared_ptr<Mesh>>&;
+    //Model(std::vector<std::shared_ptr<Mesh>> meshes);
+    //buildBLAS();
+    //hold full name not just path
+    //fix export to have fullname.assbin
+    //give virtual class for parsing to mesh
+    auto GetMeshes() const -> const std::vector<std::shared_ptr<Mesh>>&;
     bool Intersect(const Ray& ray,SurfaceInteraction& interaction, float max) const override{
         return model_bvh.Intersect(ray,interaction,max);
     }
-    AABB Bounding_box() const override{
-        return model_bvh.Bounding_box();
+    AABB BoundingBox() const override{
+        return model_bvh.BoundingBox();
     }
     
     bool IntersectPred(const Ray& ray, float max) const override{
@@ -33,7 +36,7 @@ class Model : public Primitive{
     }
 
     private:
-    auto load_model(std::string path) -> bool;
+    auto load_model(const std::string& path) -> bool;
     auto process_node(aiNode* node, const aiScene* scene) -> void;
     auto process_mesh(aiMesh* mesh, const aiScene* scene) -> std::shared_ptr<Mesh>;
 
