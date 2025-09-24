@@ -46,8 +46,8 @@ Image::~Image() {
 
 
 
-Solid_color::Solid_color(const glm::vec3& color) : albedo(color) {}
-Solid_color::Solid_color(float r,float g,float b) : albedo(r,g,b) {}
+SolidColor::SolidColor(const glm::vec3& color) : albedo(color) {}
+SolidColor::SolidColor(float r,float g,float b) : albedo(r,g,b) {}
 
 
 
@@ -58,10 +58,10 @@ Solid_color::Solid_color(float r,float g,float b) : albedo(r,g,b) {}
 
 
 
-Image_texture::Image_texture(const std::string& filename,float gammaCorrection) : image(filename,gammaCorrection) {}
+ImageTexture::ImageTexture(const std::string& filename,float gammaCorrection) : image(filename,gammaCorrection) {}
 
 /*
-glm::vec3 Image_texture::color_value(float u, float v) const {
+glm::vec3 ImageTexture::color_value(float u, float v) const {
     //glm::fract?
     u = glm::fract(u);
     v = 1.0f - glm::fract(v);
@@ -81,7 +81,7 @@ inline int wrap_index(int i, int n) {
     return m;
 }
 
-glm::vec3 Image_texture::texel(int x, int y) const {
+glm::vec3 ImageTexture::texel(int x, int y) const {
     if (!image.data) return glm::vec3(1.0f);
     // repeat wrap:
     x = wrap_index(x,image.width);
@@ -91,7 +91,7 @@ glm::vec3 Image_texture::texel(int x, int y) const {
 
 
 
-float Image_texture::alpha(float u,float v) const {
+float ImageTexture::alpha(float u,float v) const {
     u = glm::fract(u);
     v = 1.0f - glm::fract(v);
     //u = std::clamp(u,0.f,1.f);

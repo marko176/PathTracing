@@ -1,5 +1,5 @@
 #pragma once
-#include "Hit_record.hpp"
+#include "Interaction.hpp"
 #include "LightSampler.hpp"
 #include "Util.hpp"
 class Scene;
@@ -15,6 +15,7 @@ public:
     bool Unoccluded(const Ray& ray, float t) const;
     virtual glm::vec3 Li(Ray ray) const = 0;
     bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max = std::numeric_limits<float>::infinity()) const ;
+    bool IntersectTr(const Ray& ray, SurfaceInteraction& interaction, glm::vec3& Tr, float max = std::numeric_limits<float>::infinity()) const;
 protected:
     std::shared_ptr<Scene> scene;
     std::shared_ptr<Camera> camera;

@@ -1,6 +1,6 @@
 #include "Integrators.hpp"
 #include "Scene.hpp"
-#include "Hit_record.hpp"
+#include "Interaction.hpp"
 #include "Camera.hpp"
 #include "Sampler.hpp"
 #include <chrono>
@@ -12,6 +12,10 @@ bool Integrator::Unoccluded(const Ray& ray, float t) const {
 
 bool Integrator::Intersect(const Ray& ray, SurfaceInteraction& interaction, float max) const {
     return scene->Intersect(ray,interaction,max);
+}
+
+bool Integrator::IntersectTr(const Ray& ray, SurfaceInteraction& interaction, glm::vec3& Tr, float max) const {
+    return scene->IntersectTr(ray,interaction,Tr,max);
 }
 
 void TileIntegrator::Render() const {
@@ -303,7 +307,7 @@ glm::vec3 VolPathIntegrator::SampleLd(const Ray& ray,const SurfaceInteraction& i
         t = glm::length(lightDir) - 0.0001f;
     }
     Ray shadow_ray(interaction.p, glm::normalize(lightDir),ray.medium);
-    if(glm::dot(interaction.ns,shadow_ray.dir) <= 0 || scene->IntersectTr(shadow_ray,intr,Tr,t))return {0,0,0};
+    if(glm::dot(interaction.ns,shadow_ray.dir) <= 0 || IntersectTr(shadow_ray,intr,Tr,t))return {0,0,0};
     glm::vec3 f = interaction.mat->calc_attenuation(ray,interaction,shadow_ray);
     if(sampled_light->isDelta()){
         float light_pdf = lightSampler->PMF(sampled_light) * 1.0f;
@@ -364,7 +368,7 @@ glm::vec3 VolPathIntegrator::SampleLdMedium(const Ray& ray,const MediumInteracti
         t = glm::length(lightDir) - 0.0001f;
     }
     Ray shadow_ray(interaction.p, glm::normalize(lightDir),ray.medium);
-    if(scene->IntersectTr(shadow_ray,intr,Tr,t))return {0,0,0};
+    if(IntersectTr(shadow_ray,intr,Tr,t))return {0,0,0};
 
 
     float pPhase = interaction.phaseFunction->PDF(ray.dir,shadow_ray.dir);

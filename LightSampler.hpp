@@ -3,6 +3,7 @@
 #include "Primitive.hpp"
 class LightSampler {
 public:
+    virtual ~LightSampler() = default;
     virtual void Add(const std::shared_ptr<Light>& light) = 0;
     virtual void Add(const std::vector<std::shared_ptr<Light>>& lights) {
         for(const std::shared_ptr<Light>& l : lights){
@@ -17,6 +18,8 @@ public:
 
 class UniformLightSampler : public LightSampler {
 public:
+    virtual ~UniformLightSampler() = default;
+    
     void Add(const std::shared_ptr<Light>& light) override ;
 
     void Add(const std::vector<std::shared_ptr<Light>>& lights) override;
@@ -32,6 +35,8 @@ private:
 
 class PowerLightSampler : public LightSampler {
 public: 
+    virtual ~PowerLightSampler() = default;
+
     void Add(const std::shared_ptr<Light>& light) override ;
 
     void Add(const std::vector<std::shared_ptr<Light>>& lights) override;

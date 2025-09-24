@@ -1,5 +1,5 @@
 #pragma once
-#include "Hit_record.hpp"
+#include "Interaction.hpp"
 #include <concepts>
 
 template <std::floating_point T>
@@ -36,7 +36,10 @@ class Filter {
 
 class BoxFilter : public Filter {
 public:
+    virtual ~BoxFilter() = default;
+
     BoxFilter(const glm::vec2& radius = glm::vec2{0.5f}) : radius{radius}{}
+
     glm::vec2 Radius() const final {
         return radius;
     }
@@ -55,7 +58,10 @@ private:
 
 class GaussianFilter : public Filter {
 public:
+    virtual ~GaussianFilter() = default;
+
     GaussianFilter(const glm::vec2& radius = glm::vec2{1.5f}, double sigma = 0.5f) : radius{radius} , sigma{sigma} , X{Gaussian<double>(radius.x,sigma)} , Y{Gaussian<double>(radius.y,sigma)} {}
+    
     glm::vec2 Radius() const final {
         return radius;
     }
@@ -76,7 +82,10 @@ private:
 
 class MitchellFilter : public Filter {
 public:
+    virtual ~MitchellFilter() = default;
+
     MitchellFilter(const glm::vec2& radius = glm::vec2{1.5f}, double b = 1.0/3.0, double c = 1.0/3.0) : radius{radius} , b{b} , c{c} {}
+    
     glm::vec2 Radius() const final {
         return radius;
     }
@@ -105,7 +114,10 @@ private:
 
 class LanczosFilter : public Filter{
 public:
+    virtual ~LanczosFilter() = default;
+
     LanczosFilter(const glm::vec2& radius = glm::vec2{1.5f}, double tau = 3) : radius(radius), tau(tau) {}
+    
     glm::vec2 Radius() const final {
         return radius;
     }

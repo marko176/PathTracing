@@ -5,7 +5,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <memory>
 #include "Ray.hpp"
-#include "Hit_record.hpp"
+#include "AABB.hpp"
 #include "Material.hpp"
 #include <mutex>
 

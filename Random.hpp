@@ -36,35 +36,3 @@ inline glm::vec2 inUnitDisk(const glm::vec2& uv) {
 }
 
 
-inline glm::vec3 random_unit_vector() {
-    while (true) {
-        glm::vec3 p = glm::vec3(random_double(-1,1),random_double(-1,1),random_double(-1,1));
-        float lensq = p.x*p.x + p.y*p.y + p.z*p.z;
-        if (lensq >= 1e-30f && lensq <= 1.0f){
-            return glm::normalize(p);
-        }
-    }
-}
-
-inline glm::vec3 random_in_unit_disk() {
-    while (true) {
-        glm::vec3 p = glm::vec3(random_double(-1,1),random_double(-1,1),0);
-        if (p.x*p.x + p.y*p.y <= 1.0f){
-            return p;
-        }
-    }
-}
-inline glm::vec3 random_on_hemisphere(const glm::vec3& normal) {
-    glm::vec3 vec = random_unit_vector();
-    if(glm::dot(vec,normal)>0.0f){
-        return vec;
-    }else{
-        return -vec;
-    }
-}
-
-inline float schlick(float cosine, float ref_idx) {
-    float r0 = (1-ref_idx) / (1+ref_idx);
-    r0 = r0*r0;
-    return r0 + (1-r0)*pow((1 - cosine),5.f);
-}

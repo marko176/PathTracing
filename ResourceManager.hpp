@@ -7,8 +7,7 @@
 #include <memory>
 #include <filesystem>
 class ResourceManager{
-
-    public:
+public:
     static ResourceManager& get_instance(){
         static ResourceManager instance;
         return instance;
@@ -20,7 +19,7 @@ class ResourceManager{
     auto load_file(const std::filesystem::path& path) const -> std::string;
 
     
-    auto get_texture(const std::string& name, float tempSRGB = false) -> std::shared_ptr<Image_texture>;
+    auto get_texture(const std::string& name, float tempSRGB = false) -> std::shared_ptr<ImageTexture>;
     template <typename... Args>
     auto get_model(const std::string& path, Args&&... args) -> std::shared_ptr<Model> {
         auto it = model_cache.find(path);
@@ -34,5 +33,5 @@ class ResourceManager{
     ResourceManager() = default;
     ~ResourceManager() = default;
     std::unordered_map<std::string, std::shared_ptr<Model>> model_cache;
-    std::unordered_map<std::string, std::shared_ptr<Image_texture>> texture_cache;
+    std::unordered_map<std::string, std::shared_ptr<ImageTexture>> texture_cache;
 };

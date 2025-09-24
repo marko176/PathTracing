@@ -19,7 +19,7 @@
 #include "Material.hpp"
 #include "Random.hpp"
 #include "Ray.hpp"
-#include "Hit_record.hpp"
+#include "Interaction.hpp"
 
 #include <chrono>
 
@@ -499,8 +499,8 @@ void renderPrimFilter(const Scene& scene, int width, int height,std::shared_ptr<
 
 void temp(){
     auto scene = std::make_shared<Scene>();
-    auto white = std::make_shared<Solid_color>(glm::vec3(.9));
-    auto green = std::make_shared<Solid_color>(glm::vec3{.2,.3,.1});
+    auto white = std::make_shared<SolidColor>(glm::vec3(.9));
+    auto green = std::make_shared<SolidColor>(glm::vec3{.2,.3,.1});
     auto light = std::make_shared<lambertian>(glm::vec3(0));
     auto ch =  std::make_shared<lambertian>(glm::vec3{.2,.3,.1});
     auto glass = std::make_shared<dielectric>(1.5,glm::vec3(1));
@@ -646,11 +646,11 @@ int main(){
     */
     /*
     Primitive* pr = new GeometricPrimitive(new SphereShape(glm::vec3(8,0,3),2),
-                                            std::make_shared<lambertian>(std::make_shared<Solid_color>(glm::vec3{1,0,0})),nullptr);
+                                            std::make_shared<lambertian>(std::make_shared<SolidColor>(glm::vec3{1,0,0})),nullptr);
     
     scene.Add(pr);
     pr = new GeometricPrimitive(new SphereShape(glm::vec3(8,-202,3),200),
-                                            std::make_shared<lambertian>(std::make_shared<Solid_color>(glm::vec3{0,0,1})),nullptr);
+                                            std::make_shared<lambertian>(std::make_shared<SolidColor>(glm::vec3{0,0,1})),nullptr);
     
     scene.Add(pr);
     pr = new GeometricPrimitive(new SphereShape(glm::vec3(7,0,1)+glm::vec3(3*2,0,3*2),1),
@@ -660,13 +660,13 @@ int main(){
     */
     /*
     Primitive* pr = new GeometricPrimitive(new QuadShape(glm::vec3(7,1,1)+glm::vec3(3*2,0,3*2),glm::vec3(0,1,0),glm::vec3(0,0,1)),
-                                            std::make_shared<lambertian>(std::make_shared<Solid_color>(glm::vec3{1}),nullptr,std::make_shared<Solid_color>(glm::vec3{0}),std::make_shared<Solid_color>(glm::vec3{1})),nullptr);
+                                            std::make_shared<lambertian>(std::make_shared<SolidColor>(glm::vec3{1}),nullptr,std::make_shared<SolidColor>(glm::vec3{0}),std::make_shared<SolidColor>(glm::vec3{1})),nullptr);
     scene.Add(pr);
     pr = new GeometricPrimitive(new QuadShape(glm::vec3(7,1,1)+glm::vec3(3*2,0,2*2),glm::vec3(0,1,0),glm::vec3(0,0,1)),
-                                            std::make_shared<lambertian>(std::make_shared<Solid_color>(glm::vec3{1}),nullptr,std::make_shared<Solid_color>(glm::vec3{0.011}),std::make_shared<Solid_color>(glm::vec3{1})),nullptr);
+                                            std::make_shared<lambertian>(std::make_shared<SolidColor>(glm::vec3{1}),nullptr,std::make_shared<SolidColor>(glm::vec3{0.011}),std::make_shared<SolidColor>(glm::vec3{1})),nullptr);
     scene.Add(pr);   
     pr = new GeometricPrimitive(new QuadShape(glm::vec3(7,1,1)+glm::vec3(3*2,0,1*2),glm::vec3(0,1,0),glm::vec3(0,0,1)),
-                                            std::make_shared<lambertian>(std::make_shared<Solid_color>(glm::vec3{1}),nullptr,std::make_shared<Solid_color>(glm::vec3{0.003}),std::make_shared<Solid_color>(glm::vec3{1})),nullptr);
+                                            std::make_shared<lambertian>(std::make_shared<SolidColor>(glm::vec3{1}),nullptr,std::make_shared<SolidColor>(glm::vec3{0.003}),std::make_shared<SolidColor>(glm::vec3{1})),nullptr);
     scene.Add(pr);    
     */
     scene.PreProcess();

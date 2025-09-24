@@ -6,6 +6,7 @@
 
 class Primitive {
 public:
+    virtual ~Primitive() = default;
     virtual AABB BoundingBox() const = 0;
     virtual bool IntersectPred(const Ray& ray, float max = std::numeric_limits<float>::infinity()) const = 0;
     virtual bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max = std::numeric_limits<float>::infinity()) const = 0;
@@ -15,7 +16,7 @@ public:
 //chech with all shared ptr
 class GeometricPrimitive : public Primitive{
 public:
- 
+    virtual ~GeometricPrimitive() = default;
     GeometricPrimitive(const std::shared_ptr<Shape>& primitive_shape, const std::shared_ptr<Material>& material,const std::shared_ptr<AreaLight>& areaLight = nullptr,const std::shared_ptr<Medium>& medium = nullptr) : shape{primitive_shape} , material{material} , areaLight{areaLight} , medium(medium) {}
     
     AABB BoundingBox() const final ;
@@ -32,6 +33,7 @@ private:
 
 class TransformedPrimitive : public Primitive {
 public:
+    virtual ~TransformedPrimitive() = default;
     TransformedPrimitive(const std::shared_ptr<Primitive>& primitive,const glm::mat4& transform) : primitive(primitive), transform(transform) , invTransform(glm::inverse(transform)) {
 
     }
@@ -54,25 +56,9 @@ struct BVH_NODE{
 
 
 template <typename T>
-struct BVH : public Primitive{
-
-    struct Bin {
-        AABB aabb;
-        uint32_t triCount = 0;
-    };
-
-    struct PrimitiveInfo{
-        PrimitiveInfo(uint32_t index, const AABB& bbox) : index{index}, bbox{bbox}, centroid(0.5f * (bbox.max + bbox.min)) {
-
-        }
-
-        uint32_t index;
-        AABB bbox;
-        glm::vec3 centroid;
-    };
-
-    
-    
+class BVH : public Primitive{
+public:
+    virtual ~BVH() = default;
     BVH() = default;
 
     BVH(const std::vector<T>& prims) {
@@ -99,6 +85,107 @@ struct BVH : public Primitive{
         std::cout<<"BVH build time in ms: "<<std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()<<"\n";
     }
 
+
+    bool IntersectPred(const Ray& ray, float max = std::numeric_limits<float>::infinity()) const final {
+        if(!nodes[0].bbox.Hit(ray,max))return false;
+        uint32_t stack[32];
+        int i = 0;
+        stack[i++]=0;
+        
+        while(i){
+            int index = stack[--i];
+            const BVH_NODE& node = nodes[index];
+            
+            // switch to intercesion test
+            
+            if(node.count == 0){
+                int child1 = index+1;
+                int child2 = node.right;
+                if(nodes[child1].bbox.Hit(ray,max))stack[i++]=child1;
+                if(nodes[child2].bbox.Hit(ray,max))stack[i++]=child2;
+            }else if(intersectPrimitivesPred(ray,max,node.right,node.count)){
+                return true;
+            }
+            
+        }
+        
+        return false;
+    }
+
+
+    bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max = std::numeric_limits<float>::infinity()) const final {
+        if(!nodes[0].bbox.Hit(ray,max))return false;
+        uint32_t stack[32];
+        int i = 0;
+        stack[i++]=0;
+        
+        bool hit_anything = false;
+        
+        while(i){
+            int index = stack[--i];
+            const BVH_NODE& node = nodes[index];
+            
+            // switch to intercesion test
+            
+            if(node.count == 0){
+                int child1 = index+1;
+                int child2 = node.right;
+                float dist_1 = nodes[child1].bbox.HitDistance(ray,max);
+                float dist_2 = nodes[child2].bbox.HitDistance(ray,max);
+                if(dist_1 > dist_2){
+                    std::swap(dist_1,dist_2);
+                    std::swap(child1,child2);
+                }
+                if(dist_2 != std::numeric_limits<float>::infinity()){
+                    stack[i++]=child2;
+                    stack[i++]=child1;
+                }else if(dist_1 != std::numeric_limits<float>::infinity()){
+                    stack[i++]=child1;
+                }
+        
+            }else if(intersectPrimitives(ray,max,node.right,node.count,interaction)){
+                hit_anything = true;
+            }
+            
+        }
+        
+        return hit_anything;
+    }
+    
+    std::vector<std::shared_ptr<Light>> GetLights() const final {
+        std::vector<std::shared_ptr<Light>> lights;
+        for(const T& prim : primitives){
+            std::vector<std::shared_ptr<Light>> primLights;
+            if constexpr (requires { prim->GetLights(); }){
+                primLights = prim->GetLights();
+            }else {
+                primLights = prim.GetLights();
+            }
+            lights.insert(lights.end(),primLights.begin(),primLights.end());
+        }
+        return lights;
+    }
+
+    AABB BoundingBox() const final{
+        return nodes.empty() ? AABB{} : nodes[0].bbox;
+    }
+
+    
+private:
+    struct Bin {
+        AABB aabb;
+        uint32_t triCount = 0;
+    };
+
+    struct PrimitiveInfo{
+        PrimitiveInfo(uint32_t index, const AABB& bbox) : index{index}, bbox{bbox}, centroid(0.5f * (bbox.max + bbox.min)) {
+
+        }
+
+        uint32_t index;
+        AABB bbox;
+        glm::vec3 centroid;
+    };
     
     int build_bvh(int first_triangle, int last_triangle,std::vector<PrimitiveInfo>& primitiveInfo){
         int index = nodes.size();
@@ -195,74 +282,6 @@ struct BVH : public Primitive{
         return index;
     }
 
-    bool IntersectPred(const Ray& ray, float max = std::numeric_limits<float>::infinity()) const final {
-        if(!nodes[0].bbox.Hit(ray,max))return false;
-        uint32_t stack[32];
-        int i = 0;
-        stack[i++]=0;
-        
-        while(i){
-            int index = stack[--i];
-            const BVH_NODE& node = nodes[index];
-            
-            // switch to intercesion test
-            
-            if(node.count == 0){
-                int child1 = index+1;
-                int child2 = node.right;
-                if(nodes[child1].bbox.Hit(ray,max))stack[i++]=child1;
-                if(nodes[child2].bbox.Hit(ray,max))stack[i++]=child2;
-            }else if(intersectPrimitivesPred(ray,max,node.right,node.count)){
-                return true;
-            }
-            
-        }
-        
-        return false;
-    }
-
-
-    bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max = std::numeric_limits<float>::infinity()) const final {
-        if(!nodes[0].bbox.Hit(ray,max))return false;
-        uint32_t stack[32];
-        int i = 0;
-        stack[i++]=0;
-        
-        bool hit_anything = false;
-        
-        while(i){
-            int index = stack[--i];
-            const BVH_NODE& node = nodes[index];
-            
-            // switch to intercesion test
-            
-            if(node.count == 0){
-                int child1 = index+1;
-                int child2 = node.right;
-                float dist_1 = nodes[child1].bbox.HitDistance(ray,max);
-                float dist_2 = nodes[child2].bbox.HitDistance(ray,max);
-                if(dist_1 > dist_2){
-                    std::swap(dist_1,dist_2);
-                    std::swap(child1,child2);
-                }
-                if(dist_2 != std::numeric_limits<float>::infinity()){
-                    stack[i++]=child2;
-                    stack[i++]=child1;
-                }else if(dist_1 != std::numeric_limits<float>::infinity()){
-                    stack[i++]=child1;
-                }
-        
-            }else if(intersectPrimitives(ray,max,node.right,node.count,interaction)){
-                hit_anything = true;
-            }
-            
-        }
-        
-        return hit_anything;
-    }
-
-
-
     inline bool intersectPrimitives(const Ray& ray, float& max, int right, int count, SurfaceInteraction& interaction) const {
         bool hit = false;
         for(int triangle_index = right;triangle_index<right+count;triangle_index++){
@@ -293,30 +312,9 @@ struct BVH : public Primitive{
         return false;
     }
 
-    
-    std::vector<std::shared_ptr<Light>> GetLights() const final {
-        std::vector<std::shared_ptr<Light>> lights;
-        for(const T& prim : primitives){
-            std::vector<std::shared_ptr<Light>> primLights;
-            if constexpr (requires { prim->GetLights(); }){
-                primLights = prim->GetLights();
-            }else {
-                primLights = prim.GetLights();
-            }
-            lights.insert(lights.end(),primLights.begin(),primLights.end());
-        }
-        return lights;
-    }
-
-    AABB BoundingBox() const final{
-        return nodes.empty() ? AABB{} : nodes[0].bbox;
-    }
-
-private:
     Mesh* mesh;
     std::vector<BVH_NODE> nodes;
     std::vector<T> primitives;
-    
 };
 
 using BLAS = BVH<GeometricPrimitive>;

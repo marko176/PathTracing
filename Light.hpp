@@ -1,5 +1,5 @@
 #pragma once
-#include "Hit_record.hpp"
+#include "Interaction.hpp"
 #include "Shape.hpp"
 #include <functional>
 struct LightSample {
@@ -9,6 +9,7 @@ struct LightSample {
 
 class Light  {
 public:
+    virtual ~Light() = default;
     virtual bool isDelta() const = 0;
     virtual glm::vec3 L(const GeometricInteraction& interaction, const Ray& ray) const = 0;
     virtual LightSample sample(const glm::vec2& uv) const = 0;
@@ -20,6 +21,8 @@ public:
 
 class InfiniteLight : public Light {
 public:
+    virtual ~InfiniteLight() = default;
+
     InfiniteLight(const glm::vec3& light_dir, const glm::vec3& light_color,const std::function<float(float)>& powerFunc = [](float r) -> float { return std::sqrt(r); }) : dir{light_dir} , color{light_color}, powerFunction{powerFunc} {}
 
     bool isDelta() const final;
@@ -44,6 +47,8 @@ private:
 
 class PointLight : public Light {
 public:
+    virtual ~PointLight() = default;
+
     PointLight(const glm::vec3& p, const glm::vec3& light_color,const std::function<float(float)>& powerFunc = [](float r) -> float { return 4 * r; }) : p{p} , color{light_color}, powerFunction{powerFunc} {}
 
     bool isDelta() const final;
@@ -68,6 +73,8 @@ private:
 
 class AreaLight : public Light {
 public:
+    virtual ~AreaLight() = default;
+
     AreaLight(const std::shared_ptr<Shape>& light_shape, const glm::vec3& light_color, bool oneSided = false) : shape{light_shape} , color{light_color}, oneSided{oneSided} {}
 
     bool isDelta() const final;
@@ -92,6 +99,8 @@ private:
 
 class TransformedLight : public Light {
 public:
+    virtual ~TransformedLight() = default;
+
     TransformedLight(const glm::mat4& transform,const std::shared_ptr<Light>& light) : transform(transform), light(light), normalMatrix(glm::transpose(glm::inverse(glm::mat3(transform)))), invTransform(glm::inverse(transform)) {}
 
     bool isDelta() const final;

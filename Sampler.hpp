@@ -1,5 +1,5 @@
 #pragma once
-#include "Hit_record.hpp"
+#include "Interaction.hpp"
 #include "Random.hpp"
 #include <cstring>
 inline int PermutationElement(uint32_t i, uint32_t l, uint32_t p) {
@@ -131,6 +131,8 @@ inline float HashFloat(Args... args) {
 
 class Sampler {
 public:
+    virtual ~Sampler() = default;
+
     virtual int SamplesPerPixel() const = 0;
 
     virtual void StartPixelSample(const glm::ivec2& p,int index) = 0;
@@ -146,9 +148,9 @@ public:
 
 class UniformSampler : public Sampler{
 public:
-    UniformSampler(uint32_t samples) : px(0), py(0) {
+    virtual ~UniformSampler() = default;
 
-    }
+    UniformSampler(uint32_t samples) : px(0), py(0) {}
 
     constexpr int SamplesPerPixel() const final{ return samples; }
 
@@ -180,6 +182,8 @@ private:
 
 class StratifiedSampler : public Sampler{
 public:
+    virtual ~StratifiedSampler() = default;
+    
     StratifiedSampler(uint32_t xSamples,uint32_t ySamples) : xSamples(xSamples), ySamples(ySamples){
         px = 0;
         py = 0;

@@ -1,10 +1,9 @@
 #pragma once
-#include "Hit_record.hpp"
+#include "AABB.hpp"
 #include "Primitive.hpp"
 class Medium;
 class Scene {
 public:
-
     Scene() = default;
     Scene(const std::shared_ptr<Medium>& medium) : sceneMedium(medium) {}
 

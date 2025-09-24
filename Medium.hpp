@@ -1,6 +1,6 @@
 #pragma once
 #include "Ray.hpp"
-#include "Hit_record.hpp"
+#include "Interaction.hpp"
 #include "PhaseFunction.hpp"
 class Medium{
 public:
@@ -11,6 +11,7 @@ public:
 
 class HomogeneusMedium : public Medium {
 public:
+    virtual ~HomogeneusMedium() = default;
     HomogeneusMedium(const glm::vec3& sigma_a, const glm::vec3& sigma_s,const std::shared_ptr<PhaseFunction> phaseFunction,float density = 1.0f) : sigma_a(density*sigma_a) , sigma_s(density*sigma_s), sigma_t(density*(sigma_a+sigma_s)), phaseFunction(phaseFunction){
         
     }

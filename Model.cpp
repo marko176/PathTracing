@@ -217,10 +217,10 @@ auto Model::process_mesh(aiMesh* mesh, const aiScene* scene) -> std::shared_ptr<
         std::shared_ptr<Texture> alpha_tex = nullptr;
         if(alphaMask != model_path)alpha_tex = ResourceManager::get_instance().get_texture(alphaMask);
 
-        std::shared_ptr<Texture> roughness_tex = std::make_shared<Solid_color>(glm::vec3(1,1,1));
+        std::shared_ptr<Texture> roughness_tex = std::make_shared<SolidColor>(glm::vec3(1,1,1));
         if(roughness != model_path)roughness_tex = ResourceManager::get_instance().get_texture(roughness);
 
-        std::shared_ptr<Texture> metallic_tex = std::make_shared<Solid_color>(glm::vec3(0,0,0));
+        std::shared_ptr<Texture> metallic_tex = std::make_shared<SolidColor>(glm::vec3(0,0,0));
         if(metallic != model_path)metallic_tex = ResourceManager::get_instance().get_texture(metallic);
         
         std::shared_ptr<Material> mat = std::make_shared<lambertian>(ResourceManager::get_instance().get_texture(albedo,true),norm,roughness_tex,metallic_tex,alpha_tex);
@@ -264,7 +264,7 @@ auto Model::process_mesh(aiMesh* mesh, const aiScene* scene) -> std::shared_ptr<
                     float r = Kd.r;
                     float g = Kd.g;
                     float b = Kd.b;
-                    auto color = std::make_shared<Solid_color>(glm::vec3(r,g,b));
+                    auto color = std::make_shared<SolidColor>(glm::vec3(r,g,b));
                     mat = std::make_shared<lambertian>(color);
       
                     //std::cout<<Kd.r << " " <<Kd.g << " "<<Kd.b << " "<< " "<<ksLum<<"\n";
@@ -280,7 +280,7 @@ auto Model::process_mesh(aiMesh* mesh, const aiScene* scene) -> std::shared_ptr<
 
         return std::make_shared<Mesh>(indices,vertices,tangents,bitangents,normals,texCoords,mat);
     }
-    std::shared_ptr<Texture> tmp = std::make_shared<Solid_color>(glm::vec3(.65, .05, .05));
+    std::shared_ptr<Texture> tmp = std::make_shared<SolidColor>(glm::vec3(.65, .05, .05));
     std::shared_ptr<Material> mat = std::make_shared<lambertian>(tmp);
     return std::make_shared<Mesh>(indices,vertices,tangents,bitangents,normals,texCoords,mat);
 }

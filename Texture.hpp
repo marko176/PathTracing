@@ -7,7 +7,7 @@
 #include "stb_image.h"
 #include <iostream>
 #include <array>
-#include "Hit_record.hpp"
+#include "Interaction.hpp"
 
 
 inline constexpr double linear_to_sRGB(double linear){
@@ -47,12 +47,16 @@ struct Image{
     Image(const std::string& filename,float gammaCorrection = false);
     glm::vec3 at(int x,int y) const;
     //getChannel
+    float GetChannelAt(const glm::ivec2& p,int ch) const {
+        return data[(p.y*width + p.x)*channels + ch]/255.0f;
+    }
     float W(int x,int y) const;
     ~Image() ;
 
 };
 
-struct Texture{
+class Texture{
+public:
     virtual ~Texture() = default;
     virtual float alpha(float u,float v) const {
         return 1;
@@ -61,19 +65,24 @@ struct Texture{
     virtual glm::vec3 Evaluate(const SurfaceInteraction& interaction) const = 0;
 };
 
-struct Solid_color : Texture {
-    glm::vec3 albedo;
-    Solid_color(const glm::vec3& color);
-    Solid_color(float r,float g,float b);
+class SolidColor : public Texture {
+public:
+    virtual ~SolidColor() = default;
+    SolidColor(const glm::vec3& color);
+    SolidColor(float r,float g,float b);
 
 
     glm::vec3 Evaluate(const SurfaceInteraction& interaction) const override {
         return albedo;
     }
+private:
+    glm::vec3 albedo;
 };
 
-struct Image_texture : public Texture {
-    Image_texture(const std::string& filename,float gammaCorrection = false);
+class ImageTexture : public Texture {
+public:
+    virtual ~ImageTexture() = default;
+    ImageTexture(const std::string& filename,float gammaCorrection = false);
 
     float alpha(float u,float v) const override;
     
@@ -98,7 +107,9 @@ private:
     Image image;
 };
 
-struct CheckerTexture : public Texture {
+class CheckerTexture : public Texture {
+public:
+    virtual ~CheckerTexture() = default;
     CheckerTexture(const std::shared_ptr<Texture>& tex1, const std::shared_ptr<Texture>& tex2,const glm::vec2& scale) : tex1(tex1), tex2(tex2), invScale(1.0f/scale) {}
     float alpha(float u,float v) const override;
     
@@ -114,13 +125,17 @@ private:
     glm::vec2 invScale;
 };
 
-struct UVTexture : public Texture {
+class UVTexture : public Texture {
+public:
+    virtual ~UVTexture() = default;
     glm::vec3 Evaluate(const SurfaceInteraction& interaction) const override{
         return {interaction.uv,0};
     }
 };
 
-struct NormalTexture : public Texture {
+class NormalTexture : public Texture {
+public:
+    virtual ~NormalTexture() = default;
     glm::vec3 Evaluate(const SurfaceInteraction& interaction) const override{
         return interaction.ns;
     }

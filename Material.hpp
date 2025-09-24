@@ -5,67 +5,15 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include "Texture.hpp"
 #include "Ray.hpp"
-#include "Hit_record.hpp"
+#include "Interaction.hpp"
 #include "Random.hpp"
 #include <iostream>
-class onb {
-  public:
-    onb(const glm::vec3& n) {
-        /*
-        if(!glm::isNormalized(n,0.001f)){
-            std::cout<<"ONB NOT NROMALIZED!!!";
-        }
-        */
-        axis[2] = n;
-        glm::vec3 a = (std::fabs(axis[2].x) > 0.9) ? glm::vec3(0,1,0) : glm::vec3(1,0,0);
-        axis[1] = glm::normalize(glm::cross(axis[2], a));
-        axis[0] = glm::cross(axis[2], axis[1]);
-    }
-
-    onb(const SurfaceInteraction& interaction) {
-        if(interaction.tangent == glm::vec3(0,0,0)){
-            axis[2] = glm::normalize(interaction.ns);
-            glm::vec3 a = (std::fabs(axis[2].x) > 0.9) ? glm::vec3(0,1,0) : glm::vec3(1,0,0);
-            axis[1] = glm::normalize(glm::cross(axis[2], a));
-            axis[0] = glm::cross(axis[2], axis[1]);
-        }else{
-            //maybe nromalize normal
-            axis[2] = interaction.ns;      
-            axis[0] = glm::normalize(interaction.tangent - interaction.ns * glm::dot(interaction.ns,interaction.tangent));     // T 
-            axis[1] = glm::cross(interaction.ns,axis[0]);
-            if(glm::dot(axis[1],interaction.bitangent)<0){
-                axis[0]=-axis[0];
-                axis[1]=-axis[1];
-            }
-
-        }
-    }
-
-     const glm::vec3& u() const { return axis[0]; }
-     const glm::vec3& v() const { return axis[1]; }
-     const glm::vec3& w() const { return axis[2]; }
-
-     glm::vec3 transform(const glm::vec3& v) const {
-        // Transform from basis coordinates to local space.
-        return (v[0] * axis[0]) + (v[1] * axis[1]) + (v[2] * axis[2]);
-    }
-
-    glm::vec3 toWorld(const glm::vec3& v) const {
-        // v = (v.x, v.y, v.z) in tangent space => world = v.x * T + v.y * B + v.z * N
-        return v.x * axis[0] + v.y * axis[1] + v.z * axis[2];
-    }
-
-    // world→local
-    glm::vec3 toLocal(const glm::vec3& v) const {
-        // inverse of orthonormal matrix is its transpose:
-        return glm::vec3(glm::dot(v, axis[0]),
-                         glm::dot(v, axis[1]),
-                         glm::dot(v, axis[2]));
-    }
-
-  private:
-    glm::vec3 axis[3];
-};
+#include "Onb.hpp"
+inline float schlick(float cosine, float ref_idx) {
+    float r0 = (1-ref_idx) / (1+ref_idx);
+    r0 = r0*r0;
+    return r0 + (1-r0)*pow((1 - cosine),5.f);
+}
 
 
 struct Material {
@@ -110,9 +58,10 @@ struct Material {
 
 
 class lambertian : public Material {
-    public:
-    lambertian(const glm::vec3& albedo) : lambertian(std::make_shared<Solid_color>(albedo)) {}
-    lambertian(const std::shared_ptr<Texture>& tex,const std::shared_ptr<Texture>& norm = nullptr,const std::shared_ptr<Texture>& roughnessTexture = std::make_shared<Solid_color>(glm::vec3(1,1,1)),const std::shared_ptr<Texture>& metallicTexture = std::make_shared<Solid_color>(glm::vec3(0,0,0)),const std::shared_ptr<Texture>& alpha_mask = nullptr) : tex(tex), norm(norm), roughnessTexture(roughnessTexture), metallicTexture(metallicTexture),alpha(alpha_mask) {}
+public:
+    virtual ~lambertian() = default;
+    lambertian(const glm::vec3& albedo) : lambertian(std::make_shared<SolidColor>(albedo)) {}
+    lambertian(const std::shared_ptr<Texture>& tex,const std::shared_ptr<Texture>& norm = nullptr,const std::shared_ptr<Texture>& roughnessTexture = std::make_shared<SolidColor>(glm::vec3(1)),const std::shared_ptr<Texture>& metallicTexture = std::make_shared<SolidColor>(glm::vec3(0)),const std::shared_ptr<Texture>& alpha_mask = nullptr) : tex(tex), norm(norm), roughnessTexture(roughnessTexture), metallicTexture(metallicTexture),alpha(alpha_mask) {}
 
     static constexpr glm::vec3 fresnel = glm::vec3(0.04);
     glm::vec3 schlick(float cos_theta ,const glm::vec3& F0) const{
