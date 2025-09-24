@@ -105,7 +105,7 @@ struct BVH : public Primitive{
         BVH_NODE& node = nodes.emplace_back();
         size_t object_span = last_triangle - first_triangle;
         for(int i = first_triangle;i<last_triangle;i++){
-            node.bbox.expand(primitiveInfo[i].bbox);
+            node.bbox.Expand(primitiveInfo[i].bbox);
         }
 
 
@@ -146,22 +146,22 @@ struct BVH : public Primitive{
                     float triangle_centroid = primitiveInfo[i].centroid[axis];
                     int binId = std::min<int>(BINS-1, (triangle_centroid - min)*scale);
                     ++bins[binId].triCount;
-                    bins[binId].aabb.expand(primitiveInfo[i].bbox);
+                    bins[binId].aabb.Expand(primitiveInfo[i].bbox);
 
                 }
 
                 AABB leftBox,rightBox;
                 for(int i = 0;i<BINS-1;i++){
-                    rightBox.expand( bins[BINS - 1 - i].aabb );
-                    rightArea[BINS - 2 - i] = rightBox.area();
+                    rightBox.Expand( bins[BINS - 1 - i].aabb );
+                    rightArea[BINS - 2 - i] = rightBox.Area();
                 }
 
                 scale = (max-min)/BINS;
                 int leftSum = 0;
                 for(int i = 0;i<BINS-1;i++){
                     leftSum += bins[i].triCount;
-                    leftBox.expand( bins[i].aabb );
-                    float cost = leftSum * leftBox.area() + (object_span - leftSum) * rightArea[i];
+                    leftBox.Expand( bins[i].aabb );
+                    float cost = leftSum * leftBox.Area() + (object_span - leftSum) * rightArea[i];
                     if(cost < bestCost){
                         best_axis = axis;
                         bestPos = min + (i+1) * scale;
@@ -170,7 +170,7 @@ struct BVH : public Primitive{
                 }
 
             }
-            float parent_cost = node.bbox.area() * object_span;
+            float parent_cost = node.bbox.Area() * object_span;
             if(bestCost >= parent_cost){
                 return index;
             }
@@ -196,7 +196,7 @@ struct BVH : public Primitive{
     }
 
     bool IntersectPred(const Ray& ray, float max = std::numeric_limits<float>::infinity()) const final {
-        if(!nodes[0].bbox.hit(ray,max))return false;
+        if(!nodes[0].bbox.Hit(ray,max))return false;
         uint32_t stack[32];
         int i = 0;
         stack[i++]=0;
@@ -210,8 +210,8 @@ struct BVH : public Primitive{
             if(node.count == 0){
                 int child1 = index+1;
                 int child2 = node.right;
-                if(nodes[child1].bbox.hit(ray,max))stack[i++]=child1;
-                if(nodes[child2].bbox.hit(ray,max))stack[i++]=child2;
+                if(nodes[child1].bbox.Hit(ray,max))stack[i++]=child1;
+                if(nodes[child2].bbox.Hit(ray,max))stack[i++]=child2;
             }else if(intersectPrimitivesPred(ray,max,node.right,node.count)){
                 return true;
             }
@@ -223,7 +223,7 @@ struct BVH : public Primitive{
 
 
     bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max = std::numeric_limits<float>::infinity()) const final {
-        if(!nodes[0].bbox.hit(ray,max))return false;
+        if(!nodes[0].bbox.Hit(ray,max))return false;
         uint32_t stack[32];
         int i = 0;
         stack[i++]=0;
@@ -239,8 +239,8 @@ struct BVH : public Primitive{
             if(node.count == 0){
                 int child1 = index+1;
                 int child2 = node.right;
-                float dist_1 = nodes[child1].bbox.hit_other(ray,max);
-                float dist_2 = nodes[child2].bbox.hit_other(ray,max);
+                float dist_1 = nodes[child1].bbox.HitDistance(ray,max);
+                float dist_2 = nodes[child2].bbox.HitDistance(ray,max);
                 if(dist_1 > dist_2){
                     std::swap(dist_1,dist_2);
                     std::swap(child1,child2);
@@ -321,208 +321,3 @@ private:
 
 using BLAS = BVH<GeometricPrimitive>;
 using TLAS = BVH<std::shared_ptr<Primitive>>;
-
-struct TLAS_BVH_Prim : public Primitive{
-
-
-    struct Bin {
-        AABB aabb;
-        uint32_t triCount = 0;
-    };
-
-    std::vector<Primitive*> hittables;//blas
-    std::vector<BVH_NODE> nodes;
-    TLAS_BVH_Prim() = default;//should switch to method called setup()
-    TLAS_BVH_Prim(const std::vector<Primitive*>& hittables) : hittables(hittables) {
-        nodes.reserve(hittables.size()*2-1);
-        build_bvh(0,hittables.size());
-        this->nodes.shrink_to_fit();
-        std::cout<<"TLAS BUILT\n";
-    }
-
-    bool add(Primitive* prim) {
-        hittables.push_back(prim);
-        return true;
-    }
-
-    bool build() {
-        nodes.reserve(hittables.size()*2-1);
-        build_bvh(0,hittables.size());
-        this->nodes.shrink_to_fit();
-        std::cout<<"TLAS BUILT\n";
-        return true;
-    }
-
-
-
-    int build_bvh(int first_triangle, int last_triangle){
-        int index = nodes.size();
-        BVH_NODE& node = nodes.emplace_back();
-        for(int i = first_triangle;i<last_triangle;i++){
-            node.bbox.expand(hittables[i]->BoundingBox());
-        }
-
-      
-        
-
-
-        size_t object_span = last_triangle - first_triangle;
-        node.count = 0;
-        if (object_span <= 2) {
-            node.right = first_triangle;//triangle
-            node.count = object_span;
-        } else {
-            auto evaluateSAH = [&](int first, int last, int axis,float pos){
-                AABB left,right;
-                int left_count = 0;
-                int right_count = 0;
-                for(int i = first;i<last;i++){
-                    float triangle_centroid = (hittables[i]->BoundingBox().max[axis]+hittables[i]->BoundingBox().min[axis])/2;
-                    if(triangle_centroid < pos){
-                        left_count++;
-                        left.expand(hittables[i]->BoundingBox());
-                    }else{
-                        right_count++;
-                        right.expand(hittables[i]->BoundingBox());
-                    }
-                }
-                float cost = left_count * left.area() + right_count * right.area();
-                return cost > 0 ? cost : std::numeric_limits<float>::infinity();
-            };
-            int best_axis = 0;
-            float bestPos = 0;
-            float bestCost = std::numeric_limits<float>::infinity();
-            for(int axis = 0;axis<3;axis++){
-          
-                    int count = 100;
-                    float scale = (node.bbox.max[axis] - node.bbox.min[axis])/count;
-                    for(int i = 0;i<count;i++){
-                        
-                        float cost = evaluateSAH(first_triangle,last_triangle,axis,node.bbox.min[axis] + i * scale);
-                        if(cost < bestCost){
-                            bestPos = node.bbox.min[axis] + i * scale;
-                            best_axis = axis;
-                            bestCost = cost;
-                        }
-                    }
-                
-        
-            }
-       
-
-            
-            int mid = std::partition(hittables.begin() + first_triangle,hittables.begin() + last_triangle,[&](Primitive* h){
-                 float triangle_centroid = (h->BoundingBox().max[best_axis]+h->BoundingBox().min[best_axis])/2;
-                return triangle_centroid < bestPos;
-            }) - hittables.begin();
-        
-            //node.left = pos+1;
-            build_bvh(first_triangle, mid);
-            node.right = build_bvh(mid, last_triangle);
-        }
-        return index;
-    }
-    AABB BoundingBox() const override{
-        return nodes[0].bbox;
-    }
-
-    std::vector<std::shared_ptr<Light>> GetLights() const override {
-        std::vector<std::shared_ptr<Light>> lights;
-        for(auto* prim : hittables){
-            if(prim == nullptr)continue;
-            std::vector<std::shared_ptr<Light>> primLights = prim->GetLights();
-            lights.insert(lights.end(),primLights.begin(),primLights.end());
-        }
-        return lights;
-    }
-
-    virtual bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max = std::numeric_limits<float>::infinity()) const override {
-        if(!nodes[0].bbox.hit(ray,max))return false;
-        uint32_t stack[24];
-        int i = 0;
-        stack[i++]=0;
-        
-        bool hit_anything = false;
-        
-        while(i){
-            int index = stack[--i];
-            const BVH_NODE& node = nodes[index];
-            
-            // switch to intercesion test
-            
-            if(node.count == 0){
-                int child1 = index+1;
-                int child2 = node.right;
-                float dist_1 = nodes[child1].bbox.hit_other(ray,max);
-                float dist_2 = nodes[child2].bbox.hit_other(ray,max);
-                if(dist_1 > dist_2){
-                    std::swap(dist_1,dist_2);
-                    std::swap(child1,child2);
-                }
-                if(dist_2 != std::numeric_limits<float>::infinity()){
-                    stack[i++]=child2;
-                    stack[i++]=child1;
-                }else if(dist_1 != std::numeric_limits<float>::infinity()){
-                    stack[i++]=child1;
-                }
-         
-            }else if(hit_hittable(ray,max,node.right,node.count,interaction)){
-                hit_anything = true;
-            }
-            
-        }
-        
-        return hit_anything;
-    }
-
-    virtual bool IntersectPred(const Ray& ray, float max = std::numeric_limits<float>::infinity()) const override{
-        if(!nodes[0].bbox.hit(ray,max))return false;
-        uint32_t stack[24];
-        int i = 0;
-        stack[i++]=0;
-        
-        
-        while(i){
-            int index = stack[--i];
-            const BVH_NODE& node = nodes[index];
-            
-            // switch to intercesion test
-            
-            if(node.count == 0){
-                int child1 = index+1;
-                int child2 = node.right;
-                if(nodes[child1].bbox.hit(ray,max))stack[i++]=child1;
-                if(nodes[child2].bbox.hit(ray,max))stack[i++]=child2;
-         
-            }else if(hit_hittablePred(ray,max,node.right,node.count)){
-                return true;
-            }
-            
-        }
-        
-        return false;
-    }
-
-
-    inline bool hit_hittable(const Ray& ray, float& max,int right, int count, SurfaceInteraction& interaction) const{
-        bool hit = false;
-        for(int i = right;i<right+count;i++){
-            if(hittables[i]->Intersect(ray,interaction,max)){
-                hit = true;
-                max = interaction.t;
-                
-            }
-        }
-        return hit;
-    }  
-
-    inline bool hit_hittablePred(const Ray& ray,float max, int right, int count) const{
-        for(int i = right;i<right+count;i++){
-            if(hittables[i]->IntersectPred(ray,max))
-                return true;
-        }
-        return false;
-    }  
-    
- 
-};

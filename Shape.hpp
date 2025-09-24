@@ -25,8 +25,8 @@ class SphereShape : public Shape{
 public:
     SphereShape(const glm::vec3& center, float r) : center(center), bbox{}, radius(r) {
         glm::vec3 rvec = glm::vec3(radius);
-        bbox.expand(center-rvec);
-        bbox.expand(center+rvec);
+        bbox.Expand(center-rvec);
+        bbox.Expand(center+rvec);
     }
     bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max) const override ;
 
@@ -79,7 +79,7 @@ public:
     float PDF(const GeometricInteraction& interaction,const Ray& ray) const override;
 
     //maybe move this to resource manager?
-    [[nodiscard]] static std::size_t addMesh(Mesh* mesh) {
+    static std::size_t addMesh(Mesh* mesh) {
         const std::lock_guard<std::mutex> ml(meshListLock);
         for(int i = 0;i<meshList.size();i++){
             if(meshList[i]==nullptr || meshList[i] == mesh){
@@ -112,10 +112,10 @@ public:
         glm::vec3 n = glm::cross(u,v);
         normal = glm::normalize(n);
         D = glm::dot(normal,Q);
-        bbox.expand(Q);
-        bbox.expand(Q + u + v);
-        bbox.expand(Q + u);
-        bbox.expand(Q + v);
+        bbox.Expand(Q);
+        bbox.Expand(Q + u + v);
+        bbox.Expand(Q + u);
+        bbox.Expand(Q + v);
         w = n / glm::dot(n,n);
     }
 
@@ -148,13 +148,6 @@ public:
         return dist_squared / (light_cosine * area);
     }
 private:
-
-    static bool is_interior(float a, float b, SurfaceInteraction& interaction) {
-        if (a<0 || a>1 || b<0 || b>1)
-            return false;
-        interaction.uv = {a,b};
-        return true;
-    }
 
     static bool is_interior(float a, float b) {
         return a>=0 && a<=1 && b>=0 && b<=1;

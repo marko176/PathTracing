@@ -13,7 +13,7 @@ bool SphereShape::Intersect(const Ray& ray, SurfaceInteraction& interaction, flo
             interaction.ns = (ray.at(temp) - center) / radius;
             interaction.n = interaction.ns;
             interaction.tangent = glm::vec3(0,0,0);
-            interaction.p = ray.at(temp) + 0.0005f * interaction.n;
+            interaction.p = ray.at(temp) + 0.0001f * interaction.n;
             interaction.uv = getSphereUV(interaction.n);
             return true;
         }
@@ -23,7 +23,7 @@ bool SphereShape::Intersect(const Ray& ray, SurfaceInteraction& interaction, flo
             interaction.ns = (ray.at(temp) - center) / radius;
             interaction.n = interaction.ns;
             interaction.tangent = glm::vec3(0,0,0);
-            interaction.p = ray.at(temp) + 0.0005f * interaction.n;
+            interaction.p = ray.at(temp) + 0.0001f * interaction.n;
             interaction.uv = getSphereUV(interaction.n);
             return true;
         }
@@ -38,11 +38,11 @@ bool SphereShape::IntersectPred(const Ray& ray, float max) const {
     float discriminant = b*b - a*c;
     if (discriminant > 0) {
         float temp = (-b - std::sqrt(discriminant)) / a;
-        if (temp < max && temp > 0) {
+        if (temp < max && temp > 0.0001f) {
             return true;
         }
         temp = (-b + std::sqrt(discriminant)) / a;
-        if (temp < max && temp > 0) {
+        if (temp < max && temp > 0.0001f) {
             return true;
         }
     }
@@ -87,7 +87,7 @@ bool TriangleShape::Intersect(const Ray& ray, SurfaceInteraction& interaction,fl
     bool hit_triangle = glm::intersectRayTriangle(ray.origin,ray.dir,mesh->vertices[index0]
                                                                     ,mesh->vertices[index1]
                                                                     ,mesh->vertices[index2],baryPos,t);
-    if(!hit_triangle || t > max || t < 0.001f)return false;
+    if(!hit_triangle || t > max || t < 0.0001f)return false;
         
     float u = baryPos.x;
     float v = baryPos.y;
@@ -115,7 +115,7 @@ bool TriangleShape::Intersect(const Ray& ray, SurfaceInteraction& interaction,fl
     interaction.uv = uv;
 
     //if angle small do just ray.at(t- eps) ? 
-    interaction.p = ray.at(t) + 0.0005f * N;//was 0.0005 * N should be 0.0001f for dragon
+    interaction.p = ray.at(t) + 0.0001f * N;//was 0.0001 * N should be 0.0001f for dragon
     //interaction.n = N;
     interaction.AreaLight = nullptr;//(hittable*)&primitives[TriIndex];
     interaction.mat = mesh->material;
@@ -147,7 +147,7 @@ bool TriangleShape::IntersectPred(const Ray& ray, float max) const {
     bool hit_triangle = glm::intersectRayTriangle(ray.origin,ray.dir,mesh->vertices[index0]
                                                                     ,mesh->vertices[index1]
                                                                     ,mesh->vertices[index2],baryPos,t);
-    if(t <= 0.001f || t > max || !hit_triangle)return false;
+    if(!hit_triangle || t > max || t < 0.0001f)return false;
         
     float u = baryPos.x;
     float v = baryPos.y;
@@ -178,8 +178,8 @@ bool TriangleShape::IntersectPred(const Ray& ray, float max) const {
 AABB TriangleShape::BoundingBox() const {
     Mesh* mesh = meshList[MeshIndex];
     AABB bbox(mesh->vertices[mesh->indices[TriIndex*3+0]]);
-    bbox.expand(mesh->vertices[mesh->indices[TriIndex*3+1]]);
-    bbox.expand(mesh->vertices[mesh->indices[TriIndex*3+2]]);
+    bbox.Expand(mesh->vertices[mesh->indices[TriIndex*3+1]]);
+    bbox.Expand(mesh->vertices[mesh->indices[TriIndex*3+2]]);
     return bbox;
 }
 GeometricInteraction TriangleShape::Sample(const glm::vec2& u) const {
@@ -220,16 +220,17 @@ bool QuadShape::Intersect(const Ray& ray, SurfaceInteraction& interaction,float 
     float denom = glm::dot(norm_normal,ray.dir);
     if(std::fabs(denom) < 1e-8f)return false;
     float t = (DD - glm::dot(norm_normal,ray.origin)) / denom;
-    if(t < 0.001f || t > max)return false;
+    if(t < 0.0001f || t > max)return false;
     glm::vec3 planar_hit = ray.at(t) - Q;
     float alpha = glm::dot(w,glm::cross(planar_hit,v));
     float beta = glm::dot(w,glm::cross(u,planar_hit));
-    if(!is_interior(alpha,beta,interaction))return false;
+    if(!is_interior(alpha,beta))return false;
+    interaction.uv = {alpha,beta};
     interaction.t = t;
     interaction.ns = norm_normal;
     interaction.n = normal;
     interaction.tangent = glm::vec3(0,0,0);
-    interaction.p = ray.at(t) + 0.0005f * norm_normal;//was norm_normal
+    interaction.p = ray.at(t) + 0.0001f * norm_normal;//was norm_normal
     return true;
 }
 bool QuadShape::IntersectPred(const Ray& ray, float max) const {
@@ -242,7 +243,7 @@ bool QuadShape::IntersectPred(const Ray& ray, float max) const {
     float denom = glm::dot(norm_normal,ray.dir);
     if(std::fabs(denom) < 1e-8f)return false;
     float t = (DD - glm::dot(norm_normal,ray.origin)) / denom;
-    if(t < 0.001f || t > max)return false;
+    if(t < 0.0001f || t > max)return false;
     glm::vec3 planar_hit = ray.at(t) - Q;
     float alpha = glm::dot(w,glm::cross(planar_hit,v));
     float beta = glm::dot(w,glm::cross(u,planar_hit));

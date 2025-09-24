@@ -55,7 +55,7 @@ struct SurfaceInteraction : public GeometricInteraction{
 };
 
 struct MediumInteraction : public GeometricInteraction {
-    MediumInteraction(const glm::vec3& point, const glm::vec3& geometric_normal, const std::shared_ptr<Medium>& medium = nullptr) : GeometricInteraction{point,geometric_normal,medium} {
+    MediumInteraction(const glm::vec3& point, const glm::vec3& geometric_normal, const std::shared_ptr<Medium>& medium, const std::shared_ptr<PhaseFunction>& phaseFunction) : GeometricInteraction{point,geometric_normal,medium}, phaseFunction{phaseFunction} {
 
     }
 
@@ -81,45 +81,25 @@ struct AABB{
 
     }
 
-    inline void expand(const AABB& other) {
+    inline void Expand(const AABB& other) {
         min = glm::min(min,other.min);
         max = glm::max(max,other.max);
     }
 
-    inline void expand(const glm::vec3& point) {
+    inline void Expand(const glm::vec3& point) {
         min = glm::min(min,point);
         max = glm::max(max,point);
     }
 
-    inline bool hit(const Ray& ray,float min_t,float max_t) const {// add interval
-        glm::vec3 invD = ray.inv_dir;//store in ray!!!! test speed
-        // Calculate t for each slab
-        glm::vec3 t0s = (min - ray.origin) * invD;
-        glm::vec3 t1s = (max - ray.origin) * invD;
-        // Component‐wise min/max
-        glm::vec3 tSmaller = glm::min(t0s, t1s);
-        glm::vec3 tLarger  = glm::max(t0s, t1s);
-        // Over all axes
-        float tEntry = std::max(std::max(tSmaller.x, tSmaller.y), tSmaller.z);
-        float tExit  = std::min(std::min(tLarger.x,  tLarger.y),  tLarger.z);
-        return (tEntry <= tExit) && (tExit >= min_t) && (tEntry <= max_t);
+    inline bool Hit(const Ray& ray,float min_t,float max_t) const {// add interval
+        return HitDistance(ray,min_t,max_t) != std::numeric_limits<float>::infinity();
     }
 
-    inline bool hit(const Ray& ray,float max_t) const {// add interval
-        glm::vec3 invD = ray.inv_dir;//store in ray!!!! test speed
-        // Calculate t for each slab
-        glm::vec3 t0s = (min - ray.origin) * invD;
-        glm::vec3 t1s = (max - ray.origin) * invD;
-        // Component‐wise min/max
-        glm::vec3 tSmaller = glm::min(t0s, t1s);
-        glm::vec3 tLarger  = glm::max(t0s, t1s);
-        // Over all axes
-        float tEntry = std::max(std::max(tSmaller.x, tSmaller.y), tSmaller.z);
-        float tExit  = std::min(std::min(tLarger.x,  tLarger.y),  tLarger.z);
-        return (tEntry <= tExit) && (tExit > 0.001f) && (tEntry <= max_t);
+    inline bool Hit(const Ray& ray,float max_t) const {// add interval
+        return HitDistance(ray,max_t) != std::numeric_limits<float>::infinity();
     }
 
-    inline float hit_other(const Ray& ray,float min_t,float max_t) const {// add interval
+    inline float HitDistance(const Ray& ray,float min_t,float max_t) const {// add interval
         glm::vec3 invD = ray.inv_dir;//store in ray!!!! test speed
         // Calculate t for each slab
         glm::vec3 t0s = (min - ray.origin) * invD;
@@ -133,7 +113,7 @@ struct AABB{
         return (tEntry <= tExit && tEntry <= max_t && tExit >= min_t) ? tEntry : std::numeric_limits<float>::infinity();
     }
 
-    inline float hit_other(const Ray& ray,float max_t) const {// add interval
+    inline float HitDistance(const Ray& ray,float max_t) const {// add interval
         glm::vec3 invD = ray.inv_dir;//store in ray!!!! test speed
         // Calculate t for each slab
         glm::vec3 t0s = (min - ray.origin) * invD;
@@ -144,12 +124,15 @@ struct AABB{
         // Over all axes
         float tEntry = std::max(std::max(tSmaller.x, tSmaller.y), tSmaller.z);
         float tExit  = std::min(std::min(tLarger.x,  tLarger.y),  tLarger.z);
-        return (tEntry <= tExit && tEntry <= max_t && tExit > 0.001f) ? tEntry : std::numeric_limits<float>::infinity();
+        return (tEntry <= tExit && tEntry <= max_t && tExit > 0) ? tEntry : std::numeric_limits<float>::infinity();//maybe texit greater than 0 ?
     }
 
-    
+   
+    //using AABB::nothing
+    //AABB::universe
+    //mediumintr takes phasefunc
 
-    inline float area() const { 
+    inline float Area() const { 
         glm::vec3 e = max - min; // box extent
         return e.x * e.y + e.y * e.z + e.z * e.x; 
     }

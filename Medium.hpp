@@ -25,10 +25,8 @@ public:
 
         float scatterDist = std::min<float>(-std::log(1.0 - random_float()) / sigma_t[channel], t);//use sampeler variable
         bool sampledMedium = scatterDist < t;
-        interaction.phaseFunction = nullptr;
         if(sampledMedium){
-            interaction = MediumInteraction(ray.at(scatterDist),{0,0,0},ray.medium);//should set medium to itself but it is shared ptr?
-            interaction.phaseFunction = phaseFunction;
+            interaction = MediumInteraction(ray.at(scatterDist),{0,0,0},ray.medium,phaseFunction);//should set medium to itself but it is shared ptr?
         }
 
         glm::vec3 tr = Tr(ray,scatterDist);

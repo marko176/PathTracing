@@ -26,7 +26,7 @@ AABB TransformedPrimitive::BoundingBox() const {
     AABB bbox;
     AABB temp = primitive->BoundingBox();
     for(int i = 0;i<8;i++){
-        bbox.expand(transform * glm::vec4(temp.Corner(i),1));
+        bbox.Expand(transform * glm::vec4(temp.Corner(i),1));
     }
     return bbox;
 }

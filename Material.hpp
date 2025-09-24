@@ -533,10 +533,10 @@ class dielectric : public Material {
             //case inside to outside -> p += 0
             //case inside to inside -> p += -0.002 n
             dir = glm::normalize(glm::reflect(r_in.dir,N));
-            float eps = glm::dot(interaction.ns,dir) < 0 ? 0.001f : 0;
+            float eps = glm::dot(interaction.ns,dir) < 0 ? 0.0002f : 0;
             glm::vec3 point = r_in.at(interaction.t) + eps * Ng;
             if(std::abs(glm::dot(interaction.ns,dir))<0.001){
-                point = r_in.at(interaction.t) + 0.001f * dir;//grazing angle
+                point = r_in.at(interaction.t) + 0.0002f * dir;//grazing angle
             }
             //should be + in the N direction??
             //also + 0.0005*Ng workes ? but not 0.001
@@ -544,10 +544,10 @@ class dielectric : public Material {
 
         }else{
             
-            float eps = false && glm::dot(interaction.ns,dir) < 0 ? 0.001f : 0;
+            float eps = false && glm::dot(interaction.ns,dir) < 0 ? 0.0002f : 0;
             glm::vec3 point = r_in.at(interaction.t) - eps * Ng;
             if(std::abs(glm::dot(interaction.ns,dir))<0.001){
-                point = r_in.at(interaction.t)+ 0.001f * dir;//grazing angle
+                point = r_in.at(interaction.t)+ 0.0002f * dir;//grazing angle
             }
             //case outside to outside -> p += 0 Ng = n
             //case outside to inside -> p += -0.002 Ng = n
