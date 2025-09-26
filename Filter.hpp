@@ -2,6 +2,7 @@
 #include "Interaction.hpp"
 #include <concepts>
 #include <algorithm>
+#include <numbers>
 template <std::floating_point T>
 inline constexpr T Gaussian(T x, T sigma){
     //return 1.0 / std::sqrt( 2 * std::numbers::pi_v<T> * sigma * sigma) * std::exp(-(x*x) / (2 * sigma * sigma));

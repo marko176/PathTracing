@@ -2,6 +2,7 @@
 #include "Filter.hpp"
 #include <atomic>
 #include <fstream>
+#include <numbers>
 inline double luminance(const glm::dvec3& v){
     return dot(v, glm::dvec3(0.2126f, 0.7152f, 0.0722f));
 }

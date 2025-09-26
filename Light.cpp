@@ -1,5 +1,5 @@
 #include "Light.hpp"
-
+#include <numbers>
 bool InfiniteLight::isDelta() const {
     return true;
 }

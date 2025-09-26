@@ -1,6 +1,6 @@
 #pragma once
 #include "Interaction.hpp"
-
+#include <numbers>
 template <std::floating_point T>
 inline T phaseHG(T cosTheta, T g) {
     T denom = 1 + g * g + 2 * g * cosTheta;
