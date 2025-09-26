@@ -42,6 +42,7 @@
 
 build/
 Release/
+Output/
 
 *.ppm
 *.jpg

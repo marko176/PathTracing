@@ -18,3 +18,5 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build ./build --config Release -j N   (set N to thread count)
 ```
 To run the pathtracer do: `./Release/PathTracer`
+
+Output images will be stored in: `Output/`

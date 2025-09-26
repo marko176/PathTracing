@@ -3,6 +3,19 @@
 #include <atomic>
 #include <fstream>
 #include <numbers>
+#include <filesystem>
+
+inline std::filesystem::path findProjectRoot(std::filesystem::path p = std::filesystem::current_path()) {
+    while(!p.empty()){
+        if(std::filesystem::exists(p / "Release")){
+            return p;
+        }
+        if(p == p.root_path())break;
+        p = p.parent_path();
+    }
+    return {};
+}
+
 inline double luminance(const glm::dvec3& v){
     return dot(v, glm::dvec3(0.2126f, 0.7152f, 0.0722f));
 }
@@ -121,8 +134,19 @@ public:
         }
     }
 
+
+
     void WriteImage(const std::string& filename) const {
-        std::ofstream out(filename + ".ppm", std::ios::binary );
+        std::filesystem::path projectRoot = findProjectRoot();
+        std::filesystem::path outputDir = projectRoot / "Output";
+        std::error_code ec;
+        std::filesystem::create_directories(outputDir, ec);
+        if(ec){
+            std::cerr << "Failed to create output dir: "<<ec.message()<<"\n";
+            return;
+        }
+        std::filesystem::path outFile = outputDir / (filename + ".ppm");
+        std::ofstream out(outFile, std::ios::binary );
         out << "P6\n" << xResolution << " " << yResolution << "\n255\n";
         for(int i = yResolution-1;i>=0;i--){
             for(int j = 0;j<xResolution;j++){

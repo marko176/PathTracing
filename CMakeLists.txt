@@ -15,6 +15,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 message(STATUS "C++ compiler: ${CMAKE_CXX_COMPILER}")
 message(STATUS "C++ standard: ${CMAKE_CXX_STANDARD}")
 
+
+
 if (MSVC) 
     add_compile_options(/FS /O2)
 else()
@@ -37,6 +39,7 @@ add_executable(PathTracer
             Scene.cpp
             Integrators.cpp
             PhaseFunction.cpp)
+
 
 target_include_directories(PathTracer PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries(PathTracer PRIVATE assimp)
