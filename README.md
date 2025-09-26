@@ -12,8 +12,9 @@ git clone --recurse-submodules https://github.com/marko176/PathTracing.git
 ```
 Building the project:
 ```bash
+cd PathTracing
 mkdir build
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build ./build --config Release -j N   (set N to thread count)
 ```
-To run the pathtracer do: `./PathTracer.exe`
+To run the pathtracer do: `./Release/PathTracer`

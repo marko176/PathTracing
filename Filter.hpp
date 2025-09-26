@@ -99,7 +99,7 @@ public:
         return radius.x * radius.y / 4.0;
     }
 private:
-    constexpr double Mitchell(double x) const{
+    double Mitchell(double x) const{
         double absX = std::abs(x);
         if(absX <= 1.0){
             return 1.0/6.0 * ((12 - 9*b - 6*c)*absX*absX*absX + (-18 + 12*b + 6*c)*absX*absX + (6 -2*b));

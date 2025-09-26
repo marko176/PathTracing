@@ -41,6 +41,7 @@
 *.dwo
 
 build/
+Release/
 
 *.ppm
 *.jpg

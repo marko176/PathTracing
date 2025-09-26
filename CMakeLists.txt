@@ -23,7 +23,7 @@ endif()
 
 set(INTERPROCEDURAL_OPTIMIZATION TRUE)
 
-add_executable(PathTracer.exe 
+add_executable(PathTracer 
             stb_image.cpp 
             main.cpp 
             Mesh.cpp 
@@ -38,5 +38,5 @@ add_executable(PathTracer.exe
             Integrators.cpp
             PhaseFunction.cpp)
 
-target_include_directories(PathTracer.exe PRIVATE ${CMAKE_SOURCE_DIR})
-target_link_libraries(PathTracer.exe PRIVATE assimp)
+target_include_directories(PathTracer PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_libraries(PathTracer PRIVATE assimp)
