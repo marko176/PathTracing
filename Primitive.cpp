@@ -55,6 +55,7 @@ bool TransformedPrimitive::Intersect(const Ray& ray, SurfaceInteraction& interac
     interaction.tangent = transform * glm::vec4(temp.tangent,0);
     if(interaction.tangent != glm::vec3(0,0,0))interaction.tangent = glm::normalize(interaction.tangent);
     interaction.uv = temp.uv;
+    interaction.medium = temp.medium;
 
     return true;
 }

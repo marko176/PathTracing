@@ -1,35 +1,35 @@
 #pragma once
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/glm.hpp>
-#include <glm/gtx/intersect.hpp>
-#include <glm/gtc/matrix_transform.hpp>
 #include <memory>
 #include "stb_image.h"
 #include <iostream>
 #include <array>
 #include "Interaction.hpp"
 
-
-inline constexpr double linear_to_sRGB(double linear){
-    if(linear != linear)std::cout<<"linera_component is NaN\n";
-    linear = std::clamp(linear,0.0,1.0);
-    if(linear > 0){
-        return linear < 0.0031308 ? 12.92 * linear : 1.055 * std::pow(linear,1.0/2.4) - 0.055;
-    }
-    return 0;
+inline int wrap_index(int i, int n) {
+    int m = i % n;
+    if (m < 0) m += n;
+    return m;
 }
 
-inline constexpr double sRGB_to_linear(double sRGB){
-    sRGB = std::clamp(sRGB,0.0,1.0);
-    if (sRGB <= 0.04045) return sRGB / 12.92;
-    return std::pow((sRGB + 0.055) / 1.055, 2.4);
+template <std::floating_point T>
+inline constexpr T linear_to_sRGB(T linear){
+    if(linear != linear)std::cout<<"linear component is NaN\n";
+    linear = glm::clamp<T>(linear,0.0,1.0);
+    return linear < static_cast<T>(0.0031308) ? static_cast<T>(12.92) * linear : static_cast<T>(1.055) * std::pow(linear,1.0/2.4) - 0.055;
+}
+
+template <std::floating_point T>
+inline constexpr T sRGB_to_linear(T sRGB){
+    sRGB = glm::clamp<T>(sRGB,0.0,1.0);
+    if (sRGB <= static_cast<T>(0.04045)) return sRGB / static_cast<T>(12.92);
+    return std::pow<T>((sRGB + 0.055) / 1.055, 2.4);
 }
 
 static inline std::array<unsigned char,256> sRGBLUT = [](){
     std::array<unsigned char,256> LUT;
     for(int i = 0;i<256;i++){
         double sRGB = static_cast<unsigned char>(i)/255.0;
-        double linear = std::clamp(sRGB_to_linear(sRGB),0.0,1.0);
+        double linear = glm::clamp(sRGB_to_linear(sRGB),0.0,1.0);
         LUT[i] = (unsigned char)std::lround(linear * 255.0);
     }
     return LUT;
@@ -47,10 +47,13 @@ struct Image{
     Image(const std::string& filename,float gammaCorrection = false);
     glm::vec3 at(int x,int y) const;
     //getChannel
-    float GetChannelAt(const glm::ivec2& p,int ch) const {
-        return data[(p.y*width + p.x)*channels + ch]/255.0f;
+    float GetChannelAt(const glm::ivec2& p,int ch) const {//pass wrap mode
+        //channel 1,2,3,4
+        int x = wrap_index(p.x,width);
+        int y = wrap_index(height - p.y - 1,height);
+        return data[(y*width + x)*channels + (ch - 1)]/255.0f;
     }
-    float W(int x,int y) const;
+
     ~Image() ;
 
 };

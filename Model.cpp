@@ -32,7 +32,8 @@ Model::Model(const std::string& path){
     std::cout<<"MODEL BUILT\n";
 }
 
-Model::Model(const std::string& path,const std::shared_ptr<Material>& material, const std::shared_ptr<AreaLight>& areaLight, const std::shared_ptr<Medium>& medium){
+Model::Model(const std::string& path,const std::shared_ptr<Material>& material, const std::shared_ptr<Medium>& medium){
+    //maybe pass in a texture for the light -> makes it all light?
     if(!load_model(path)){
         std::cerr << "failed model";
     }else{
@@ -44,7 +45,7 @@ Model::Model(const std::string& path,const std::shared_ptr<Material>& material, 
         for(const std::shared_ptr<Mesh>& m : meshes){
             
             for(int j = 0;j<m->triangle_count;j++){
-                primitives.emplace_back(std::shared_ptr<Shape>(m->getControlPtr(),m->getShape(j)),material,areaLight,medium);
+                primitives.emplace_back(std::shared_ptr<Shape>(m->getControlPtr(),m->getShape(j)),material,nullptr,medium);
             }
         }
         model_bvh = BLAS(std::move(primitives));
@@ -212,19 +213,20 @@ auto Model::process_mesh(aiMesh* mesh, const aiScene* scene) -> std::shared_ptr<
         }
 
         std::shared_ptr<Texture> norm = nullptr;
-        if(normal != model_path)norm = ResourceManager::get_instance().get_texture(normal);
+        if(normal != model_path)norm = ResourceManager::get_instance().GetImageTexture(normal);
 
         std::shared_ptr<Texture> alpha_tex = nullptr;
-        if(alphaMask != model_path)alpha_tex = ResourceManager::get_instance().get_texture(alphaMask);
+        if(alphaMask != model_path)alpha_tex = ResourceManager::get_instance().GetImageTexture(alphaMask);
 
         std::shared_ptr<Texture> roughness_tex = std::make_shared<SolidColor>(glm::vec3(1,1,1));
-        if(roughness != model_path)roughness_tex = ResourceManager::get_instance().get_texture(roughness);
+        if(roughness != model_path)roughness_tex = ResourceManager::get_instance().GetImageTexture(roughness);
 
         std::shared_ptr<Texture> metallic_tex = std::make_shared<SolidColor>(glm::vec3(0,0,0));
-        if(metallic != model_path)metallic_tex = ResourceManager::get_instance().get_texture(metallic);
-        
-        std::shared_ptr<Material> mat = std::make_shared<lambertian>(ResourceManager::get_instance().get_texture(albedo,true),norm,roughness_tex,metallic_tex,alpha_tex);
-        if(albedo == model_path){
+        if(metallic != model_path)metallic_tex = ResourceManager::get_instance().GetImageTexture(metallic);
+        std::shared_ptr<Material> mat = nullptr;
+        if(albedo != model_path){
+            mat = std::make_shared<lambertian>(ResourceManager::get_instance().GetImageTexture(albedo,true),norm,roughness_tex,metallic_tex,alpha_tex);
+        }else{
             mat = std::make_shared<lambertian>(glm::vec3(.65, .05, .05));
             //should be for eg galss get index of refraction
             float ior = 1;
@@ -269,12 +271,7 @@ auto Model::process_mesh(aiMesh* mesh, const aiScene* scene) -> std::shared_ptr<
       
                     //std::cout<<Kd.r << " " <<Kd.g << " "<<Kd.b << " "<< " "<<ksLum<<"\n";
                 }
-                
-                
-                
-                
             }
-            //ior is always 1 ?
             
         }
 

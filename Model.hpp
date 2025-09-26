@@ -14,7 +14,7 @@ class Model : public Primitive{
 public:
     virtual ~Model() = default;
     Model(const std::string& path);
-    Model(const std::string& path,const std::shared_ptr<Material>& material, const std::shared_ptr<AreaLight>& areaLight, const std::shared_ptr<Medium>& medium);
+    Model(const std::string& path,const std::shared_ptr<Material>& material, const std::shared_ptr<Medium>& medium);
     //Model(std::vector<std::shared_ptr<Mesh>> meshes);
     //buildBLAS();
     //hold full name not just path

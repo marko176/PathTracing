@@ -10,7 +10,7 @@ auto ResourceManager::load_file(const std::filesystem::path& path) const -> std:
 
 
 
-auto ResourceManager::get_texture(const std::string& path, float tempSRGB) -> std::shared_ptr<ImageTexture> {
+auto ResourceManager::GetImageTexture(const std::string& path, float tempSRGB) -> std::shared_ptr<Texture> {
     if(path.empty())return nullptr;
     auto it = texture_cache.find(path);
     if(it != texture_cache.end()){
@@ -22,5 +22,5 @@ auto ResourceManager::get_texture(const std::string& path, float tempSRGB) -> st
 
 
 auto ResourceManager::release_textures() -> void {
-    
+    texture_cache.clear();
 }

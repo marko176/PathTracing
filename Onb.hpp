@@ -1,7 +1,7 @@
 #pragma once 
 #include "Interaction.hpp"
 class onb {
-  public:
+public:
     onb(const glm::vec3& n) {
         axis[2] = glm::normalize(n);
         glm::vec3 a = (std::fabs(axis[2].x) > 0.9999) ? glm::vec3(0,1,0) : glm::vec3(1,0,0);
@@ -31,10 +31,6 @@ class onb {
     const glm::vec3& u() const { return axis[0]; }
     const glm::vec3& v() const { return axis[1]; }
     const glm::vec3& w() const { return axis[2]; }
-    glm::vec3 transform(const glm::vec3& v) const {
-        // Transform from basis coordinates to local space.
-        return (v[0] * axis[0]) + (v[1] * axis[1]) + (v[2] * axis[2]);
-    }
 
     glm::vec3 toWorld(const glm::vec3& v) const {
         // v = (v.x, v.y, v.z) in tangent space => world = v.x * T + v.y * B + v.z * N
@@ -49,6 +45,6 @@ class onb {
                          glm::dot(v, axis[2]));
     }
 
-  private:
+private:
     glm::vec3 axis[3];
 };

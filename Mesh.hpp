@@ -6,7 +6,9 @@
 #include "Shape.hpp"
 #include "Material.hpp"
 
-
+//resource manager should hold shared_ptr<mesh>
+//we have set<shared_ptr>
+//when we create new mesh in model we check if it exists -> !
 
 class Mesh{
 public:

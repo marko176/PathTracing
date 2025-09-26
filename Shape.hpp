@@ -1,8 +1,4 @@
 #pragma once
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/glm.hpp>
-#include <glm/gtx/intersect.hpp>
-#include <glm/gtc/matrix_transform.hpp>
 #include <memory>
 #include "Ray.hpp"
 #include "AABB.hpp"
@@ -37,8 +33,8 @@ public:
     }
 
     static glm::vec2 getSphereUV(const glm::vec3& p){
-        float theta = std::acos(std::clamp(p.y,-1.0f,1.0f));
-        float phi = std::atan2f(p.z,p.x);
+        float theta = std::acos(glm::clamp(p.y,-1.0f,1.0f));
+        float phi = std::atan2(p.z,p.x);
         if(phi < 0) phi += 2.0f * std::numbers::pi_v<float>;
         float u = std::numbers::inv_pi_v<float> * phi * 0.5f;
         float v = std::numbers::inv_pi_v<float> * theta;

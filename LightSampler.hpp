@@ -1,6 +1,7 @@
 #pragma once
 #include "Light.hpp"
 #include "Primitive.hpp"
+
 class LightSampler {
 public:
     virtual ~LightSampler() = default;

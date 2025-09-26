@@ -19,7 +19,21 @@ public:
     auto load_file(const std::filesystem::path& path) const -> std::string;
 
     
-    auto get_texture(const std::string& name, float tempSRGB = false) -> std::shared_ptr<ImageTexture>;
+    auto GetImageTexture(const std::string& path, float tempSRGB = false) -> std::shared_ptr<Texture>;//maybe get image?
+
+
+    template <typename T, typename... Args>
+    requires std::is_base_of_v<Texture,T>
+    std::shared_ptr<Texture> GetTexture(const std::string& name,Args&&... args) {
+        //instead of giving name, let texture have hash function?
+        if(name.empty())return nullptr;
+        auto it = texture_cache.find(name);
+        if(it != texture_cache.end()){
+            return it->second;
+        }
+        return texture_cache.try_emplace(name,std::make_shared<T>(std::forward<Args>(args)...)).first->second;
+    }
+
     template <typename... Args>
     auto get_model(const std::string& path, Args&&... args) -> std::shared_ptr<Model> {
         auto it = model_cache.find(path);
@@ -33,5 +47,5 @@ public:
     ResourceManager() = default;
     ~ResourceManager() = default;
     std::unordered_map<std::string, std::shared_ptr<Model>> model_cache;
-    std::unordered_map<std::string, std::shared_ptr<ImageTexture>> texture_cache;
+    std::unordered_map<std::string, std::shared_ptr<Texture>> texture_cache;
 };

@@ -14,6 +14,6 @@ Building the project:
 ```bash
 mkdir build
 cmake -S . -B build
-cmake --build ./build -j N   (set N to thread count)
+cmake --build ./build --config Release -j N   (set N to thread count)
 ```
 To run the pathtracer do: `./PathTracer.exe`

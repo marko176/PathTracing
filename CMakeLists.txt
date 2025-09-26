@@ -8,10 +8,18 @@ set(ASSIMP_BUILD_TESTS OFF)
 
 add_subdirectory(assimp)
 
-set(CMAKE_CXX_COMPILER "/usr/bin/x86_64-linux-gnu-g++-14")
+#set(CMAKE_CXX_COMPILER "/usr/bin/x86_64-linux-gnu-g++-14")
 set(CMAKE_CXX_STANDARD 23) 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_FLAGS "-O3 -g -march=native ")
+
+message(STATUS "C++ compiler: ${CMAKE_CXX_COMPILER}")
+message(STATUS "C++ standard: ${CMAKE_CXX_STANDARD}")
+
+if (MSVC) 
+    add_compile_options(/FS /O2)
+else()
+    add_compile_options(-O3 -march=native -g)
+endif()
 
 set(INTERPROCEDURAL_OPTIMIZATION TRUE)
 
@@ -30,5 +38,5 @@ add_executable(PathTracer.exe
             Integrators.cpp
             PhaseFunction.cpp)
 
-target_include_directories(PathTracer.exe PRIVATE ${CMAKE_SOURCE_DIR} "/usr/local/include/OpenImageDenoise")
-target_link_libraries(PathTracer.exe PRIVATE assimp "/usr/local/lib/libOpenImageDenoise.so")
+target_include_directories(PathTracer.exe PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_libraries(PathTracer.exe PRIVATE assimp)

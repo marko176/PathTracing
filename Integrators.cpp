@@ -199,6 +199,8 @@ glm::vec3 VolPathIntegrator::Li(Ray ray) const {
         MediumInteraction medInteraction;
         
         if(!Intersect(ray,interaction,std::numeric_limits<float>::infinity())){
+            //infinite area light
+            return output;
             float a = 0.5f*(ray.dir.y+1.0f);
             return output + color * 1.5f * ((1.0f-a)*glm::vec3(1,0.85,0.55) + a*glm::vec3(0.45,0.65,1));
         }
@@ -217,6 +219,7 @@ glm::vec3 VolPathIntegrator::Li(Ray ray) const {
         glm::vec2 phase_random_variables = sampler->get2D();
         if(medInteraction.isValid()){
             output += color * SampleLdMedium(ray,medInteraction,light_selection_random_variable,light_random_variables);
+            output += color * ray.medium->Le();
             glm::vec3 scattered;
             medInteraction.phaseFunction->Sample(ray.dir,scattered,phase_random_variables);
             ray = Ray(medInteraction.p,scattered,interaction.getMedium(scattered));

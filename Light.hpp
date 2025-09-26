@@ -2,6 +2,7 @@
 #include "Interaction.hpp"
 #include "Shape.hpp"
 #include <functional>
+
 struct LightSample {
     GeometricInteraction interaction;
     glm::vec3 dir;

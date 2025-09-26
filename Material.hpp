@@ -1,8 +1,4 @@
 #pragma once
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/glm.hpp>
-#include <glm/gtx/intersect.hpp>
-#include <glm/gtc/matrix_transform.hpp>
 #include "Texture.hpp"
 #include "Ray.hpp"
 #include "Interaction.hpp"
@@ -140,8 +136,8 @@ public:
         if(u1 >= prob){
             u1 = u1*(1.0f + 2.0f*prob) - 2.0f*prob;
             if(!sampleVNDF){
-                float cos_theta_h = std::sqrtf((1.0f-u1)/(u1*(roughness*roughness - 1.0f) + 1.0f));
-                float theta_h = std::acosf(cos_theta_h);
+                float cos_theta_h = std::sqrt((1.0f-u1)/(u1*(roughness*roughness - 1.0f) + 1.0f));
+                float theta_h = std::acos(cos_theta_h);
                 float phi     = 2 * std::numbers::pi_v<float> * u2;
                 
                 glm::vec3 h_tangent = {
@@ -150,7 +146,7 @@ public:
                     cos_theta_h
                 };
     
-                glm::vec3 h = glm::normalize(TBN.transform(h_tangent));
+                glm::vec3 h = glm::normalize(TBN.toWorld(h_tangent));
                 glm::vec3 l = glm::reflect(r_in.dir, h);
     
                 scattered = Ray(interaction.p, glm::normalize(l));
@@ -186,7 +182,7 @@ public:
             glm::vec3 sampled_cosine(x, y, z); // on hemisphere around z+
             //onb uvw(interaction.normal);
 
-            glm::vec3 reflected = TBN.transform(sampled_cosine);//was uvw.transform
+            glm::vec3 reflected = TBN.toWorld(sampled_cosine);//was uvw.transform
             scattered = Ray(interaction.p, glm::normalize(reflected));
         }
 
