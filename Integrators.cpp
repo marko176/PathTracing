@@ -118,13 +118,13 @@ glm::vec3 PathIntegrator::Li(Ray ray) const {
         
         Ray new_ray;
 
-        spec = false;
+        
         if(!interaction.mat->scatter(ray,interaction,new_ray,random_variables)){
             return output;//absorbed   
         }
         
         
-
+        spec = false;
         if(interaction.mat->is_specular(interaction)){
             color *= interaction.mat->f_PDF(ray,interaction,new_ray);
             ray = new_ray;
@@ -167,7 +167,7 @@ glm::vec3 PathIntegrator::SampleLd(const Ray& ray,const SurfaceInteraction& inte
         t = glm::length(lightDir) - 0.0001f;
     }
     Ray shadow_ray(interaction.p, glm::normalize(lightDir));
-    if(glm::dot(interaction.ns,shadow_ray.dir) <= 0 || Unoccluded(shadow_ray,t))return {0,0,0};
+    if(glm::dot(interaction.ns,shadow_ray.dir) <= 0 || !Unoccluded(shadow_ray,t))return {0,0,0};
 
     if(sampled_light->isDelta()){
         float light_pdf = lightSampler->PMF(sampled_light) * 1.0f;

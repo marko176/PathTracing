@@ -243,6 +243,56 @@ void renderPrimFilter(const Scene& scene, int width, int height,std::shared_ptr<
     film->WriteImage(outputImage);
 }
 
+void Miguel(){
+    auto scene = std::make_shared<Scene>();
+    auto white = ResourceManager::get_instance().GetTexture<SolidColor>("whiteTexture",glm::vec3(.9));
+    auto green = ResourceManager::get_instance().GetTexture<SolidColor>("greenTexture",glm::vec3(.2,.3,.1));
+    auto light = std::make_shared<lambertian>(glm::vec3(0));
+    auto ch =  std::make_shared<lambertian>(glm::vec3{.2,.3,.1});
+    auto glass = std::make_shared<dielectric>(1.5,glm::vec3(1));
+    auto checker = std::make_shared<lambertian>(ResourceManager::get_instance().GetTexture<CheckerTexture>("greenTexture",white,green,glm::vec2{0.02}));
+    ch =  std::make_shared<lambertian>(std::make_shared<CheckerTexture>(white,green,glm::vec2{0.001,0.001}));
+    std::shared_ptr<AreaLight> area = std::make_shared<AreaLight>(std::make_shared<QuadShape>(glm::vec3(0.3,1.5,0), glm::vec3(-0.15,0,0), glm::vec3(0,0,-0.15)),glm::vec3(600),false);
+
+    scene->Add(ResourceManager::get_instance().GetModel("San Miguel","/home/markov/Documents/Coding/CPP/testing/models/HARD/temp.assbin"));
+
+
+    std::shared_ptr<LightSampler> ls = std::make_shared<PowerLightSampler>();
+    scene->PreProcess();
+    ls->Add(scene->GetLights());
+    ls->Add(std::make_shared<InfiniteLight>(glm::vec3(-1,6,1),25.f*glm::vec3(1,0.93,0.83)));
+    //ls->Add(std::make_shared<PointLight>(glm::vec3(0.3,1.5,0),glm::vec3(6)));
+    ls->PreProcess(scene->BoundingBox());
+    
+    double fov = 1.7;
+
+
+    glm::dvec3 lookfrom = {-1000,300,0};
+    lookfrom = {17.3,1.2,7.2};
+
+    glm::dvec3 lookat = {0,300,0};
+    lookat = {0,0,0};
+
+    //64*4
+    int samples = 64;//64*16*4 -> 4 hours
+    int sqrts = std::sqrt(samples);
+
+    std::shared_ptr<Film> film = std::make_shared<Film>(glm::ivec2{1920,1080},std::make_shared<MitchellFilter>());
+
+    
+    auto camera = std::make_shared<Camera>(lookfrom,lookat,fov,film);
+    auto sampler = std::make_shared<StratifiedSampler>(sqrts,sqrts);
+    auto integrator = std::make_shared<PathIntegrator>(scene,camera,sampler,ls,128);
+
+    //camera->SetMedium(outsideMedium);
+    //scene->SetMedium(outsideMedium);
+
+    //renderPrim2(scene,1920,1080,ls,"RenderedScene.ppm");
+    integrator->Render();
+    camera->GetFilm()->WriteImage("RenderedScene");
+    ResourceManager::get_instance().release_textures();
+}
+
 void temp(){
     auto scene = std::make_shared<Scene>();
     auto white = ResourceManager::get_instance().GetTexture<SolidColor>("whiteTexture",glm::vec3(.9));
@@ -262,12 +312,12 @@ void temp(){
     glm::mat4 pos = glm::mat4(1);
     pos = glm::translate(pos,{-0.1,0,-0.1});
     pos = glm::rotate(pos,glm::radians(-60.0f),glm::normalize(glm::vec3(0,1,1)));
-    pos = glm::scale(pos,glm::vec3(2,2,2));
-    std::shared_ptr<Primitive> transformedModel = std::make_shared<TransformedPrimitive>(std::make_shared<Model>("/home/markov/Documents/Coding/CPP/testing/models/temp_other.assbin",glass,std::make_shared<HomogeneusMedium>(glm::vec3{0.01f, 0.9f, 0.9f},glm::vec3{1.0f, 0.1f, 0.1f},std::make_shared<HenyeyGreenstein>(0.8),25.0f)),pos);
+    pos = glm::scale(pos,glm::vec3(1,1,1));
+    std::shared_ptr<Primitive> transformedModel = std::make_shared<TransformedPrimitive>(ResourceManager::get_instance().GetModel("Glass Dragon","/home/markov/Documents/Coding/CPP/testing/models/temp_other.assbin",glass,std::make_shared<HomogeneusMedium>(glm::vec3{0.01f, 0.9f, 0.9f},glm::vec3{1.0f, 0.1f, 0.1f},std::make_shared<HenyeyGreenstein>(0.8),25.0f)),pos);
   
     //scene->Add(transformedModel);
 
-    scene->Add(std::make_shared<Model>("/home/markov/Documents/Coding/CPP/testing/models/temp_other.assbin",
+    scene->Add(ResourceManager::get_instance().GetModel("Medium Dragon","/home/markov/Documents/Coding/CPP/testing/models/temp_other.assbin",
             nullptr,
             std::make_shared<HomogeneusMedium>( glm::vec3{0.01f, 0.9f, 0.9f},
                                                 glm::vec3{1.0f, 0.1f, 0.1f},
@@ -324,66 +374,17 @@ void temp(){
     ResourceManager::get_instance().release_textures();
 }
 
-void dragon(){
-    Scene scene;
-    auto white = std::make_shared<lambertian>(glm::vec3(.73, .73, .73));
-    auto light = std::make_shared<lambertian>(glm::vec3(0));
-    auto ch =  std::make_shared<lambertian>(glm::vec3{.2,.3,.1});
-    
-    std::shared_ptr<AreaLight> area = std::make_shared<AreaLight>(std::make_shared<QuadShape>(glm::vec3(0.3,1.5,0), glm::vec3(-0.15,0,0), glm::vec3(0,0,-0.15)),glm::vec3(600),false);
-    //what if light color is 0 -> NaN
-    scene.Add(std::make_shared<GeometricPrimitive>(std::make_shared<QuadShape>(glm::vec3(0.3,1.5,0), glm::vec3(-0.15,0,0), glm::vec3(0,0,-0.15)), light, area, nullptr));//-0.3, -1
-    scene.Add(std::make_shared<GeometricPrimitive>(std::make_shared<QuadShape>(glm::vec3(-100,-0.3,-100), glm::vec3(1000,0,0), glm::vec3(0,0,1000)), ch, nullptr, nullptr));
-    //scene.Add(new Model("/home/markov/Documents/Coding/CPP/raytracing_in_one_weekend/temp_other.assbin"));
-    scene.Add(std::make_shared<Model>("/home/markov/Documents/Coding/CPP/testing/models/temp_other.assbin"));
-    
-    //scene.Add(new GeometricPrimitive(new SphereShape(glm::vec3(0,0.1,-1.2),0.5),std::make_shared<lambertian>(glm::vec3(0.1, 0.2, 0.5)),nullptr));
-    //scene.Add(new GeometricPrimitive(new SphereShape(glm::vec3(-1,0,-1),0.5),std::make_shared<dielectric>(1.5),nullptr));
-    //scene.Add(new GeometricPrimitive(new SphereShape(glm::vec3(-1,0,-1),0.4),std::make_shared<dielectric>(1/1.5),nullptr));
-    //scene.Add(new GeometricPrimitive(new SphereShape(glm::vec3(1,0,-1),0.5),std::make_shared<metal>(glm::vec3(0.8, 0.6, 0.2)),nullptr));
-        //d_list[1] = new Sphere{glm::vec3(-0.8,1,-0.5), 0.5,
-        //                        new Light(glm::vec3(8, 8, 8))};
 
-    std::shared_ptr<LightSampler> ls = std::make_shared<PowerLightSampler>();
-    scene.PreProcess();
-    ls->Add(scene.GetLights());
-    ls->PreProcess(scene.BoundingBox());
-    
-
-    //renderPrim2(scene,1920,1080,ls,"RenderedScene.ppm");
-    renderPrimFilter(scene,1920,1080,ls,"RenderedScene",std::make_shared<MitchellFilter>());
-}
 
 int main(){
     
     stbi_set_flip_vertically_on_load(true);
-    temp();
+    Miguel();
     return 0;
-    //dragon();
+    //temp();
     //return 0;
     Scene scene;
-    /*
-    auto red   = std::make_shared<lambertian>(glm::vec3(.65, .05, .05));
-    auto white = std::make_shared<lambertian>(glm::vec3(.73, .73, .73));
-    auto green = std::make_shared<lambertian>(glm::vec3(.12, .45, .15));
-    auto light = std::make_shared<lambertian>(glm::vec3(0));
-    
-    scene.Add(new GeometricPrimitive(new QuadShape(glm::vec3(555,0,0), glm::vec3(0,555,0), glm::vec3(0,0,555)), green, nullptr));
-    scene.Add(new GeometricPrimitive(new QuadShape(glm::vec3(0,0,0), glm::vec3(0,555,0), glm::vec3(0,0,555)), red, nullptr));
-    std::shared_ptr<AreaLight> area = std::make_shared<AreaLight>(std::make_shared<QuadShape>(glm::vec3(343, 554, 332), glm::vec3(-130,0,0), glm::vec3(0,0,-105)),glm::vec3(15,15,15),false);
-    scene.Add(new GeometricPrimitive(new QuadShape(glm::vec3(343, 554, 332), glm::vec3(-130,0,0), glm::vec3(0,0,-105)), light, area));
-    scene.Add(new GeometricPrimitive(new QuadShape(glm::vec3(0,0,0), glm::vec3(555,0,0), glm::vec3(0,0,555)), white, nullptr));
-    scene.Add(new GeometricPrimitive(new QuadShape(glm::vec3(555,555,555), glm::vec3(-555,0,0), glm::vec3(0,0,-555)), white, nullptr));
-    scene.Add(new GeometricPrimitive(new QuadShape(glm::vec3(0,0,555), glm::vec3(555,0,0), glm::vec3(0,555,0)), white, nullptr));
-    scene.Add(new GeometricPrimitive(new SphereShape({212,120,147},110),std::make_shared<dielectric>(1.5,glm::vec3(1,1,1)),nullptr,std::make_shared<Medium>(glm::vec3(0.9,0.01,0.01))));
-    */
-    //std::shared_ptr<LightSampler> ls = std::make_shared<PowerLightSampler>();
-    
-    
-    glm::mat4 pos = glm::mat4(1);
-    //pos = glm::translate(pos,{0,-1,0});
-    //pos = glm::rotate(pos,glm::radians(-10.0f),glm::vec3(0,1,0));
-    //Primitive* modelp = new TransformedPrimitive(std::make_shared<Model>("/home/markov/Documents/Coding/CPP/testing/models/HARD/temp.assbin"),pos);
+
     scene.Add(std::make_shared<Model>("/home/markov/Documents/Coding/CPP/testing/models/HARD/temp.assbin"));
     //scene.Add(new Model("/home/markov/Documents/Coding/CPP/gl/crytek-sponza/temp_other.assbin"));
    

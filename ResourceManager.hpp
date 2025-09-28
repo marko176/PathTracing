@@ -47,6 +47,16 @@ public:
         meshCache.push_back(newMesh);
         return newMesh;
     }
+
+    template <typename... Args>
+    auto GetModel(const std::string& name, Args&&... args) -> std::shared_ptr<Model> {
+        auto it = modelCache.find(name);
+        if(it != modelCache.end()){
+            return it->second;
+        }
+        return modelCache.try_emplace(name,std::make_shared<Model>(std::forward<Args>(args)...)).first->second;
+    }
+
     auto release_textures() -> void;
     private:
     ResourceManager() = default;
@@ -55,5 +65,6 @@ public:
 
 
     std::vector<std::shared_ptr<Mesh>> meshCache;
+    std::unordered_map<std::string, std::shared_ptr<Model>> modelCache;
     std::unordered_map<std::string, std::shared_ptr<Texture>> texture_cache;
 };

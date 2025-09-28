@@ -24,7 +24,7 @@ Model::Model(const std::string& path){
         for(const std::shared_ptr<Mesh>& m : meshes){
     
             for(int j = 0;j<m->triangle_count;j++){
-                primitives.emplace_back(std::shared_ptr<Shape>(m->getControlPtr(),m->getShape(j)),m->material,nullptr,nullptr);
+                primitives.emplace_back(std::shared_ptr<Shape>(m->GetControlPtr(),m->GetShape(j)),m->material,nullptr,nullptr);
             }
         }
         model_bvh = BLAS(std::move(primitives));
@@ -45,7 +45,7 @@ Model::Model(const std::string& path,const std::shared_ptr<Material>& material, 
         for(const std::shared_ptr<Mesh>& m : meshes){
             
             for(int j = 0;j<m->triangle_count;j++){
-                primitives.emplace_back(std::shared_ptr<Shape>(m->getControlPtr(),m->getShape(j)),material,nullptr,medium);
+                primitives.emplace_back(std::shared_ptr<Shape>(m->GetControlPtr(),m->GetShape(j)),material,nullptr,medium);
             }
         }
         model_bvh = BLAS(std::move(primitives));

@@ -23,10 +23,10 @@ public:
     std::vector<glm::vec2> texCoords;
     std::shared_ptr<Material> material;
     
-    const std::shared_ptr<std::vector<TriangleShape>>& getControlPtr() const {
+    const std::shared_ptr<std::vector<TriangleShape>>& GetControlPtr() const {
         return shapes;
     }
-    TriangleShape* getShape(std::size_t index) const {
+    TriangleShape* GetShape(std::size_t index) const {
         return &(*shapes)[index];
     }
 

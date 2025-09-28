@@ -36,6 +36,7 @@ public:
         return model_bvh.GetLights();
     }
 
+    
     private:
     auto load_model(const std::string& path) -> bool;
     auto process_node(aiNode* node, const aiScene* scene) -> void;
