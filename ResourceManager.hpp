@@ -34,18 +34,26 @@ public:
         return texture_cache.try_emplace(name,std::make_shared<T>(std::forward<Args>(args)...)).first->second;
     }
 
+    //maybe still habe getModel -> which gives us a model but caches a BVH ?
+
     template <typename... Args>
-    auto get_model(const std::string& path, Args&&... args) -> std::shared_ptr<Model> {
-        auto it = model_cache.find(path);
-        if(it == model_cache.end()){
-            return model_cache.try_emplace(path,std::make_shared<Model>(path,std::forward<Args>(args)...)).first->second;
+    auto getMesh(Args&&... args) -> std::shared_ptr<Mesh> {
+        std::shared_ptr<Mesh> newMesh = std::make_shared<Mesh>(std::forward<Args>(args)...);
+        for(auto&& ptr : meshCache){
+            if(*ptr == *newMesh){
+                return ptr;
+            }
         }
-        return it->second;
+        meshCache.push_back(newMesh);
+        return newMesh;
     }
     auto release_textures() -> void;
     private:
     ResourceManager() = default;
     ~ResourceManager() = default;
-    std::unordered_map<std::string, std::shared_ptr<Model>> model_cache;
+
+
+
+    std::vector<std::shared_ptr<Mesh>> meshCache;
     std::unordered_map<std::string, std::shared_ptr<Texture>> texture_cache;
 };

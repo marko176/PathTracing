@@ -169,7 +169,7 @@ void renderPrimFilter(const Scene& scene, int width, int height,std::shared_ptr<
 
 
 
-    int samples = 100;//64*16*4 -> 4 hours
+    int samples = 64;//64*16*4 -> 4 hours
     int sqrts = std::sqrt(samples);
 
     std::shared_ptr<Film> film = std::make_shared<Film>(glm::ivec2{width,height},filter);
@@ -207,7 +207,7 @@ void renderPrimFilter(const Scene& scene, int width, int height,std::shared_ptr<
                             Ray ray = camera.GenerateRay(p,sampler->GetPixel2D(),0);
 
                             glm::dvec3 color = Li2(ray,scene, sampler,LIsampler);
-                            if(glm::isnan(color)!=glm::bvec3(false)){
+                            if(std::isnan(color.x) ||  std::isnan(color.y) ||  std::isnan(color.z)){
                                 std::cout<<"Nan:"<<x<<" "<<y<<"\n";
                                 continue;
                             }
@@ -262,20 +262,19 @@ void temp(){
     glm::mat4 pos = glm::mat4(1);
     pos = glm::translate(pos,{-0.1,0,-0.1});
     pos = glm::rotate(pos,glm::radians(-60.0f),glm::normalize(glm::vec3(0,1,1)));
-    //std::shared_ptr<Primitive> transformedModel = std::make_shared<TransformedPrimitive>(ResourceManager::get_instance().get_model("/home/markov/Documents/Coding/CPP/testing/models/temp_other.assbin",glass,std::make_shared<HomogeneusMedium>(glm::vec3{0.01f, 0.9f, 0.9f},glm::vec3{1.0f, 0.1f, 0.1f},std::make_shared<HenyeyGreenstein>(0.8),25.0f)),pos);
-    //this doesnt wokr if models have different materials -> use multimap?
+    pos = glm::scale(pos,glm::vec3(2,2,2));
+    std::shared_ptr<Primitive> transformedModel = std::make_shared<TransformedPrimitive>(std::make_shared<Model>("/home/markov/Documents/Coding/CPP/testing/models/temp_other.assbin",glass,std::make_shared<HomogeneusMedium>(glm::vec3{0.01f, 0.9f, 0.9f},glm::vec3{1.0f, 0.1f, 0.1f},std::make_shared<HenyeyGreenstein>(0.8),25.0f)),pos);
+  
     //scene->Add(transformedModel);
 
-    //need multiset!!
-    //or need to hold meshes -> how to get their id?
-    scene->Add(ResourceManager::get_instance().get_model("/home/markov/Documents/Coding/CPP/testing/models/temp_other.assbin",
+    scene->Add(std::make_shared<Model>("/home/markov/Documents/Coding/CPP/testing/models/temp_other.assbin",
             nullptr,
             std::make_shared<HomogeneusMedium>( glm::vec3{0.01f, 0.9f, 0.9f},
                                                 glm::vec3{1.0f, 0.1f, 0.1f},
-                                                std::make_shared<HenyeyGreenstein>(0.8),
+                                                std::make_shared<HenyeyGreenstein>(0.85),
                                                 25.0f,
                                                 glm::vec3{1,1,1},
-                                                1)));
+                                                1.2)));
 
     //scene->Add(new GeometricPrimitive(new SphereShape(glm::vec3(0,0.1,-1.2),0.5),std::make_shared<lambertian>(glm::vec3(0.1, 0.2, 0.5)),nullptr));
     //scene->Add(new GeometricPrimitive(new SphereShape(glm::vec3(-1,0,-1),0.5),std::make_shared<dielectric>(1.5),nullptr));
@@ -336,7 +335,7 @@ void dragon(){
     scene.Add(std::make_shared<GeometricPrimitive>(std::make_shared<QuadShape>(glm::vec3(0.3,1.5,0), glm::vec3(-0.15,0,0), glm::vec3(0,0,-0.15)), light, area, nullptr));//-0.3, -1
     scene.Add(std::make_shared<GeometricPrimitive>(std::make_shared<QuadShape>(glm::vec3(-100,-0.3,-100), glm::vec3(1000,0,0), glm::vec3(0,0,1000)), ch, nullptr, nullptr));
     //scene.Add(new Model("/home/markov/Documents/Coding/CPP/raytracing_in_one_weekend/temp_other.assbin"));
-    scene.Add(ResourceManager::get_instance().get_model("/home/markov/Documents/Coding/CPP/testing/models/temp_other.assbin"));
+    scene.Add(std::make_shared<Model>("/home/markov/Documents/Coding/CPP/testing/models/temp_other.assbin"));
     
     //scene.Add(new GeometricPrimitive(new SphereShape(glm::vec3(0,0.1,-1.2),0.5),std::make_shared<lambertian>(glm::vec3(0.1, 0.2, 0.5)),nullptr));
     //scene.Add(new GeometricPrimitive(new SphereShape(glm::vec3(-1,0,-1),0.5),std::make_shared<dielectric>(1.5),nullptr));
@@ -385,7 +384,7 @@ int main(){
     //pos = glm::translate(pos,{0,-1,0});
     //pos = glm::rotate(pos,glm::radians(-10.0f),glm::vec3(0,1,0));
     //Primitive* modelp = new TransformedPrimitive(std::make_shared<Model>("/home/markov/Documents/Coding/CPP/testing/models/HARD/temp.assbin"),pos);
-    scene.Add(ResourceManager::get_instance().get_model("/home/markov/Documents/Coding/CPP/testing/models/HARD/temp.assbin"));
+    scene.Add(std::make_shared<Model>("/home/markov/Documents/Coding/CPP/testing/models/HARD/temp.assbin"));
     //scene.Add(new Model("/home/markov/Documents/Coding/CPP/gl/crytek-sponza/temp_other.assbin"));
    
     std::shared_ptr<LightSampler> ls = std::make_shared<PowerLightSampler>();

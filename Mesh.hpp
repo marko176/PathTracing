@@ -29,6 +29,11 @@ public:
     TriangleShape* getShape(std::size_t index) const {
         return &(*shapes)[index];
     }
+
+    bool operator==(const Mesh& other) const = default;
+    bool operator!=(const Mesh& other) const {
+        return !(*this == other);
+    }
 private:
     std::shared_ptr<std::vector<TriangleShape>> shapes;
 };

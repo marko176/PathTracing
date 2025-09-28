@@ -274,12 +274,13 @@ auto Model::process_mesh(aiMesh* mesh, const aiScene* scene) -> std::shared_ptr<
             }
             
         }
-
-        return std::make_shared<Mesh>(indices,vertices,tangents,bitangents,normals,texCoords,mat);
+        return ResourceManager::get_instance().getMesh(indices,vertices,tangents,bitangents,normals,texCoords,mat);
+        //return std::make_shared<Mesh>(indices,vertices,tangents,bitangents,normals,texCoords,mat);
     }
     std::shared_ptr<Texture> tmp = std::make_shared<SolidColor>(glm::vec3(.65, .05, .05));
     std::shared_ptr<Material> mat = std::make_shared<lambertian>(tmp);
-    return std::make_shared<Mesh>(indices,vertices,tangents,bitangents,normals,texCoords,mat);
+    return ResourceManager::get_instance().getMesh(indices,vertices,tangents,bitangents,normals,texCoords,mat);
+    //return std::make_shared<Mesh>(indices,vertices,tangents,bitangents,normals,texCoords,mat);
 }
 
 auto Model::GetMeshes() const -> const std::vector<std::shared_ptr<Mesh>>& {

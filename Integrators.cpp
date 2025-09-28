@@ -52,7 +52,7 @@ void TileIntegrator::Render() const {
                             glm::dvec2 p = glm::dvec2{x,y} + clonedSampler->GetPixel2D();
                             Ray ray = camera->GenerateRay(p,clonedSampler->GetPixel2D(),0);
                             glm::dvec3 color = Li(ray);
-                            if(glm::isnan(color)!=glm::bvec3(false)){
+                            if(glm::isnan(color.x) || glm::isnan(color.y) || glm::isnan(color.z)){
                                 std::cout<<"Nan:"<<x<<" "<<y<<"\n";
                                 continue;
                             }

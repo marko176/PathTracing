@@ -68,7 +68,6 @@ public:
         glm::dvec2 pixelSample = glm::fract(p);
         glm::ivec2 pixel = glm::floor(p);
 
-        std::size_t tileWidth = tileBounds.max.x - tileBounds.min.x;
         for(int y = -radius.y;y<=radius.y;y++){
             for(int x = -radius.x;x<=radius.x;x++){
                 glm::dvec2 sample_pos = glm::dvec2{x,y} + glm::dvec2{0.5,0.5} - pixelSample;
@@ -125,7 +124,6 @@ public:
     }
 
     void Merge(const FilmTile& tile) {
-        std::size_t tileWidth = tile.tileBounds.max.x - tile.tileBounds.min.x;
         for(int y = tile.tileBounds.min.y;y<tile.tileBounds.max.y;y++){
             for(int x = tile.tileBounds.min.x;x<tile.tileBounds.max.x;x++){
                 FilmTilePixel pixel = tile.At({x,y});
