@@ -4,6 +4,8 @@
 #include <fstream>
 #include <numbers>
 #include <filesystem>
+#include "stb_image_write.h"
+
 
 inline std::filesystem::path findProjectRoot(std::filesystem::path p = std::filesystem::current_path()) {
     while(!p.empty()){
@@ -134,17 +136,23 @@ public:
 
 
 
-    void WriteImage(const std::string& filename) const {
+    static std::filesystem::path GetOutputFilePath(const std::string& filename) {
         std::filesystem::path projectRoot = findProjectRoot();
         std::filesystem::path outputDir = projectRoot / "Output";
         std::error_code ec;
         std::filesystem::create_directories(outputDir, ec);
         if(ec){
             std::cerr << "Failed to create output dir: "<<ec.message()<<"\n";
-            return;
+            return "";
         }
-        std::filesystem::path outFile = outputDir / (filename + ".ppm");
-        std::ofstream out(outFile, std::ios::binary );
+        return outputDir / (filename);
+    }
+
+    void WritePPM(const std::string& filename){
+
+        std::filesystem::path filePath = GetOutputFilePath(filename);
+        if(filePath.empty())return;
+        std::ofstream out(filePath.string() + ".ppm", std::ios::binary);
         out << "P6\n" << xResolution << " " << yResolution << "\n255\n";
         for(int i = yResolution-1;i>=0;i--){
             for(int j = 0;j<xResolution;j++){
@@ -157,6 +165,53 @@ public:
             }
         }
         out.close();
+    }
+
+    void WritePNG(const std::string& filename){
+        std::filesystem::path filePath = GetOutputFilePath(filename);
+        if(filePath.empty())return;
+        constexpr int channels = 3;
+        std::vector<uint8_t> outputImage(screen.size() * channels);
+        for(int i = 0;i<yResolution;i++){
+            for(int j = 0;j<xResolution;j++){
+                glm::dvec3 color = glm::dvec3{screen[i*xResolution + j].r.load(),screen[i*xResolution + j].g.load(),screen[i*xResolution + j].b.load()} / screen[i*xResolution + j].weight.load();
+                color = reinhard_jodie(color);
+                double r = linear_to_sRGB(color.r);
+                double g = linear_to_sRGB(color.g);
+                double b = linear_to_sRGB(color.b);
+                outputImage[(i*xResolution + j) * 3 + 0] = 255.999*std::max(0.0,std::min(1.0,r));
+                outputImage[(i*xResolution + j) * 3 + 1] = 255.999*std::max(0.0,std::min(1.0,g));
+                outputImage[(i*xResolution + j) * 3 + 2] = 255.999*std::max(0.0,std::min(1.0,b));
+            }
+        }
+        std::string file = filePath.string() + ".png";
+        stbi_flip_vertically_on_write(true);
+        stbi_write_png(file.c_str(),xResolution,yResolution,channels,outputImage.data(),xResolution * sizeof(uint8_t) * channels);
+        stbi_flip_vertically_on_write(false);
+    }
+
+    //quality between 1-100
+    void WriteJPG(const std::string& filename, int quality){
+        std::filesystem::path filePath = GetOutputFilePath(filename);
+        if(filePath.empty())return;
+        constexpr int channels = 3;
+        std::vector<uint8_t> outputImage(screen.size() * channels);
+        for(int i = 0;i<yResolution;i++){
+            for(int j = 0;j<xResolution;j++){
+                glm::dvec3 color = glm::dvec3{screen[i*xResolution + j].r.load(),screen[i*xResolution + j].g.load(),screen[i*xResolution + j].b.load()} / screen[i*xResolution + j].weight.load();
+                color = reinhard_jodie(color);
+                double r = linear_to_sRGB(color.r);
+                double g = linear_to_sRGB(color.g);
+                double b = linear_to_sRGB(color.b);
+                outputImage[(i*xResolution + j) * 3 + 0] = 255.999*std::max(0.0,std::min(1.0,r));
+                outputImage[(i*xResolution + j) * 3 + 1] = 255.999*std::max(0.0,std::min(1.0,g));
+                outputImage[(i*xResolution + j) * 3 + 2] = 255.999*std::max(0.0,std::min(1.0,b));
+            }
+        }
+        std::string file = filePath.string() + ".jpg";
+        stbi_flip_vertically_on_write(true);
+        stbi_write_jpg(file.c_str(),xResolution,yResolution,channels,outputImage.data(),quality);
+        stbi_flip_vertically_on_write(false);
     }
 
     void ReadImage(const std::string& filename) {

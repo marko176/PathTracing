@@ -14,7 +14,7 @@
 Model::Model(const std::string& path){
     //tempPTR = std::make_shared<int>(0);
     if(!load_model(path)){
-        std::cerr << "failed model";
+        std::cerr << "Failed to load model: " + path<<std::endl;
     }else{
         std::vector<GeometricPrimitive> primitives;
         primitives.reserve(1'000'000);
@@ -35,7 +35,7 @@ Model::Model(const std::string& path){
 Model::Model(const std::string& path,const std::shared_ptr<Material>& material, const std::shared_ptr<Medium>& medium){
     //maybe pass in a texture for the light -> makes it all light?
     if(!load_model(path)){
-        std::cerr << "failed model";
+        std::cerr << "Failed to load model: " + path<<std::endl;
     }else{
         std::vector<GeometricPrimitive> primitives;
         primitives.reserve(1'000'000);
@@ -96,8 +96,12 @@ auto Model::load_model(const std::string& path) -> bool {
             return false;
         }
 
+        std::string outputPath = path;
+        if(index != std::string::npos){
+            outputPath = path.substr(0,index);
+        }
         Assimp::Exporter exporter;
-        exporter.Export(scene,"assbin",model_path + "temp_other.assbin");//model_path + temp.assbin
+        exporter.Export(scene,"assbin",outputPath + ".assbin");//model_path + temp.assbin
     }
 
 

@@ -240,7 +240,7 @@ void renderPrimFilter(const Scene& scene, int width, int height,std::shared_ptr<
     auto duration = std::chrono::high_resolution_clock::now() - start;
     std::cout<<"\nRender time in ms: "<<std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()<<"\n";
   
-    film->WriteImage(outputImage);
+    film->WritePPM(outputImage);
 }
 
 void Miguel(){
@@ -289,8 +289,8 @@ void Miguel(){
 
     //renderPrim2(scene,1920,1080,ls,"RenderedScene.ppm");
     integrator->Render();
-    camera->GetFilm()->WriteImage("RenderedScene");
-    ResourceManager::get_instance().release_textures();
+    camera->GetFilm()->WritePPM("RenderedScene");
+    ResourceManager::get_instance().releaseTextures();
 }
 
 void temp(){
@@ -370,8 +370,10 @@ void temp(){
 
     //renderPrim2(scene,1920,1080,ls,"RenderedScene.ppm");
     integrator->Render();
-    camera->GetFilm()->WriteImage("RenderedScene");
-    ResourceManager::get_instance().release_textures();
+    camera->GetFilm()->WritePNG("RenderedScene");
+    camera->GetFilm()->WritePPM("RenderedScene");
+    camera->GetFilm()->WriteJPG("RenderedScene",100);
+    ResourceManager::get_instance().releaseTextures();
 }
 
 
@@ -379,10 +381,10 @@ void temp(){
 int main(){
     
     stbi_set_flip_vertically_on_load(true);
-    Miguel();
-    return 0;
-    //temp();
+    //Miguel();
     //return 0;
+    temp();
+    return 0;
     Scene scene;
 
     scene.Add(std::make_shared<Model>("/home/markov/Documents/Coding/CPP/testing/models/HARD/temp.assbin"));
@@ -440,6 +442,6 @@ int main(){
     renderPrimFilter(scene,1920,1080,ls,"RenderedScene",std::make_shared<MitchellFilter>());
     //multi_mesh_test_2("/home/markov/Documents/Coding/CPP/testing/models/HARD/temp.assbin");
     //multi_mesh_test_2("/home/markov/Documents/Coding/CPP/gl/crytek-sponza/sponza.obj");
-    ResourceManager::get_instance().release_textures();
+    ResourceManager::get_instance().releaseTextures();
 
 }

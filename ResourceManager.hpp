@@ -15,9 +15,6 @@ public:
 
     ResourceManager(const ResourceManager&) = delete;
 	ResourceManager& operator=(const ResourceManager&) = delete;
-
-    auto load_file(const std::filesystem::path& path) const -> std::string;
-
     
     auto GetImageTexture(const std::string& path, float tempSRGB = false) -> std::shared_ptr<Texture>;//maybe get image?
 
@@ -25,7 +22,6 @@ public:
     template <typename T, typename... Args>
     requires std::is_base_of_v<Texture,T>
     std::shared_ptr<Texture> GetTexture(const std::string& name,Args&&... args) {
-        //instead of giving name, let texture have hash function?
         if(name.empty())return nullptr;
         auto it = texture_cache.find(name);
         if(it != texture_cache.end()){
@@ -33,8 +29,6 @@ public:
         }
         return texture_cache.try_emplace(name,std::make_shared<T>(std::forward<Args>(args)...)).first->second;
     }
-
-    //maybe still habe getModel -> which gives us a model but caches a BVH ?
 
     template <typename... Args>
     auto getMesh(Args&&... args) -> std::shared_ptr<Mesh> {
@@ -57,7 +51,7 @@ public:
         return modelCache.try_emplace(name,std::make_shared<Model>(std::forward<Args>(args)...)).first->second;
     }
 
-    auto release_textures() -> void;
+    auto releaseTextures() -> void;
     private:
     ResourceManager() = default;
     ~ResourceManager() = default;

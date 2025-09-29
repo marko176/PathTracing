@@ -3,12 +3,6 @@
 #include <iostream>
 #include <fstream>
 
-auto ResourceManager::load_file(const std::filesystem::path& path) const -> std::string {
-    std::ifstream in(path, std::ios::in);
-    return std::string(std::istreambuf_iterator<char>(in),std::istreambuf_iterator<char>());
-}
-
-
 
 auto ResourceManager::GetImageTexture(const std::string& path, float tempSRGB) -> std::shared_ptr<Texture> {
     if(path.empty())return nullptr;
@@ -21,6 +15,6 @@ auto ResourceManager::GetImageTexture(const std::string& path, float tempSRGB) -
 
 
 
-auto ResourceManager::release_textures() -> void {
+auto ResourceManager::releaseTextures() -> void {
     texture_cache.clear();
 }

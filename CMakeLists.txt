@@ -27,6 +27,7 @@ set(INTERPROCEDURAL_OPTIMIZATION TRUE)
 
 add_executable(PathTracer 
             stb_image.cpp 
+            stb_image_write.cpp
             main.cpp 
             Mesh.cpp 
             Model.cpp 
