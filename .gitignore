@@ -40,9 +40,13 @@
 # debug information files
 *.dwo
 
-build/
+build*
+
 Release/
 Output/
+
+.vscode*
+
 
 *.ppm
 *.jpg
