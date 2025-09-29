@@ -60,7 +60,6 @@ bool TransformedPrimitive::Intersect(const Ray& ray, SurfaceInteraction& interac
     return true;
 }
 std::vector<std::shared_ptr<Light>> TransformedPrimitive::GetLights() const {
-    //transform * ?
     std::vector<std::shared_ptr<Light>> temp;
     for(const std::shared_ptr<Light>& l : primitive->GetLights()){
         temp.push_back(std::make_shared<TransformedLight>(transform,l));

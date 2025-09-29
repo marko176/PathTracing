@@ -39,6 +39,7 @@
 
 #include "Integrators.hpp"
 
+/*
 inline glm::vec3 Li2(Ray curr_ray, const Scene& scene,const std::shared_ptr<Sampler>& sampler,const std::shared_ptr<LightSampler>& LIsampler) {
     glm::vec3 color = {1,1,1};
     glm::vec3 output = {0,0,0};
@@ -150,7 +151,7 @@ void renderPrimFilter(const Scene& scene, int width, int height,std::shared_ptr<
     //lookat = {0,0,0};//dragon
     //glm::dvec3 lookat = {-600,230,-200};
 
-    /*
+    
     double halfWidth  = std::tan(fov * 0.5f);
     double halfHeight = halfWidth * height / width;
     glm::dvec3 up = {0,1,0};
@@ -161,7 +162,7 @@ void renderPrimFilter(const Scene& scene, int width, int height,std::shared_ptr<
     double defocus_radius = focus_dist * std::tan(defocus_angle/2.0f);
     glm::dvec3 defocus_disk_u = u * defocus_radius;
     glm::dvec3 defocus_disk_v = v * defocus_radius;
-    */
+    
     unsigned int threads = std::thread::hardware_concurrency();
     std::vector<std::thread> workers;
     std::atomic<int> done{0};
@@ -242,6 +243,78 @@ void renderPrimFilter(const Scene& scene, int width, int height,std::shared_ptr<
   
     film->WritePPM(outputImage);
 }
+*/
+
+void NoModel(){
+    auto scene = std::make_shared<Scene>();
+    auto white = ResourceManager::get_instance().GetTexture<SolidColor>("whiteTexture",glm::vec3(.9));
+    auto green = ResourceManager::get_instance().GetTexture<SolidColor>("greenTexture",glm::vec3(.2,.3,.1));
+    auto light = std::make_shared<lambertian>(glm::vec3(0));
+    auto ch =  std::make_shared<lambertian>(glm::vec3{.2,.3,.1});
+    auto glass = std::make_shared<dielectric>(1.5,glm::vec3(1));
+    auto checker = std::make_shared<lambertian>(ResourceManager::get_instance().GetTexture<CheckerTexture>("greenTexture",white,green,glm::vec2{0.02}));
+    ch =  std::make_shared<lambertian>(std::make_shared<CheckerTexture>(white,green,glm::vec2{0.001,0.001}));
+    std::shared_ptr<AreaLight> area = std::make_shared<AreaLight>(std::make_shared<QuadShape>(glm::vec3(0.3,1.5,0), glm::vec3(-0.15,0,0), glm::vec3(0,0,-0.15)),glm::vec3(600),false);
+    auto outsideMedium = std::make_shared<HomogeneusMedium>(glm::vec3{0.01f, 0.9f, 0.9f},glm::vec3{1.0f, 0.1f, 0.1f},std::make_shared<HenyeyGreenstein>(0.9),0.5f);
+
+
+    scene->Add(std::make_shared<GeometricPrimitive>(std::make_shared<QuadShape>(glm::vec3(0.3,1.5,0), glm::vec3(-0.15,0,0), glm::vec3(0,0,-0.15)), light, area, nullptr));//-0.3, -1
+    scene->Add(std::make_shared<GeometricPrimitive>(std::make_shared<QuadShape>(glm::vec3(-100,-0.3,-100), glm::vec3(1000,0,0), glm::vec3(0,0,1000)), ch, nullptr, nullptr));
+    //scene->Add(new Model("/home/markov/Documents/Coding/CPP/raytracing_in_one_weekend/temp_other.assbin"));
+
+
+    //scene->Add(new GeometricPrimitive(new SphereShape(glm::vec3(0,0.1,-1.2),0.5),std::make_shared<lambertian>(glm::vec3(0.1, 0.2, 0.5)),nullptr));
+    //scene->Add(new GeometricPrimitive(new SphereShape(glm::vec3(-1,0,-1),0.5),std::make_shared<dielectric>(1.5),nullptr));
+    //scene->Add(new GeometricPrimitive(new SphereShape(glm::vec3(-1,0,-1),0.4),std::make_shared<dielectric>(1/1.5),nullptr));
+    //scene->Add(new GeometricPrimitive(new SphereShape(glm::vec3(1,0,-1),0.5),std::make_shared<metal>(glm::vec3(0.8, 0.6, 0.2)),nullptr));
+    
+    scene->Add(std::make_shared<GeometricPrimitive>(std::make_shared<SphereShape>(glm::vec3(1,0,-1),0.5),nullptr,nullptr,std::make_shared<HomogeneusMedium>(glm::vec3{0.01f, 0.9f, 0.9f},glm::vec3{1.0f, 0.1f, 0.1f},std::make_shared<HenyeyGreenstein>(0.8),25.0f,glm::vec3{1,1,1},0)));//Was 1 
+        //d_list[1] = new Sphere{glm::vec3(-0.8,1,-0.5), 0.5,
+        //                        new Light(glm::vec3(8, 8, 8))};
+    //scene->Add(std::make_shared<GeometricPrimitive>(std::make_shared<SphereShape>(glm::vec3(0,0,0),20),nullptr,nullptr,outsideMedium));
+    
+
+    std::shared_ptr<LightSampler> ls = std::make_shared<PowerLightSampler>();
+    scene->PreProcess();
+    ls->Add(scene->GetLights());
+    //ls->Add(std::make_shared<PointLight>(glm::vec3(0.3,1.5,0),glm::vec3(6)));
+    ls->PreProcess(scene->BoundingBox());
+    
+    double fov = 1.7;
+
+
+    glm::dvec3 lookfrom = {-1000,300,0};
+    lookfrom = {17.3,1.2,7.2};
+
+    lookfrom = {0.3,0.4,1};//dragon
+
+    glm::dvec3 lookat = {0,300,0};
+    lookat = {0,0,0};
+
+   
+
+    int samples = 16;
+
+
+
+    int sqrts = std::sqrt(samples);
+
+    std::shared_ptr<Film> film = std::make_shared<Film>(glm::ivec2{1920,1080},std::make_shared<MitchellFilter>());
+
+    
+    auto camera = std::make_shared<Camera>(lookfrom,lookat,fov,film);
+    auto sampler = std::make_shared<StratifiedSampler>(sqrts,sqrts);
+    auto integrator = std::make_shared<VolPathIntegrator>(scene,camera,sampler,ls,128);
+
+    //camera->SetMedium(outsideMedium);
+    //scene->SetMedium(outsideMedium);
+
+    integrator->Render();
+    camera->GetFilm()->WritePNG("RenderedScene");
+    camera->GetFilm()->WritePPM("RenderedScene");
+    camera->GetFilm()->WriteJPG("RenderedScene",100);
+    ResourceManager::get_instance().releaseTextures();
+}
 
 void Miguel(){
     auto scene = std::make_shared<Scene>();
@@ -289,7 +362,7 @@ void Miguel(){
 
     //renderPrim2(scene,1920,1080,ls,"RenderedScene.ppm");
     integrator->Render();
-    camera->GetFilm()->WritePPM("RenderedScene");
+    camera->GetFilm()->WritePNG("RenderedScene");
     ResourceManager::get_instance().releaseTextures();
 }
 
@@ -306,7 +379,7 @@ void temp(){
     auto outsideMedium = std::make_shared<HomogeneusMedium>(glm::vec3{0.01f, 0.9f, 0.9f},glm::vec3{1.0f, 0.1f, 0.1f},std::make_shared<HenyeyGreenstein>(0.9),0.5f);
 
 
-    //scene->Add(std::make_shared<GeometricPrimitive>(std::make_shared<QuadShape>(glm::vec3(0.3,1.5,0), glm::vec3(-0.15,0,0), glm::vec3(0,0,-0.15)), light, area, nullptr));//-0.3, -1
+    scene->Add(std::make_shared<GeometricPrimitive>(std::make_shared<QuadShape>(glm::vec3(0.3,1.5,0), glm::vec3(-0.15,0,0), glm::vec3(0,0,-0.15)), light, area, nullptr));//-0.3, -1
     scene->Add(std::make_shared<GeometricPrimitive>(std::make_shared<QuadShape>(glm::vec3(-100,-0.3,-100), glm::vec3(1000,0,0), glm::vec3(0,0,1000)), ch, nullptr, nullptr));
     //scene->Add(new Model("/home/markov/Documents/Coding/CPP/raytracing_in_one_weekend/temp_other.assbin"));
     glm::mat4 pos = glm::mat4(1);
@@ -321,17 +394,15 @@ void temp(){
             nullptr,
             std::make_shared<HomogeneusMedium>( glm::vec3{0.01f, 0.9f, 0.9f},
                                                 glm::vec3{1.0f, 0.1f, 0.1f},
-                                                std::make_shared<HenyeyGreenstein>(0.85),
-                                                25.0f,
-                                                glm::vec3{1,1,1},
-                                                1.2)));
+                                                std::make_shared<HenyeyGreenstein>(0.8),
+                                                25.0f)));//was1.2
 
     //scene->Add(new GeometricPrimitive(new SphereShape(glm::vec3(0,0.1,-1.2),0.5),std::make_shared<lambertian>(glm::vec3(0.1, 0.2, 0.5)),nullptr));
     //scene->Add(new GeometricPrimitive(new SphereShape(glm::vec3(-1,0,-1),0.5),std::make_shared<dielectric>(1.5),nullptr));
     //scene->Add(new GeometricPrimitive(new SphereShape(glm::vec3(-1,0,-1),0.4),std::make_shared<dielectric>(1/1.5),nullptr));
     //scene->Add(new GeometricPrimitive(new SphereShape(glm::vec3(1,0,-1),0.5),std::make_shared<metal>(glm::vec3(0.8, 0.6, 0.2)),nullptr));
     
-    scene->Add(std::make_shared<GeometricPrimitive>(std::make_shared<SphereShape>(glm::vec3(1,0,-1),0.5),nullptr,nullptr,std::make_shared<HomogeneusMedium>(glm::vec3{0.01f, 0.9f, 0.9f},glm::vec3{1.0f, 0.1f, 0.1f},std::make_shared<HenyeyGreenstein>(0.8),25.0f,glm::vec3{1,1,1},1)));
+    scene->Add(std::make_shared<GeometricPrimitive>(std::make_shared<SphereShape>(glm::vec3(1,0,-1),0.5),nullptr,nullptr,std::make_shared<HomogeneusMedium>(glm::vec3{0.01f, 0.9f, 0.9f},glm::vec3{1.0f, 0.1f, 0.1f},std::make_shared<HenyeyGreenstein>(0.8),25.0f)));//Was 1 
         //d_list[1] = new Sphere{glm::vec3(-0.8,1,-0.5), 0.5,
         //                        new Light(glm::vec3(8, 8, 8))};
     //scene->Add(std::make_shared<GeometricPrimitive>(std::make_shared<SphereShape>(glm::vec3(0,0,0),20),nullptr,nullptr,outsideMedium));
@@ -368,7 +439,6 @@ void temp(){
     //camera->SetMedium(outsideMedium);
     //scene->SetMedium(outsideMedium);
 
-    //renderPrim2(scene,1920,1080,ls,"RenderedScene.ppm");
     integrator->Render();
     camera->GetFilm()->WritePNG("RenderedScene");
     camera->GetFilm()->WritePPM("RenderedScene");
@@ -376,72 +446,27 @@ void temp(){
     ResourceManager::get_instance().releaseTextures();
 }
 
-
+//how to deal when we spawn ray inside objects with medium?
+//interaction spawnRay() -> this spawns ray but gives us 
+// ### />   <- .
+//getMedium would be ###, but we would set medium to be null (coming from outside)
+// </###   <- .
+//getMedium would be nullptr, but we would set medium to be ### (coming from inside)
 
 int main(){
-    
     stbi_set_flip_vertically_on_load(true);
-    //Miguel();
-    //return 0;
-    temp();
-    return 0;
-    Scene scene;
-
-    scene.Add(std::make_shared<Model>("/home/markov/Documents/Coding/CPP/testing/models/HARD/temp.assbin"));
-    //scene.Add(new Model("/home/markov/Documents/Coding/CPP/gl/crytek-sponza/temp_other.assbin"));
-   
-    std::shared_ptr<LightSampler> ls = std::make_shared<PowerLightSampler>();
-    ls->Add(std::make_shared<InfiniteLight>(glm::vec3(-1,6,1),25.f*glm::vec3(1,0.93,0.83)));
-    /*
-    for(int i = 0;i<4;i++){
-        for(int j = 0;j<4;j++){
-            glm::vec3 color = glm::vec3(3*std::pow((i*4 + j)/15.f,30.f) * 50,3*std::pow((i*4 + j)/15.f,30.f) * 50,3*std::pow((i*4 + j)/15.f,30.f) * 50);
-            std::shared_ptr<Shape> shape = std::make_shared<QuadShape>(glm::vec3(7,1.5,1)+glm::vec3(i*2,0,j*2),glm::vec3(0.5,0,0),glm::vec3(0,0,0.5));
-            glm::mat4 matrix = glm::mat4(1);
-            matrix = glm::translate(matrix,{1,0,0});
-            auto lightMaterial = std::make_shared<lambertian>(glm::vec3{0.7});
-            std::shared_ptr<AreaLight> area = std::make_shared<AreaLight>(shape,color,true);
-            //Primitive* pr = new GeometricPrimitive(new QuadShape(glm::vec3(7,1.5,1)+glm::vec3(i*2,0,j*2),glm::vec3(0.5,0,0),glm::vec3(0,0,0.5)),lightMaterial,area);
-            //getLIghts return new Light(transform,light)
-            Primitive* pr = new TransformedPrimitive(std::make_shared<GeometricPrimitive>(new QuadShape(glm::vec3(7,1.5,1)+glm::vec3(i*2,0,j*2),glm::vec3(0.5,0,0),glm::vec3(0,0,0.5)),lightMaterial,area),matrix);
-            scene.Add(pr);
-        }
+    //"/home/markov/Documents/Coding/CPP/testing/stanford/common-3d-test-models-master/data/lucy.obj"
+    switch(0){
+        case 0:
+            //wierd new fireflys?
+            temp();
+            break;
+        case 1:
+            Miguel();
+            break;
+        case 2:
+            NoModel();
+        break;
     }
-    */
-    /*
-    Primitive* pr = new GeometricPrimitive(new SphereShape(glm::vec3(8,0,3),2),
-                                            std::make_shared<lambertian>(std::make_shared<SolidColor>(glm::vec3{1,0,0})),nullptr);
-    
-    scene.Add(pr);
-    pr = new GeometricPrimitive(new SphereShape(glm::vec3(8,-202,3),200),
-                                            std::make_shared<lambertian>(std::make_shared<SolidColor>(glm::vec3{0,0,1})),nullptr);
-    
-    scene.Add(pr);
-    pr = new GeometricPrimitive(new SphereShape(glm::vec3(7,0,1)+glm::vec3(3*2,0,3*2),1),
-                                            std::make_shared<dielectric>(1.5,glm::vec3{1}),nullptr);
-    
-    scene.Add(pr);
-    */
-    /*
-    Primitive* pr = new GeometricPrimitive(new QuadShape(glm::vec3(7,1,1)+glm::vec3(3*2,0,3*2),glm::vec3(0,1,0),glm::vec3(0,0,1)),
-                                            std::make_shared<lambertian>(std::make_shared<SolidColor>(glm::vec3{1}),nullptr,std::make_shared<SolidColor>(glm::vec3{0}),std::make_shared<SolidColor>(glm::vec3{1})),nullptr);
-    scene.Add(pr);
-    pr = new GeometricPrimitive(new QuadShape(glm::vec3(7,1,1)+glm::vec3(3*2,0,2*2),glm::vec3(0,1,0),glm::vec3(0,0,1)),
-                                            std::make_shared<lambertian>(std::make_shared<SolidColor>(glm::vec3{1}),nullptr,std::make_shared<SolidColor>(glm::vec3{0.011}),std::make_shared<SolidColor>(glm::vec3{1})),nullptr);
-    scene.Add(pr);   
-    pr = new GeometricPrimitive(new QuadShape(glm::vec3(7,1,1)+glm::vec3(3*2,0,1*2),glm::vec3(0,1,0),glm::vec3(0,0,1)),
-                                            std::make_shared<lambertian>(std::make_shared<SolidColor>(glm::vec3{1}),nullptr,std::make_shared<SolidColor>(glm::vec3{0.003}),std::make_shared<SolidColor>(glm::vec3{1})),nullptr);
-    scene.Add(pr);    
-    */
-    scene.PreProcess();
-    ls->Add(scene.GetLights());
-    ls->PreProcess(scene.BoundingBox());
-    
-
-    //renderPrim(scene,1920,1080,LIsampler);
-    renderPrimFilter(scene,1920,1080,ls,"RenderedScene",std::make_shared<MitchellFilter>());
-    //multi_mesh_test_2("/home/markov/Documents/Coding/CPP/testing/models/HARD/temp.assbin");
-    //multi_mesh_test_2("/home/markov/Documents/Coding/CPP/gl/crytek-sponza/sponza.obj");
     ResourceManager::get_instance().releaseTextures();
-
 }

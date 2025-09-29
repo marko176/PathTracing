@@ -16,7 +16,7 @@ bool Scene::IntersectTr(Ray ray, SurfaceInteraction& interaction, glm::vec3& Tr,
         if(interaction.mat != nullptr)
             return true;
         ray = Ray(ray.at(interaction.t),ray.dir,interaction.getMedium(ray.dir));
-        max-=interaction.t;
+        max-= interaction.t;
     }
     return false;
 }

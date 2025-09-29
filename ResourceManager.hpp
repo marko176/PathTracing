@@ -51,8 +51,8 @@ public:
         return modelCache.try_emplace(name,std::make_shared<Model>(std::forward<Args>(args)...)).first->second;
     }
 
-    auto releaseTextures() -> void;
-    private:
+    void releaseTextures();
+private:
     ResourceManager() = default;
     ~ResourceManager() = default;
 

@@ -25,8 +25,8 @@ public:
 
     AABB BoundingBox() const;
 
-    TLAS scene_bvh;//tlas bvh should take shared ptrs / unique ptrs and own them
 private:
+    TLAS scene_bvh;//tlas bvh should take shared ptrs / unique ptrs and own them
     std::vector<std::shared_ptr<Primitive>> primitives;
     std::shared_ptr<Medium> sceneMedium;
 };

@@ -15,6 +15,6 @@ auto ResourceManager::GetImageTexture(const std::string& path, float tempSRGB) -
 
 
 
-auto ResourceManager::releaseTextures() -> void {
+void ResourceManager::releaseTextures() {
     texture_cache.clear();
 }

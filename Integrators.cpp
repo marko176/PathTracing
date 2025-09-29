@@ -200,10 +200,17 @@ glm::vec3 VolPathIntegrator::Li(Ray ray) const {
         
         if(!Intersect(ray,interaction,std::numeric_limits<float>::infinity())){
             //infinite area light
-            return output;
+            //return output;
             float a = 0.5f*(ray.dir.y+1.0f);
             return output + color * 1.5f * ((1.0f-a)*glm::vec3(1,0.85,0.55) + a*glm::vec3(0.45,0.65,1));
         }
+        //maybe set medium here
+        //
+
+
+        //test if this is correct?
+        //it doesnt work if medium clips another object -> if we are in medium we see we hit outside -> no medium
+        //ray.medium = interaction.getInverseMedium(ray.dir);
 
         if(!ray.medium)
             ray.medium = scene->GetMedium();
@@ -278,13 +285,12 @@ glm::vec3 VolPathIntegrator::Li(Ray ray) const {
             if(brdfPDF <= 0)break;
             color *= color_attenuation / (brdfPDF);
             ray = new_ray;
+        }
+        if(rr_depth++>3){
+            float rr_prob = std::fmin(0.95f,std::fmaxf(std::fmaxf(color.x, color.y), color.z));
 
-            if(rr_depth++>3){
-                float rr_prob = std::fmin(0.95f,std::fmaxf(std::fmaxf(color.x, color.y), color.z));
-
-                if(rr_random_variable >= rr_prob)break;
-                color /= rr_prob;
-            }
+            if(rr_random_variable >= rr_prob)break;
+            color /= rr_prob;
         }
         
     }

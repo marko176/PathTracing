@@ -45,7 +45,7 @@ struct SurfaceInteraction : public GeometricInteraction{
     glm::vec2 uv = {0,0};
     float t;//we dont need t if we have point? t = glm::length(ray)
     glm::vec3 ns;
-    std::shared_ptr<Material> mat; // switch to material* no need for shared
+    std::shared_ptr<Material> mat;
     glm::vec3 tangent;
     glm::vec3 bitangent;
     std::shared_ptr<Light> AreaLight;

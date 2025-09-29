@@ -90,7 +90,6 @@ public:
 
     float Power() const override ;
 
-    //tranform -> changes shape to tranformed shape 
 private:
     std::shared_ptr<Shape> shape;
     glm::vec3 color; //switch to texture/image

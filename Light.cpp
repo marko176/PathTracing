@@ -96,7 +96,6 @@ float TransformedLight::PDF(const GeometricInteraction& interaction) const {
     glm::vec3 p = glm::vec3(invTransform * glm::vec4(interaction.p, 1.0f));
     glm::vec3 n = glm::normalize(glm::vec3(invTransform * glm::vec4(interaction.n, 0.0f)));
 
-    // Compute object-space PDF
     return light->PDF(GeometricInteraction(p,n));
 }
 float TransformedLight::PDF(const GeometricInteraction& interaction, const Ray& ray) const {

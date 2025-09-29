@@ -37,7 +37,7 @@ public:
     }
 
     
-    private:
+private:
     auto load_model(const std::string& path) -> bool;
     auto process_node(aiNode* node, const aiScene* scene) -> void;
     auto process_mesh(aiMesh* mesh, const aiScene* scene) -> std::shared_ptr<Mesh>;
