@@ -457,15 +457,21 @@ class dielectric : public Material {
         glm::vec3 N;
         glm::vec3 Ng;//normal on our side
         float cos_theta = glm::dot(r_in.dir,interaction.ns);
+
+        if(glm::dot(r_in.dir,interaction.n)>0){
+            Ng = -interaction.n;
+        }else{
+            Ng = interaction.n;
+        }
         //<0 == front face
         if(cos_theta>0){
             N = -interaction.ns;
-            Ng = -interaction.n;
+            //Ng = -interaction.n;
             cos_theta = std::sqrt(1.f - ri*ri*(1.f-cos_theta*cos_theta));
         }else {
             //front face
             N = interaction.ns;
-            Ng = interaction.n;
+            //Ng = interaction.n;
             r = 1.0f/r;
             cos_theta = -cos_theta;
         }
@@ -479,22 +485,18 @@ class dielectric : public Material {
             //case inside to outside -> p += 0
             //case inside to inside -> p += -0.002 n
             dir = glm::normalize(glm::reflect(r_in.dir,N));
-            float eps = glm::dot(interaction.ns,dir) < 0 ? 0.0002f : 0;
-            glm::vec3 point = r_in.at(interaction.t) + eps * Ng;
-            if(std::abs(glm::dot(interaction.ns,dir))<0.001){
-                point = r_in.at(interaction.t) + 0.0002f * dir;//grazing angle
-            }
+            //float eps = glm::dot(interaction.ns,dir) < 0 ? 0.0001f : -0.0001f;//test if -0.002f here works
+            glm::vec3 point = r_in.at(interaction.t) + 0.0001f * Ng;
+           
             //should be + in the N direction??
             //also + 0.0005*Ng workes ? but not 0.001
             scattered = Ray{point ,dir};//was + eps*Ng //fix this
 
         }else{
             
-            float eps = false && glm::dot(interaction.ns,dir) < 0 ? 0.0002f : 0;
-            glm::vec3 point = r_in.at(interaction.t) - eps * Ng;
-            if(std::abs(glm::dot(interaction.ns,dir))<0.001){
-                point = r_in.at(interaction.t)+ 0.0002f * dir;//grazing angle
-            }
+            //float eps = false && glm::dot(interaction.ns,dir) < 0 ? 0.0001f : -0.0001f;
+            glm::vec3 point = r_in.at(interaction.t) - 0.0001f * Ng;
+     
             //case outside to outside -> p += 0 Ng = n
             //case outside to inside -> p += -0.002 Ng = n
             //case inside to outside -> p += -0.002 NG = -n
