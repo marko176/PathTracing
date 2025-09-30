@@ -7,11 +7,16 @@ bool Scene::IntersectTr(Ray ray, SurfaceInteraction& interaction, glm::vec3& Tr,
     Tr = {1,1,1};
     while(max > 0){
         bool hit = Intersect(ray,interaction,max);
-        if(ray.medium)
-            Tr *= ray.medium->Tr(ray,interaction.t);//can be here becouse if t is inf we didnt hit
-        
-        if(!hit)
+
+        if(!hit){
+            if(ray.medium)
+                Tr *= ray.medium->Tr(ray,max);
+                
             return false;
+        }
+
+        if(ray.medium)
+            Tr *= ray.medium->Tr(ray,interaction.t);
 
         if(interaction.mat != nullptr)
             return true;

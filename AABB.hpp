@@ -62,7 +62,7 @@ struct AABB{
         // Over all axes
         float tEntry = std::max(std::max(tSmaller.x, tSmaller.y), tSmaller.z);
         float tExit  = std::min(std::min(tLarger.x,  tLarger.y),  tLarger.z);
-        return (tEntry <= tExit && tEntry <= max_t && tExit > 0) ? tEntry : std::numeric_limits<float>::infinity();//maybe texit greater than 0 ?
+        return (tEntry <= tExit && tEntry <= max_t && tExit > 0.0001f) ? tEntry : std::numeric_limits<float>::infinity();//maybe texit greater than 0 ?
     }
 
    

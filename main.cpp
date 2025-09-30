@@ -458,7 +458,7 @@ int main(){
     //"/home/markov/Documents/Coding/CPP/testing/stanford/common-3d-test-models-master/data/lucy.obj"
     switch(0){
         case 0:
-            //wierd new fireflys?
+            //wierd new fireflys? -> IntersectTr was wrong + t not initalized in interaction
             temp();
             break;
         case 1:
@@ -466,7 +466,7 @@ int main(){
             break;
         case 2:
             NoModel();
-        break;
+            break;
     }
     ResourceManager::get_instance().releaseTextures();
 }

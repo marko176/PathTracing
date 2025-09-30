@@ -148,7 +148,6 @@ public:
             }
             
         }
-        
         return hit_anything;
     }
     
