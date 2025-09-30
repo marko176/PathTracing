@@ -262,10 +262,12 @@ void NoModel(){
     scene->Add(std::make_shared<GeometricPrimitive>(std::make_shared<QuadShape>(glm::vec3(-100,-0.3,-100), glm::vec3(1000,0,0), glm::vec3(0,0,1000)), ch, nullptr, nullptr));
     //scene->Add(new Model("/home/markov/Documents/Coding/CPP/raytracing_in_one_weekend/temp_other.assbin"));
 
-
-    scene->Add(std::make_shared<GeometricPrimitive>(std::make_shared<SphereShape>(glm::vec3(0,0.1,-1.2),0.5),std::make_shared<lambertian>(glm::vec3(0.1, 0.2, 0.5)),nullptr));
+    auto tm = std::make_shared<GeometricPrimitive>(std::make_shared<SphereShape>(glm::vec3(0,0.1,-1.2),0.5),std::make_shared<lambertian>(glm::vec3(0.1, 0.2, 0.5)));
+    auto animated = std::make_shared<AnimatedPrimitive>(tm,glm::vec3{0,0.2,0},glm::vec2{0,1});
+    scene->Add(animated);
+    
     scene->Add(std::make_shared<GeometricPrimitive>(std::make_shared<SphereShape>(glm::vec3(-1,0,-1),0.5),std::make_shared<dielectric>(1.5),nullptr));
-    scene->Add(std::make_shared<GeometricPrimitive>(std::make_shared<SphereShape>(glm::vec3(-1,0,-1),0.4),std::make_shared<dielectric>(1/1.5),nullptr));
+    //scene->Add(std::make_shared<GeometricPrimitive>(std::make_shared<SphereShape>(glm::vec3(-1,0,-1),0.4),std::make_shared<dielectric>(1/1.5),nullptr));
     scene->Add(std::make_shared<GeometricPrimitive>(std::make_shared<SphereShape>(glm::vec3(-1,0,0.2),0.5),std::make_shared<metal>(glm::vec3(0.8, 0.6, 0.2)),nullptr));
     
     scene->Add(std::make_shared<GeometricPrimitive>(std::make_shared<SphereShape>(glm::vec3(1,0,-1),0.5),nullptr,nullptr,std::make_shared<HomogeneusMedium>(glm::vec3{0.01f, 0.9f, 0.9f},glm::vec3{1.0f, 0.1f, 0.1f},std::make_shared<HenyeyGreenstein>(0.8),25.0f,glm::vec3{1,1,1},0)));//Was 1 
@@ -293,7 +295,7 @@ void NoModel(){
 
    
 
-    int samples = 64;
+    int samples = 64*4;
 
 
 
@@ -302,7 +304,7 @@ void NoModel(){
     std::shared_ptr<Film> film = std::make_shared<Film>(glm::ivec2{1920,1080},std::make_shared<MitchellFilter>());
 
     
-    auto camera = std::make_shared<Camera>(lookfrom,lookat,fov,film);
+    auto camera = std::make_shared<Camera>(lookfrom,lookat,fov,film,glm::vec2(0,1));
     auto sampler = std::make_shared<StratifiedSampler>(sqrts,sqrts);
     auto integrator = std::make_shared<VolPathIntegrator>(scene,camera,sampler,ls,128);
 
@@ -458,7 +460,7 @@ void temp(){
 int main(){
     stbi_set_flip_vertically_on_load(true);
     //"/home/markov/Documents/Coding/CPP/testing/stanford/common-3d-test-models-master/data/lucy.obj"
-    switch(1){
+    switch(2){
         case 0:
             //wierd new fireflys? -> IntersectTr was wrong + t not initalized in interaction
             temp();

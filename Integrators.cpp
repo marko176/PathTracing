@@ -49,8 +49,9 @@ void TileIntegrator::Render() const {
                     while(estimator[0].Samples() < 128*samples){//was 32
                         for(int sample_index = 0;sample_index < samples; sample_index++){
                             clonedSampler->StartPixelSample({x,y},sample_index);
-                            glm::dvec2 p = glm::dvec2{x,y} + clonedSampler->GetPixel2D();
-                            Ray ray = camera->GenerateRay(p,clonedSampler->GetPixel2D(),0);
+                            glm::dvec2 p = glm::dvec2{x,y} + clonedSampler->getPixel2D();
+                            float time = clonedSampler->get1D();
+                            Ray ray = camera->GenerateRay(p,time,clonedSampler->get2D());
                             glm::dvec3 color = Li(ray);
                             if(glm::isnan(color.x) || glm::isnan(color.y) || glm::isnan(color.z)){
                                 std::cout<<"Nan:"<<x<<" "<<y<<"\n";
@@ -122,7 +123,7 @@ glm::vec3 PathIntegrator::Li(Ray ray) const {
         if(!interaction.mat->scatter(ray,interaction,new_ray,random_variables)){
             return output;//absorbed   
         }
-        
+        new_ray.time = ray.time;
         
         spec = false;
         if(interaction.mat->is_specular(interaction)){
@@ -156,7 +157,7 @@ glm::vec3 PathIntegrator::Li(Ray ray) const {
 glm::vec3 PathIntegrator::SampleLd(const Ray& ray,const SurfaceInteraction& interaction,float u,const glm::vec2& UV) const {
     std::shared_ptr<Light> sampled_light = lightSampler->Sample(u);
     if(sampled_light == nullptr)return {0,0,0};
-    LightSample lightSample = sampled_light->sample(UV);
+    LightSample lightSample = sampled_light->sample(UV, ray.time);
     glm::vec3 lightDir;
     float t = 0;
     if(lightSample.interaction.n == glm::vec3{0,0,0}){
@@ -166,7 +167,7 @@ glm::vec3 PathIntegrator::SampleLd(const Ray& ray,const SurfaceInteraction& inte
         lightDir = lightSample.interaction.p - interaction.p;
         t = glm::length(lightDir) - 0.0001f;
     }
-    Ray shadow_ray(interaction.p, glm::normalize(lightDir));
+    Ray shadow_ray(interaction.p, glm::normalize(lightDir),ray.time);
     if(glm::dot(interaction.ns,shadow_ray.dir) <= 0 || !Unoccluded(shadow_ray,t))return {0,0,0};
 
     if(sampled_light->isDelta()){
@@ -206,7 +207,7 @@ glm::vec3 VolPathIntegrator::Li(Ray ray) const {
         }
         //maybe set medium here
         //
-
+        
 
         //test if this is correct?
         //it doesnt work if medium clips another object -> if we are in medium we see we hit outside -> no medium
@@ -229,7 +230,7 @@ glm::vec3 VolPathIntegrator::Li(Ray ray) const {
             output += color * ray.medium->Le();
             glm::vec3 scattered;
             medInteraction.phaseFunction->Sample(ray.dir,scattered,phase_random_variables);
-            ray = Ray(medInteraction.p,scattered,interaction.getMedium(scattered));
+            ray = Ray(medInteraction.p,scattered,ray.time,interaction.getMedium(scattered));
             spec = false;
         }else{
             glm::vec3 L = {0,0,0};
@@ -253,7 +254,7 @@ glm::vec3 VolPathIntegrator::Li(Ray ray) const {
             }
 
             Ray new_ray;
-    
+            
 
             
             if(!interaction.mat->scatter(ray,interaction,new_ray,random_variables)){
@@ -262,7 +263,8 @@ glm::vec3 VolPathIntegrator::Li(Ray ray) const {
 
             
             new_ray.medium = interaction.getMedium(new_ray.dir);
-    
+            new_ray.time = ray.time;
+
             if(interaction.mat->is_specular(interaction)){
                 color *= interaction.mat->f_PDF(ray,interaction,new_ray);
                 ray = new_ray;
@@ -305,7 +307,7 @@ glm::vec3 VolPathIntegrator::SampleLd(const Ray& ray,const SurfaceInteraction& i
     glm::vec3 Tr = {1,1,1};
     SurfaceInteraction intr;
 
-    LightSample lightSample = sampled_light->sample(UV);
+    LightSample lightSample = sampled_light->sample(UV, ray.time);
     glm::vec3 lightDir;
     float t = 0;
     if(lightSample.interaction.n == glm::vec3{0,0,0}){
@@ -315,7 +317,7 @@ glm::vec3 VolPathIntegrator::SampleLd(const Ray& ray,const SurfaceInteraction& i
         lightDir = lightSample.interaction.p - interaction.p;
         t = glm::length(lightDir) - 0.0001f;
     }
-    Ray shadow_ray(interaction.p, glm::normalize(lightDir),ray.medium);
+    Ray shadow_ray(interaction.p, glm::normalize(lightDir),ray.time,ray.medium);
     if(glm::dot(interaction.ns,shadow_ray.dir) <= 0 || IntersectTr(shadow_ray,intr,Tr,t))return {0,0,0};
     glm::vec3 f = interaction.mat->calc_attenuation(ray,interaction,shadow_ray);
     if(sampled_light->isDelta()){
@@ -366,7 +368,7 @@ glm::vec3 VolPathIntegrator::SampleLdMedium(const Ray& ray,const MediumInteracti
     glm::vec3 Tr = {1,1,1};
     SurfaceInteraction intr;
 
-    LightSample lightSample = sampled_light->sample(UV);
+    LightSample lightSample = sampled_light->sample(UV, ray.time);
     glm::vec3 lightDir;
     float t = 0;
     if(lightSample.interaction.n == glm::vec3{0,0,0}){
@@ -376,7 +378,7 @@ glm::vec3 VolPathIntegrator::SampleLdMedium(const Ray& ray,const MediumInteracti
         lightDir = lightSample.interaction.p - interaction.p;
         t = glm::length(lightDir) - 0.0001f;
     }
-    Ray shadow_ray(interaction.p, glm::normalize(lightDir),ray.medium);
+    Ray shadow_ray(interaction.p, glm::normalize(lightDir),ray.time,ray.medium);
     if(IntersectTr(shadow_ray,intr,Tr,t))return {0,0,0};
 
 

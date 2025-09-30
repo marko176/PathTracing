@@ -141,7 +141,7 @@ public:
 
     virtual glm::dvec2 get2D() = 0;
 
-    virtual glm::dvec2 GetPixel2D() = 0;
+    virtual glm::dvec2 getPixel2D() = 0;
 
     virtual std::shared_ptr<Sampler> Clone() const = 0;
 };
@@ -167,7 +167,7 @@ public:
         return {random_double(),random_double()};
     }
 
-    glm::dvec2 GetPixel2D() final{
+    glm::dvec2 getPixel2D() final{
         return get2D();
     }
 
@@ -223,7 +223,7 @@ public:
         };
     }
 
-    glm::dvec2 GetPixel2D() final {
+    glm::dvec2 getPixel2D() final {
         return get2D();
     }
 

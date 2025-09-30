@@ -54,6 +54,21 @@ struct Image{
         return data[(y*width + x)*channels + (ch - 1)]/255.0f;
     }
 
+    float NearestChannel(const glm::vec2& p, int ch) const {
+        glm::ivec2 pi = {p.x * width, p.y * height};
+        return GetChannelAt(pi,ch);
+    }
+
+    glm::ivec2 Resolution() const {
+        return {width,height};
+    }
+
+    int Channels() const {
+        return channels;
+    }
+
+
+
     ~Image() ;
 
 };

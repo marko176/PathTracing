@@ -47,12 +47,37 @@ private:
     glm::mat4 invTransform;
 };
 
+
+
+class AnimatedPrimitive : public Primitive {
+public:
+    virtual ~AnimatedPrimitive() = default;
+    AnimatedPrimitive(const std::shared_ptr<Primitive>& primitive,const glm::vec3& direction,const glm::vec2& timeBounds) : primitive(primitive), dir(direction), timeBounds(timeBounds) {
+
+    }
+    AABB BoundingBox() const final ;
+    bool IntersectPred(const Ray& ray, float max = std::numeric_limits<float>::infinity()) const final ;
+    bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max = std::numeric_limits<float>::infinity()) const final ;
+    std::vector<std::shared_ptr<Light>> GetLights() const final ;
+private:
+    std::shared_ptr<Primitive> primitive;
+    glm::vec3 dir;
+    glm::vec2 timeBounds;
+    //have transform for last and first pos
+};
+
+
+
+
+
 struct BVH_NODE{
     AABB bbox;
     uint32_t right = 0;// right node / first triangle / meshID  / modelID
     uint32_t count = 0;// is_leaf / tirangle count / mesh count / modelCount
     //right holds first triangle index
 };
+
+
 
 
 template <typename T>

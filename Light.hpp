@@ -13,8 +13,8 @@ public:
     virtual ~Light() = default;
     virtual bool isDelta() const = 0;
     virtual glm::vec3 L(const GeometricInteraction& interaction, const Ray& ray) const = 0;
-    virtual LightSample sample(const glm::vec2& uv) const = 0;
-    virtual float PDF(const GeometricInteraction& interaction) const = 0;
+    virtual LightSample sample(const glm::vec2& uv, float time) const = 0;
+    virtual float PDF(const GeometricInteraction& interaction, float time) const = 0;
     virtual float PDF(const GeometricInteraction& interaction, const Ray& ray) const = 0;
     virtual float Power() const = 0;
     virtual void PreProcess(const AABB& bbox) {}
@@ -30,9 +30,9 @@ public:
 
     glm::vec3 L(const GeometricInteraction& interaction, const Ray& ray) const override;
 
-    LightSample sample(const glm::vec2& uv) const override;
+    LightSample sample(const glm::vec2& uv, float time) const override;
 
-    float PDF(const GeometricInteraction& interaction) const override;
+    float PDF(const GeometricInteraction& interaction, float time) const override;
 
     float PDF(const GeometricInteraction& interaction, const Ray& ray) const override;
 
@@ -56,9 +56,9 @@ public:
 
     glm::vec3 L(const GeometricInteraction& interaction, const Ray& ray) const override;
 
-    LightSample sample(const glm::vec2& uv) const override;
+    LightSample sample(const glm::vec2& uv, float time) const override;
 
-    float PDF(const GeometricInteraction& interaction) const override;
+    float PDF(const GeometricInteraction& interaction, float time) const override;
 
     float PDF(const GeometricInteraction& interaction, const Ray& ray) const override;
 
@@ -82,9 +82,9 @@ public:
 
     glm::vec3 L(const GeometricInteraction& interaction, const Ray& ray) const override ;
 
-    LightSample sample(const glm::vec2& uv) const override ;
+    LightSample sample(const glm::vec2& uv, float time) const override ;
 
-    float PDF(const GeometricInteraction& interaction) const override ;
+    float PDF(const GeometricInteraction& interaction, float time) const override ;
 
     float PDF(const GeometricInteraction& interaction, const Ray& ray) const override ;
 
@@ -101,23 +101,47 @@ class TransformedLight : public Light {
 public:
     virtual ~TransformedLight() = default;
 
-    TransformedLight(const glm::mat4& transform,const std::shared_ptr<Light>& light) : transform(transform), light(light), normalMatrix(glm::transpose(glm::inverse(glm::mat3(transform)))), invTransform(glm::inverse(transform)) {}
+    TransformedLight(const std::shared_ptr<Light>& light,const glm::mat4& transform) : light(light), transform(transform), normalMatrix(glm::transpose(glm::inverse(glm::mat3(transform)))), invTransform(glm::inverse(transform)) {}
 
     bool isDelta() const final;
 
     glm::vec3 L(const GeometricInteraction& interaction, const Ray& ray) const override ;
 
-    LightSample sample(const glm::vec2& uv) const override ;
+    LightSample sample(const glm::vec2& uv, float time) const override ;
 
-    float PDF(const GeometricInteraction& interaction) const override ;
+    float PDF(const GeometricInteraction& interaction, float time) const override ;
 
     float PDF(const GeometricInteraction& interaction, const Ray& ray) const override ;
 
     float Power() const override ;
 
 private:
-    glm::mat4 transform;
     std::shared_ptr<Light> light;
+    glm::mat4 transform;
     glm::mat3 normalMatrix;
     glm::mat4 invTransform;
+};
+
+class AnimatedLight : public Light {
+public:
+    virtual ~AnimatedLight() = default;
+
+    AnimatedLight(const std::shared_ptr<Light>& light,const glm::vec3& direction, const glm::vec2& timeBounds) : light(light), dir(direction), timeBounds(timeBounds) {}
+
+    bool isDelta() const final;
+
+    glm::vec3 L(const GeometricInteraction& interaction, const Ray& ray) const override ;
+
+    LightSample sample(const glm::vec2& uv, float time) const override ;
+
+    float PDF(const GeometricInteraction& interaction, float time) const override ;
+
+    float PDF(const GeometricInteraction& interaction, const Ray& ray) const override ;
+
+    float Power() const override ;
+
+private:
+    std::shared_ptr<Light> light;
+    glm::vec3 dir;
+    glm::vec2 timeBounds;
 };

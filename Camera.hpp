@@ -15,19 +15,25 @@ public:
         halfHeight = halfWidth * film->Resolution().y / film->Resolution().x;
     };
 
-    Ray GenerateRay(const glm::vec2& p,const glm::vec2& LensUV = {0,0}, float time = 0) const {
+    Camera(const glm::dvec3& lookFrom, const glm::dvec3& lookAt, double fov,const std::shared_ptr<Film>& film,const glm::vec2& shutterBounds ) : Camera(lookFrom,lookAt,fov,film,0,0)  {
+        shutterStart = shutterBounds.x;
+        shutterEnd = shutterBounds.y;
+    };
+
+    Ray GenerateRay(const glm::vec2& p, float time,const glm::vec2& LensUV = {0,0}) const {
         double u_coord = p.x / double(film->Resolution().x);
         double v_coord = p.y / double(film->Resolution().y);
         glm::dvec3 direction = glm::normalize(-w + (2.0f * u_coord - 1.0f) * halfWidth * u + (2.0f * v_coord - 1.0f) * halfHeight * v);
+        float t = glm::mix(shutterStart,shutterEnd,time);
         if(FocusDistance == 0 || FocusAngle == 0){
-            return Ray(lookFrom,direction,GetMedium());
+            return Ray(lookFrom,direction,t,GetMedium());
         }
         glm::vec2 pLens = inUnitDisk(LensUV);
         glm::dvec3 defocus_disk_u = u * defocusRadius;
         glm::dvec3 defocus_disk_v = v * defocusRadius;
         direction = direction*FocusDistance;
         glm::dvec3 offset = glm::dvec3(pLens.x) * defocus_disk_u + glm::dvec3(pLens.y) * defocus_disk_v;
-        return Ray(lookFrom + offset,glm::normalize(direction - offset),GetMedium());
+        return Ray(lookFrom + offset,glm::normalize(direction - offset),t,GetMedium());
     }
 
     std::shared_ptr<Film> GetFilm() const {
@@ -55,4 +61,6 @@ protected:
     double halfWidth;
     double halfHeight;
     std::shared_ptr<Medium> cameraMedium;
+    float shutterStart;
+    float shutterEnd;
 };

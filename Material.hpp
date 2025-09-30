@@ -158,7 +158,7 @@ public:
                 if(flip)wh = -wh;
                 glm::vec3 L = glm::reflect(r_in.dir,TBN.toWorld(wh));
 
-                scattered = Ray(interaction.p, glm::normalize(L));
+                scattered = Ray(interaction.p, glm::normalize(L),r_in.time);
 
             }
             
@@ -184,7 +184,7 @@ public:
             //onb uvw(interaction.normal);
 
             glm::vec3 reflected = TBN.toWorld(sampled_cosine);//was uvw.transform
-            scattered = Ray(interaction.p, glm::normalize(reflected));
+            scattered = Ray(interaction.p, glm::normalize(reflected),r_in.time);
         }
 
         if(glm::dot(scattered.dir,interaction.ns)<=0)return false;
@@ -490,7 +490,7 @@ class dielectric : public Material {
            
             //should be + in the N direction??
             //also + 0.0005*Ng workes ? but not 0.001
-            scattered = Ray{point ,dir};//was + eps*Ng //fix this
+            scattered = Ray{point ,dir,r_in.time};//was + eps*Ng //fix this
 
         }else{
             
@@ -503,7 +503,7 @@ class dielectric : public Material {
             //case inside to inside -> p += 0 Ng = -n
             //p is always on ray side (can be backface)
             //refract always into surface
-            scattered = Ray{point,dir};//test//was - eps*Ng
+            scattered = Ray{point,dir,r_in.time};//test//was - eps*Ng
 
         }
 

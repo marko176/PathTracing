@@ -33,13 +33,13 @@ AABB TransformedPrimitive::BoundingBox() const {
 bool TransformedPrimitive::IntersectPred(const Ray& ray, float max) const {
     glm::vec3 dir = invTransform * glm::vec4(ray.dir,0);
     float length = glm::length(dir);
-    Ray transformedRay(invTransform * glm::vec4(ray.origin,1), dir / length);
+    Ray transformedRay(invTransform * glm::vec4(ray.origin,1), dir / length,ray.time);
     return primitive->IntersectPred(transformedRay,max * length);
 }
 bool TransformedPrimitive::Intersect(const Ray& ray, SurfaceInteraction& interaction, float max) const {
     glm::vec3 dir = invTransform * glm::vec4(ray.dir,0);
     float length = glm::length(dir);
-    Ray transformedRay(invTransform * glm::vec4(ray.origin,1), dir / length);
+    Ray transformedRay(invTransform * glm::vec4(ray.origin,1), dir / length,ray.time);
     SurfaceInteraction temp;
     if(!primitive->Intersect(transformedRay,temp,max * length))return false;
 
@@ -62,7 +62,30 @@ bool TransformedPrimitive::Intersect(const Ray& ray, SurfaceInteraction& interac
 std::vector<std::shared_ptr<Light>> TransformedPrimitive::GetLights() const {
     std::vector<std::shared_ptr<Light>> temp;
     for(const std::shared_ptr<Light>& l : primitive->GetLights()){
-        temp.push_back(std::make_shared<TransformedLight>(transform,l));
+        temp.push_back(std::make_shared<TransformedLight>(l,transform));
+    }
+    return temp;
+}
+
+
+
+AABB AnimatedPrimitive::BoundingBox() const {
+    AABB bbox = primitive->BoundingBox();
+    bbox.Expand(TransformedPrimitive(primitive,glm::translate(glm::mat4(1),dir)).BoundingBox());
+    return bbox;
+}
+bool AnimatedPrimitive::IntersectPred(const Ray& ray, float max) const {
+    float t = glm::clamp(ray.time - timeBounds.x,timeBounds.x,timeBounds.y) / (timeBounds.y - timeBounds.x);
+    return TransformedPrimitive(primitive,glm::translate(glm::mat4(1),dir * t)).IntersectPred(ray,max);
+}
+bool AnimatedPrimitive::Intersect(const Ray& ray, SurfaceInteraction& interaction, float max) const {
+    float t = glm::clamp(ray.time - timeBounds.x,timeBounds.x,timeBounds.y) / (timeBounds.y - timeBounds.x);
+    return TransformedPrimitive(primitive,glm::translate(glm::mat4(1),dir * t)).Intersect(ray,interaction,max);
+}
+std::vector<std::shared_ptr<Light>> AnimatedPrimitive::GetLights() const {
+    std::vector<std::shared_ptr<Light>> temp;
+    for(const std::shared_ptr<Light>& l : primitive->GetLights()){
+        temp.push_back(std::make_shared<AnimatedLight>(l,dir,timeBounds));
     }
     return temp;
 }
