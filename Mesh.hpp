@@ -62,6 +62,8 @@ public:
         return !(*this == other);
     }
 private:
+    friend class TriangleShape;
+    friend class Model;
     uint32_t triangle_count;
     uint32_t vertex_count;
     std::vector<uint32_t> indices;//store indices in glm::vec3i ?? 

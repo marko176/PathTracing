@@ -15,10 +15,11 @@ glm::vec3 UniformLightSampler::SampleLd(const Ray& curr_ray,const SurfaceInterac
     std::shared_ptr<Light> sampled_light = Sample(u);
     if(sampled_light == nullptr)return {0,0,0};
     if(sampled_light->isDelta()){
-        glm::vec3 dir = sampled_light->sample(UV, curr_ray.time).dir;
+        LightSample lightSample = sampled_light->sample(UV, curr_ray.time);
+        glm::vec3 dir = lightSample.dir;
         Ray shadow_ray(interaction.p,dir,curr_ray.time);
         if(glm::dot(interaction.ns,shadow_ray.dir) > 0 && !bvh.IntersectPred(shadow_ray,1e30f)){
-            return sampled_light->L({},shadow_ray) * interaction.mat->calc_attenuation(curr_ray,interaction,shadow_ray) / PMF(sampled_light);
+            return lightSample.L * interaction.mat->calc_attenuation(curr_ray,interaction,shadow_ray) / PMF(sampled_light);
         }
     }else{
         LightSample lightSample = sampled_light->sample(UV, curr_ray.time);
@@ -85,12 +86,13 @@ glm::vec3 PowerLightSampler::SampleLd(const Ray& curr_ray,const SurfaceInteracti
     if(sampled_light == nullptr)return {0,0,0};
     glm::vec3 Tr = {1,1,1};
     if(sampled_light->isDelta()){
-        glm::vec3 dir = sampled_light->sample(UV, curr_ray.time).dir;
+        LightSample lightSample = sampled_light->sample(UV, curr_ray.time);
+        glm::vec3 dir = lightSample.dir;
         Ray shadow_ray(interaction.p,dir,curr_ray.time);
         if(glm::dot(interaction.ns,shadow_ray.dir) > 0 && !bvh.IntersectPred(shadow_ray,1e30f)){
             float light_pdf = PMF(sampled_light);
             if(light_pdf <= 0)return {0,0,0};
-            return Tr * sampled_light->L({},shadow_ray) * interaction.mat->calc_attenuation(curr_ray,interaction,shadow_ray) / light_pdf;
+            return Tr * lightSample.L * interaction.mat->calc_attenuation(curr_ray,interaction,shadow_ray) / light_pdf;
         }
     }else{
         LightSample lightSample = sampled_light->sample(UV, curr_ray.time);

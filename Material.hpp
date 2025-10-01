@@ -486,7 +486,7 @@ class dielectric : public Material {
             //case inside to inside -> p += -0.002 n
             dir = glm::normalize(glm::reflect(r_in.dir,N));
             //float eps = glm::dot(interaction.ns,dir) < 0 ? 0.0001f : -0.0001f;//test if -0.002f here works
-            glm::vec3 point = r_in.at(interaction.t) + 0.0001f * Ng;
+            glm::vec3 point = r_in.at(interaction.t) + shadowEpsilon * Ng;
            
             //should be + in the N direction??
             //also + 0.0005*Ng workes ? but not 0.001
@@ -495,7 +495,7 @@ class dielectric : public Material {
         }else{
             
             //float eps = false && glm::dot(interaction.ns,dir) < 0 ? 0.0001f : -0.0001f;
-            glm::vec3 point = r_in.at(interaction.t) - 0.0001f * Ng;
+            glm::vec3 point = r_in.at(interaction.t) - shadowEpsilon * Ng;
      
             //case outside to outside -> p += 0 Ng = n
             //case outside to inside -> p += -0.002 Ng = n

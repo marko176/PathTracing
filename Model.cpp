@@ -20,9 +20,9 @@ Model::Model(const std::string& path){
         //auto mat = std::make_shared<dielectric>(1.5,glm::vec3(1));
         //std::shared_ptr<Medium> med = std::make_shared<HomogeneusMedium>(glm::vec3(0.0,0,0),glm::vec3(0.01,0.9,0.9),50.0f);
         for(const std::shared_ptr<Mesh>& m : meshes){
-            int n = m->GetTriangleCount();
+            uint32_t n = m->triangle_count;
             for(int j = 0;j<n;j++){
-                primitives.emplace_back(std::shared_ptr<Shape>(m->GetControlPtr(),m->GetShape(j)),m->GetMaterial(),nullptr,nullptr);
+                primitives.emplace_back(std::shared_ptr<Shape>(m->GetControlPtr(),m->GetShape(j)),m->material,nullptr,nullptr);
             }
         }
         model_bvh = BLAS(std::move(primitives));
@@ -41,7 +41,7 @@ Model::Model(const std::string& path,const std::shared_ptr<Material>& material, 
         //std::shared_ptr<Medium> med = std::make_shared<HomogeneusMedium>(glm::vec3(0.0,0,0),glm::vec3(0.01,0.9,0.9),50.0f);
    
         for(const std::shared_ptr<Mesh>& m : meshes){
-            int n = m->GetTriangleCount();
+            uint32_t n = m->triangle_count;
             for(int j = 0;j<n;j++){
                 primitives.emplace_back(std::shared_ptr<Shape>(m->GetControlPtr(),m->GetShape(j)),material,nullptr,medium);
             }

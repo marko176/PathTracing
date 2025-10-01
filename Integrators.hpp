@@ -30,6 +30,16 @@ public:
     void Render() const override ;
 };
 
+class SimplePathIntegrator : public TileIntegrator {
+public:
+    virtual ~SimplePathIntegrator() = default;
+    SimplePathIntegrator(const std::shared_ptr<Scene>& scene, const std::shared_ptr<Camera>& camera,const std::shared_ptr<Sampler>& sampler, int maxDepth) : TileIntegrator(scene,camera,sampler), maxDepth(maxDepth) {}
+    
+    glm::vec3 Li(Ray ray) const override ;
+protected:
+    uint32_t maxDepth;
+};
+
 class PathIntegrator : public TileIntegrator {
 public:
     virtual ~PathIntegrator() = default;
