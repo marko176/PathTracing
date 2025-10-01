@@ -81,29 +81,34 @@ bool TriangleShape::Intersect(const Ray& ray, SurfaceInteraction& interaction,fl
     glm::vec2 baryPos;
     float t = -1;
     Mesh* mesh = meshList[MeshIndex];
-    int index0 = mesh->indices[TriIndex*3+0];
-    int index1 = mesh->indices[TriIndex*3+1];
-    int index2 = mesh->indices[TriIndex*3+2];
-    bool hit_triangle = glm::intersectRayTriangle(ray.origin,ray.dir,mesh->vertices[index0]
-                                                                    ,mesh->vertices[index1]
-                                                                    ,mesh->vertices[index2],baryPos,t);
+    const std::vector<uint32_t>& indices = mesh->GetIndices();
+    const std::vector<glm::vec3>& vertices = mesh->GetVertices();
+    int index0 = indices[TriIndex*3+0];
+    int index1 = indices[TriIndex*3+1];
+    int index2 = indices[TriIndex*3+2];
+    bool hit_triangle = glm::intersectRayTriangle(ray.origin,ray.dir,vertices[index0]
+                                                                    ,vertices[index1]
+                                                                    ,vertices[index2],baryPos,t);
     if(!hit_triangle || t > max || t < 0.0001f)return false;
-        
+    const std::vector<glm::vec3>& normals = mesh->GetNormals();
+    const std::vector<glm::vec2>& texCoords = mesh->GetTexCoords();    
     float u = baryPos.x;
     float v = baryPos.y;
     float w = 1.0f - u - v;
     
-    glm::vec2 uv =  u * mesh->texCoords[index1] +
-                    v * mesh->texCoords[index2]+
-                    w * mesh->texCoords[index0];
+    glm::vec2 uv =  u * texCoords[index1] +
+                    v * texCoords[index2]+
+                    w * texCoords[index0];
 
-    if(random_float()>mesh->material->Alpha(u,v))return 0;
-    glm::vec3 norm_normal = glm::normalize( u * mesh->normals[index1] +
-                                            v * mesh->normals[index2] +
-                                            w * mesh->normals[index0]);
+    if(random_float()>mesh->GetMaterial()->Alpha(u,v))return 0;
+    const std::vector<glm::vec3>& tangents = mesh->GetTangents();
+    const std::vector<glm::vec3>& bitangents = mesh->GetBitangents();
+    glm::vec3 norm_normal = glm::normalize( u * normals[index1] +
+                                            v * normals[index2] +
+                                            w * normals[index0]);
                                             
-    glm::vec3 e1 = mesh->vertices[index1] - mesh->vertices[index0];
-    glm::vec3 e2 = mesh->vertices[index2] - mesh->vertices[index0];
+    glm::vec3 e1 = vertices[index1] - vertices[index0];
+    glm::vec3 e2 = vertices[index2] - vertices[index0];
     glm::vec3 N = glm::normalize(glm::cross(e1,e2));
     interaction.n = N;
     if(glm::dot(ray.dir,N)>0.0f){
@@ -118,15 +123,15 @@ bool TriangleShape::Intersect(const Ray& ray, SurfaceInteraction& interaction,fl
     interaction.p = ray.at(t) + 0.0001f * N;//was 0.0001 * N should be 0.0001f for dragon
     //interaction.n = N;
     interaction.AreaLight = nullptr;//(hittable*)&primitives[TriIndex];
-    interaction.mat = mesh->material;
-    if(!mesh->tangents.empty() /*&& !mesh->bitangents.empty() */){
-        glm::vec3 tangent =  u * mesh->tangents[index1] +
-                            v * mesh->tangents[index2]+
-                            w * mesh->tangents[index0];
+    interaction.mat = mesh->GetMaterial();
+    if(!tangents.empty() /*&& !bitangents.empty() */){
+        glm::vec3 tangent =  u * tangents[index1] +
+                            v * tangents[index2]+
+                            w * tangents[index0];
         interaction.tangent = glm::normalize(tangent);
-        glm::vec3 bitangent =  u * mesh->bitangents[index1] +
-                                v * mesh->bitangents[index2]+
-                                w * mesh->bitangents[index0];
+        glm::vec3 bitangent =  u * bitangents[index1] +
+                                v * bitangents[index2]+
+                                w * bitangents[index0];
         interaction.bitangent = glm::normalize(bitangent);
         //we should jsut get pointer to texture then not store tangent and bitangent in interaction!!! pbrt does that -> same for albedo?
         interaction.ns = interaction.mat->sample_normalMap(interaction);
@@ -141,60 +146,69 @@ bool TriangleShape::IntersectPred(const Ray& ray, float max) const {
     glm::vec2 baryPos;
     float t = -1;
     Mesh* mesh = meshList[MeshIndex];
-    int index0 = mesh->indices[TriIndex*3+0];
-    int index1 = mesh->indices[TriIndex*3+1];
-    int index2 = mesh->indices[TriIndex*3+2];
-    bool hit_triangle = glm::intersectRayTriangle(ray.origin,ray.dir,mesh->vertices[index0]
-                                                                    ,mesh->vertices[index1]
-                                                                    ,mesh->vertices[index2],baryPos,t);
+    const std::vector<uint32_t>& indices = mesh->GetIndices();
+    const std::vector<glm::vec3>& vertices = mesh->GetVertices();
+    int index0 = indices[TriIndex*3+0];
+    int index1 = indices[TriIndex*3+1];
+    int index2 = indices[TriIndex*3+2];
+    bool hit_triangle = glm::intersectRayTriangle(ray.origin,ray.dir,vertices[index0]
+                                                                    ,vertices[index1]
+                                                                    ,vertices[index2],baryPos,t);
     if(!hit_triangle || t > max || t < 0.0001f)return false;
-        
+    const std::vector<glm::vec3>& normals = mesh->GetNormals();
+    const std::vector<glm::vec2>& texCoords = mesh->GetTexCoords();
     float u = baryPos.x;
     float v = baryPos.y;
     float w = 1.0f - u - v;
     
     //mesh->normal.at(u,v);
-    glm::vec3 norm_normal = glm::normalize( u * mesh->normals[index1] +
-                                            v * mesh->normals[index2] +
-                                            w * mesh->normals[index0]);
+    glm::vec3 norm_normal = glm::normalize( u * normals[index1] +
+                                            v * normals[index2] +
+                                            w * normals[index0]);
                                             
     //if(mesh->normals[mesh->indices[TriIndex*3]] != mesh->normals[index1])std::cout<<"FAIL";
-    glm::vec3 e1 = mesh->vertices[index1] - mesh->vertices[index0];
-    glm::vec3 e2 = mesh->vertices[index2] - mesh->vertices[index0];
+    glm::vec3 e1 = vertices[index1] - vertices[index0];
+    glm::vec3 e2 = vertices[index2] - vertices[index0];
     glm::vec3 N = glm::normalize(glm::cross(e1,e2));
     if(glm::dot(ray.dir,N)>0.0f){
         norm_normal = -norm_normal;
         N*=-1;
     }
   
-    glm::vec2 uv =  u * mesh->texCoords[index1] +
-                    v * mesh->texCoords[index2]+
-                    w * mesh->texCoords[index0];
+    glm::vec2 uv =  u * texCoords[index1] +
+                    v * texCoords[index2] +
+                    w * texCoords[index0];
 
     //if(random_float()>mesh->material->Alpha(u,v))return false;
-    return random_float()<=mesh->material->Alpha(u,v);
+    return random_float()<=mesh->GetMaterial()->Alpha(u,v);
 }
 
 AABB TriangleShape::BoundingBox() const {
     Mesh* mesh = meshList[MeshIndex];
-    AABB bbox(mesh->vertices[mesh->indices[TriIndex*3+0]]);
-    bbox.Expand(mesh->vertices[mesh->indices[TriIndex*3+1]]);
-    bbox.Expand(mesh->vertices[mesh->indices[TriIndex*3+2]]);
+    const std::vector<glm::vec3>& vertices = mesh->GetVertices();
+    const std::vector<uint32_t>& indices = mesh->GetIndices();
+    AABB bbox(vertices[indices[TriIndex*3+0]]);
+    bbox.Expand(vertices[indices[TriIndex*3+1]]);
+    bbox.Expand(vertices[indices[TriIndex*3+2]]);
     return bbox;
 }
 GeometricInteraction TriangleShape::Sample(const glm::vec2& u) const {
     float w = 1.0f - u.x - u.y;
     Mesh* mesh = meshList[MeshIndex];
-
-    glm::vec3 e1 = mesh->vertices[TriIndex*3+1] - mesh->vertices[TriIndex*3+0];
-    glm::vec3 e2 = mesh->vertices[TriIndex*3+2] - mesh->vertices[TriIndex*3+0];
+    const std::vector<glm::vec3>& vertices = mesh->GetVertices();
+    const std::vector<glm::vec3>& normals = mesh->GetNormals();
+    const std::vector<uint32_t>& indices = mesh->GetIndices();
+    glm::vec3 e1 = vertices[TriIndex*3+1] - vertices[TriIndex*3+0];
+    glm::vec3 e2 = vertices[TriIndex*3+2] - vertices[TriIndex*3+0];
     glm::vec3 n = glm::normalize(glm::cross(e1,e2));
-    glm::vec3 p = u.x * mesh->normals[mesh->indices[TriIndex*3+1]] + u.y * mesh->normals[mesh->indices[TriIndex*3+2]] + w * mesh->normals[mesh->indices[TriIndex*3+0]];
+    glm::vec3 p = u.x * normals[indices[TriIndex*3+1]] + u.y * normals[indices[TriIndex*3+2]] + w * normals[indices[TriIndex*3+0]];
     return GeometricInteraction{p,n};
 }
 float TriangleShape::Area() const {   
-    Mesh* mesh = meshList[MeshIndex];                                                   
-    return glm::length(glm::cross(mesh->vertices[mesh->indices[TriIndex*3+0]] - mesh->vertices[mesh->indices[TriIndex*3+2]],mesh->vertices[mesh->indices[TriIndex*3+1]] - mesh->vertices[mesh->indices[TriIndex*3+2]]))*0.5f;
+    Mesh* mesh = meshList[MeshIndex];    
+    const std::vector<glm::vec3>& vertices = mesh->GetVertices(); 
+    const std::vector<uint32_t>& indices = mesh->GetIndices();                                              
+    return glm::length(glm::cross(vertices[indices[TriIndex*3+0]] - vertices[indices[TriIndex*3+2]],vertices[indices[TriIndex*3+1]] - vertices[indices[TriIndex*3+2]]))*0.5f;
 }
 
 float TriangleShape::PDF(const GeometricInteraction& interaction) const {

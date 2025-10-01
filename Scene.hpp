@@ -25,6 +25,7 @@ public:
 
     AABB BoundingBox() const;
 
+    std::vector<std::shared_ptr<InfiniteLight>> infiniteLights;
 private:
     TLAS scene_bvh;//tlas bvh should take shared ptrs / unique ptrs and own them
     std::vector<std::shared_ptr<Primitive>> primitives;

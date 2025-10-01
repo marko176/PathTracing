@@ -6,7 +6,7 @@ class LightSampler {
 public:
     virtual ~LightSampler() = default;
     virtual void Add(const std::shared_ptr<Light>& light) = 0;
-    virtual void Add(const std::vector<std::shared_ptr<Light>>& lights) {
+    void Add(const std::vector<std::shared_ptr<Light>>& lights) {
         for(const std::shared_ptr<Light>& l : lights){
             Add(l);
         }
@@ -23,8 +23,6 @@ public:
     
     void Add(const std::shared_ptr<Light>& light) override ;
 
-    void Add(const std::vector<std::shared_ptr<Light>>& lights) override;
-
     std::shared_ptr<Light> Sample(float u) const override ;
 
     float PMF(const std::shared_ptr<Light>& light) const override ;
@@ -39,8 +37,6 @@ public:
     virtual ~PowerLightSampler() = default;
 
     void Add(const std::shared_ptr<Light>& light) override ;
-
-    void Add(const std::vector<std::shared_ptr<Light>>& lights) override;
        
     std::shared_ptr<Light> Sample(float u) const override ;
 

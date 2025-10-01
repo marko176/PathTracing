@@ -3,9 +3,7 @@
 void UniformLightSampler::Add(const std::shared_ptr<Light>& light) {
     lights.push_back(light);
 }
-void UniformLightSampler::Add(const std::vector<std::shared_ptr<Light>>& lights) {
-    this->lights.insert(this->lights.end(),lights.begin(),lights.end());
-}
+
 std::shared_ptr<Light> UniformLightSampler::Sample(float u) const {
     int index = std::min<int>((u * lights.size()),lights.size()-1);
     return lights[index];
@@ -43,9 +41,7 @@ glm::vec3 UniformLightSampler::SampleLd(const Ray& curr_ray,const SurfaceInterac
 void PowerLightSampler::Add(const std::shared_ptr<Light>& light) {
     lights.push_back(light);
 }
-void PowerLightSampler::Add(const std::vector<std::shared_ptr<Light>>& lights) {
-    this->lights.insert(this->lights.end(),lights.begin(),lights.end());
-}
+
    
 std::shared_ptr<Light> PowerLightSampler::Sample(float u) const {
     if(lights.empty())return nullptr;
@@ -114,6 +110,7 @@ glm::vec3 PowerLightSampler::SampleLd(const Ray& curr_ray,const SurfaceInteracti
     return {0,0,0};
 }
 void PowerLightSampler::PreProcess(const AABB& bbox){
+    lightPowers.clear();
     lightPowers.reserve(lights.size());
     for(const std::shared_ptr<Light>& light : lights){
         light->PreProcess(bbox);

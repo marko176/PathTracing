@@ -39,6 +39,7 @@
 
 #include "Integrators.hpp"
 
+
 /*
 inline glm::vec3 Li2(Ray curr_ray, const Scene& scene,const std::shared_ptr<Sampler>& sampler,const std::shared_ptr<LightSampler>& LIsampler) {
     glm::vec3 color = {1,1,1};
@@ -258,11 +259,11 @@ void NoModel(){
     auto outsideMedium = std::make_shared<HomogeneusMedium>(glm::vec3{0.01f, 0.9f, 0.9f},glm::vec3{1.0f, 0.1f, 0.1f},std::make_shared<HenyeyGreenstein>(0.9),0.5f);
 
 
-    scene->Add(std::make_shared<GeometricPrimitive>(std::make_shared<QuadShape>(glm::vec3(0.3,1.5,0), glm::vec3(-0.15,0,0), glm::vec3(0,0,-0.15)), light, area, nullptr));//-0.3, -1
+    scene->Add(std::make_shared<GeometricPrimitive>(area->getShape(), light, area, nullptr));//-0.3, -1
     scene->Add(std::make_shared<GeometricPrimitive>(std::make_shared<QuadShape>(glm::vec3(-100,-0.3,-100), glm::vec3(1000,0,0), glm::vec3(0,0,1000)), ch, nullptr, nullptr));
     //scene->Add(new Model("/home/markov/Documents/Coding/CPP/raytracing_in_one_weekend/temp_other.assbin"));
-
-    auto tm = std::make_shared<GeometricPrimitive>(std::make_shared<SphereShape>(glm::vec3(0,0.1,-1.2),0.5),std::make_shared<lambertian>(glm::vec3(0.1, 0.2, 0.5)));
+    std::shared_ptr<AreaLight> animatedArea = std::make_shared<AreaLight>(std::make_shared<SphereShape>(glm::vec3(0,0.1,-1.2),0.5),glm::vec3(10),false);
+    auto tm = std::make_shared<GeometricPrimitive>(std::make_shared<SphereShape>(glm::vec3(0,0.1,-1.2),0.5),std::make_shared<lambertian>(glm::vec3(0.1, 0.2, 0.5)),nullptr);
     auto animated = std::make_shared<AnimatedPrimitive>(tm,glm::vec3{0,0.2,0},glm::vec2{0,1});
     scene->Add(animated);
     
@@ -270,12 +271,18 @@ void NoModel(){
     //scene->Add(std::make_shared<GeometricPrimitive>(std::make_shared<SphereShape>(glm::vec3(-1,0,-1),0.4),std::make_shared<dielectric>(1/1.5),nullptr));
     scene->Add(std::make_shared<GeometricPrimitive>(std::make_shared<SphereShape>(glm::vec3(-1,0,0.2),0.5),std::make_shared<metal>(glm::vec3(0.8, 0.6, 0.2)),nullptr));
     
-    scene->Add(std::make_shared<GeometricPrimitive>(std::make_shared<SphereShape>(glm::vec3(1,0,-1),0.5),nullptr,nullptr,std::make_shared<HomogeneusMedium>(glm::vec3{0.01f, 0.9f, 0.9f},glm::vec3{1.0f, 0.1f, 0.1f},std::make_shared<HenyeyGreenstein>(0.8),25.0f,glm::vec3{1,1,1},0)));//Was 1 
+    scene->Add(std::make_shared<GeometricPrimitive>(std::make_shared<SphereShape>(glm::vec3(1,0,-1),0.5),nullptr,nullptr,std::make_shared<HomogeneusMedium>(glm::vec3{0.01f, 0.9f, 0.9f},glm::vec3{1.0f, 0.1f, 0.1f},std::make_shared<HenyeyGreenstein>(0.8),5.0f,glm::vec3{1,1,1},0)));//Was 1 
         //d_list[1] = new Sphere{glm::vec3(-0.8,1,-0.5), 0.5,
         //                        new Light(glm::vec3(8, 8, 8))};
     //scene->Add(std::make_shared<GeometricPrimitive>(std::make_shared<SphereShape>(glm::vec3(0,0,0),20),nullptr,nullptr,outsideMedium));
     
+    auto lightFunc = [](const Ray& ray){
+        float a = 0.5f*(ray.dir.y+1.0f);
+        return 1.5f * ((1.0f-a)*glm::vec3(1,0.85,0.55) + a*glm::vec3(0.45,0.65,1));
+    };
 
+    //scene->infiniteLights.push_back(std::make_shared<UniformInfiniteLight>(glm::vec3{0,0,1}));
+    scene->infiniteLights.push_back(std::make_shared<FunctionInfiniteLight>(lightFunc));
     std::shared_ptr<LightSampler> ls = std::make_shared<PowerLightSampler>();
     scene->PreProcess();
     ls->Add(scene->GetLights());
@@ -295,7 +302,7 @@ void NoModel(){
 
    
 
-    int samples = 64*4;
+    int samples = 16;
 
 
 
@@ -335,7 +342,7 @@ void Miguel(){
     std::shared_ptr<LightSampler> ls = std::make_shared<PowerLightSampler>();
     scene->PreProcess();
     ls->Add(scene->GetLights());
-    ls->Add(std::make_shared<InfiniteLight>(glm::vec3(-1,6,1),25.f*glm::vec3(1,0.93,0.83)));
+    ls->Add(std::make_shared<DistantLight>(glm::vec3(-1,6,1),25.f*glm::vec3(1,0.93,0.83)));
     //ls->Add(std::make_shared<PointLight>(glm::vec3(0.3,1.5,0),glm::vec3(6)));
     ls->PreProcess(scene->BoundingBox());
     

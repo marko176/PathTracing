@@ -20,11 +20,69 @@ public:
     virtual void PreProcess(const AABB& bbox) {}
 };
 
+//infinite light has Le which doesnt need interaction!
+//faraway / infinite directional
+//uniform infinite
+//texture infinite
+
 class InfiniteLight : public Light {
 public:
     virtual ~InfiniteLight() = default;
 
-    InfiniteLight(const glm::vec3& light_dir, const glm::vec3& light_color,const std::function<float(float)>& powerFunc = [](float r) -> float { return std::sqrt(r); }) : dir{light_dir} , color{light_color}, powerFunction{powerFunc} {}
+    virtual glm::vec3 Le(const Ray& ray) const = 0;
+    bool isDelta() const override;
+    float PDF(const GeometricInteraction& interaction, float time) const override;
+    float PDF(const GeometricInteraction& interaction, const Ray& ray) const override;
+    void PreProcess(const AABB& bbox) override;
+protected:
+    float sceneRadius;
+};
+
+class UniformInfiniteLight : public InfiniteLight {
+public:
+    virtual ~UniformInfiniteLight() = default;
+
+    UniformInfiniteLight(const glm::vec3& light_color,const std::function<float(float)>& powerFunc = [](float r) -> float { return std::sqrt(r); }) : color{light_color}, powerFunction{powerFunc} {}
+
+    glm::vec3 Le(const Ray& ray) const override;
+
+    glm::vec3 L(const GeometricInteraction& interaction, const Ray& ray) const override;
+
+    LightSample sample(const glm::vec2& uv, float time) const override;
+
+    float Power() const override;
+
+private:
+    glm::vec3 color;
+    std::function<float(float)> powerFunction;
+};
+
+class FunctionInfiniteLight : public InfiniteLight {
+public:
+    virtual ~FunctionInfiniteLight() = default;
+
+    FunctionInfiniteLight(const std::function<glm::vec3(const Ray& ray)>& lightFunc,const std::function<float(float)>& powerFunc = [](float r) -> float { return std::sqrt(r); }) : lightFunction(lightFunc), powerFunction{powerFunc} {}
+
+    glm::vec3 Le(const Ray& ray) const override;
+
+    glm::vec3 L(const GeometricInteraction& interaction, const Ray& ray) const override;
+
+    LightSample sample(const glm::vec2& uv, float time) const override;
+
+    float Power() const override;
+
+private:
+    std::function<glm::vec3(const Ray& ray)> lightFunction;
+    std::function<float(float)> powerFunction;
+};
+
+
+//distantLight : InfiniteLIght?
+class DistantLight : public Light {
+public:
+    virtual ~DistantLight() = default;
+
+    DistantLight(const glm::vec3& light_dir, const glm::vec3& light_color,const std::function<float(float)>& powerFunc = [](float r) -> float { return std::sqrt(r); }) : dir{light_dir} , color{light_color}, powerFunction{powerFunc} {}
 
     bool isDelta() const final;
 
@@ -90,6 +148,7 @@ public:
 
     float Power() const override ;
 
+    std::shared_ptr<Shape> getShape() const ;
 private:
     std::shared_ptr<Shape> shape;
     glm::vec3 color; //switch to texture/image

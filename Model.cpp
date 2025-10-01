@@ -12,7 +12,6 @@
 #include <memory_resource>
 
 Model::Model(const std::string& path){
-    //tempPTR = std::make_shared<int>(0);
     if(!load_model(path)){
         std::cerr << "Failed to load model: " + path<<std::endl;
     }else{
@@ -20,20 +19,19 @@ Model::Model(const std::string& path){
         primitives.reserve(1'000'000);
         //auto mat = std::make_shared<dielectric>(1.5,glm::vec3(1));
         //std::shared_ptr<Medium> med = std::make_shared<HomogeneusMedium>(glm::vec3(0.0,0,0),glm::vec3(0.01,0.9,0.9),50.0f);
-   
         for(const std::shared_ptr<Mesh>& m : meshes){
-    
-            for(int j = 0;j<m->triangle_count;j++){
-                primitives.emplace_back(std::shared_ptr<Shape>(m->GetControlPtr(),m->GetShape(j)),m->material,nullptr,nullptr);
+            int n = m->GetTriangleCount();
+            for(int j = 0;j<n;j++){
+                primitives.emplace_back(std::shared_ptr<Shape>(m->GetControlPtr(),m->GetShape(j)),m->GetMaterial(),nullptr,nullptr);
             }
         }
         model_bvh = BLAS(std::move(primitives));
+        std::cout<<"MODEL BUILT\n";
     }
-    std::cout<<"MODEL BUILT\n";
 }
 
 Model::Model(const std::string& path,const std::shared_ptr<Material>& material, const std::shared_ptr<Medium>& medium){
-    //maybe pass in a texture for the light -> makes it all light?
+    //pass in texure and use primitive uv coords !
     if(!load_model(path)){
         std::cerr << "Failed to load model: " + path<<std::endl;
     }else{
@@ -43,14 +41,14 @@ Model::Model(const std::string& path,const std::shared_ptr<Material>& material, 
         //std::shared_ptr<Medium> med = std::make_shared<HomogeneusMedium>(glm::vec3(0.0,0,0),glm::vec3(0.01,0.9,0.9),50.0f);
    
         for(const std::shared_ptr<Mesh>& m : meshes){
-            
-            for(int j = 0;j<m->triangle_count;j++){
+            int n = m->GetTriangleCount();
+            for(int j = 0;j<n;j++){
                 primitives.emplace_back(std::shared_ptr<Shape>(m->GetControlPtr(),m->GetShape(j)),material,nullptr,medium);
             }
         }
         model_bvh = BLAS(std::move(primitives));
+        std::cout<<"MODEL BUILT\n";
     }
-    std::cout<<"MODEL BUILT\n";
 }
 
 
@@ -62,12 +60,8 @@ auto Model::load_model(const std::string& path) -> bool {
     model_path = path.substr(0,path.find_last_of('/'));
     model_path.append("/");
     int index = path.find_last_of('.');
-    std::string suffix;
-    if(index != std::string::npos){
-        suffix = path.substr(index);
-    }
     
-    if(suffix == ".assbin"){
+    if(index != std::string::npos && path.substr(index) == ".assbin"){
         scene = importer.ReadFile(path,0);
         if(!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode){
             std::cout << "ERROR::ASSIMP::" << importer.GetErrorString() << "\n";

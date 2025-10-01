@@ -97,8 +97,10 @@ glm::vec3 PathIntegrator::Li(Ray ray) const {
         SurfaceInteraction interaction;
         
         if(!Intersect(ray,interaction,1e30f)){
-            float a = 0.5f*(ray.dir.y+1.0f);
-            return output + color * 1.5f * ((1.0f-a)*glm::vec3(1,0.85,0.55) + a*glm::vec3(0.45,0.65,1));
+            for(auto&& light : scene->infiniteLights){
+                output += color * light->Le(ray);
+            }
+            return output;
         }
         
         glm::vec2 random_variables = sampler->get2D();
@@ -200,10 +202,10 @@ glm::vec3 VolPathIntegrator::Li(Ray ray) const {
         MediumInteraction medInteraction;
         
         if(!Intersect(ray,interaction,std::numeric_limits<float>::infinity())){
-            //infinite area light
-            //return output;
-            float a = 0.5f*(ray.dir.y+1.0f);
-            return output + color * 1.5f * ((1.0f-a)*glm::vec3(1,0.85,0.55) + a*glm::vec3(0.45,0.65,1));
+            for(auto&& light : scene->infiniteLights){
+                output += color * light->Le(ray);
+            }
+            return output;
         }
         //maybe set medium here
         //
