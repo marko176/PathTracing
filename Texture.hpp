@@ -73,6 +73,41 @@ struct Image{
 
 };
 
+struct FloatImage{
+    float* data;
+    int width;
+    int height;
+    int channels;
+
+    FloatImage(const std::string& filename);
+    glm::vec3 at(int x,int y) const;
+    //getChannel
+    float GetChannelAt(const glm::ivec2& p,int ch) const {//pass wrap mode
+        //channel 1,2,3,4
+        int x = wrap_index(p.x,width);
+        int y = wrap_index(height - p.y - 1,height);
+        return data[(y*width + x)*channels + (ch - 1)];
+    }
+
+    float NearestChannel(const glm::vec2& p, int ch) const {
+        glm::ivec2 pi = {p.x * width, p.y * height};
+        return GetChannelAt(pi,ch);
+    }
+
+    glm::ivec2 Resolution() const {
+        return {width,height};
+    }
+
+    int Channels() const {
+        return channels;
+    }
+
+
+
+    ~FloatImage() ;
+
+};
+
 class Texture{
 public:
     virtual ~Texture() = default;
@@ -100,7 +135,7 @@ private:
 class ImageTexture : public Texture {
 public:
     virtual ~ImageTexture() = default;
-    ImageTexture(const std::string& filename,float gammaCorrection = false);
+    ImageTexture(const std::string& filename,float gammaCorrection = false) : image(filename,gammaCorrection) {};
 
     float alpha(float u,float v) const override;
     
@@ -123,6 +158,34 @@ public:
 private: 
     glm::vec3 texel(int x, int y) const;
     Image image;
+};
+
+class FloatImageTexture : public Texture {
+public:
+    virtual ~FloatImageTexture() = default;
+    FloatImageTexture(const std::string& filename) : image(filename) {}; 
+
+    float alpha(float u,float v) const override;
+    
+    glm::vec3 Evaluate(const SurfaceInteraction& interaction) const override { //take enum? bilerp
+        float x = interaction.uv.x*image.width - 0.5f;
+        float y = interaction.uv.y*image.height - 0.5f;
+        int xi = std::floor(x);
+        int yi = std::floor(y);
+        float dx = x - xi;
+        float dy = y - yi;
+        
+        glm::vec3 a = texel(xi,yi);//image.texel
+        glm::vec3 b = texel(xi+1,yi);
+        glm::vec3 c = texel(xi,yi+1);
+        glm::vec3 d = texel(xi+1,yi+1);
+        return ((1 - dx) * (1 - dy) * a + dx * (1 - dy) * b +
+        (1 - dx) *      dy  * c + dx *      dy  * d);
+    }
+    
+private: 
+    glm::vec3 texel(int x, int y) const;
+    FloatImage image;
 };
 
 class CheckerTexture : public Texture {

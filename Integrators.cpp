@@ -261,8 +261,17 @@ glm::vec3 VolPathIntegrator::Li(Ray ray) const {
         MediumInteraction medInteraction;
         
         if(!Intersect(ray,interaction,std::numeric_limits<float>::infinity())){
+
+            //just do output += color * lights when uniform -> PDF is 0
             for(auto&& light : scene->infiniteLights){
-                output += color * light->Le(ray);
+                glm::vec3 L = light->Le(ray);
+                if(spec){
+                    output += color * L;
+                }else{
+                    float light_pdf = lightSampler->PMF(light) * light->PDF({},ray);
+                    float w = prevPDF * prevPDF / (prevPDF * prevPDF + light_pdf * light_pdf);
+                    output += color * L * w;
+                }
             }
             return output;
         }
@@ -373,7 +382,7 @@ glm::vec3 VolPathIntegrator::SampleLd(const Ray& ray,const SurfaceInteraction& i
     float t = 0;
     if(lightSample.interaction.n == glm::vec3{0,0,0}){
         lightDir = lightSample.dir;
-        t = std::numeric_limits<float>::infinity();
+        t = std::numeric_limits<float>::max();
     }else{
         lightDir = lightSample.interaction.p - interaction.p;
         t = glm::length(lightDir) - shadowEpsilon;//was 0.0001f
@@ -433,7 +442,7 @@ glm::vec3 VolPathIntegrator::SampleLdMedium(const Ray& ray,const MediumInteracti
     float t = 0;
     if(lightSample.interaction.n == glm::vec3{0,0,0}){
         lightDir = lightSample.dir;
-        t = std::numeric_limits<float>::infinity();
+        t = std::numeric_limits<float>::max();
     }else{
         lightDir = lightSample.interaction.p - interaction.p;
         t = glm::length(lightDir) - shadowEpsilon;//was 0.0001f

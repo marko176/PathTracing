@@ -34,6 +34,10 @@ void Scene::Add(const std::shared_ptr<Primitive>& ptr) {
 }
 
 std::vector<std::shared_ptr<Light>> Scene::GetLights() const {
+
+    std::vector<std::shared_ptr<Light>> lights = scene_bvh.GetLights();
+    lights.insert(lights.end(),infiniteLights.begin(),infiniteLights.end());
+    return lights; //if we want to sample the skybox
     return scene_bvh.GetLights();
 }
 

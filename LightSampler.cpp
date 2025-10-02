@@ -5,6 +5,7 @@ void UniformLightSampler::Add(const std::shared_ptr<Light>& light) {
 }
 
 std::shared_ptr<Light> UniformLightSampler::Sample(float u) const {
+    if(lights.empty())return nullptr;
     int index = std::min<int>((u * lights.size()),lights.size()-1);
     return lights[index];
 }
@@ -36,6 +37,12 @@ glm::vec3 UniformLightSampler::SampleLd(const Ray& curr_ray,const SurfaceInterac
         }
     }
     return {0,0,0};
+}
+
+void UniformLightSampler::PreProcess(const AABB& bbox){
+    for(const std::shared_ptr<Light>& light : lights){
+        light->PreProcess(bbox);
+    }
 }
 
 

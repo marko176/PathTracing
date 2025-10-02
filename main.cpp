@@ -283,6 +283,9 @@ void NoModel(){
 
     //scene->infiniteLights.push_back(std::make_shared<UniformInfiniteLight>(glm::vec3{0,0,1}));
     scene->infiniteLights.push_back(std::make_shared<FunctionInfiniteLight>(lightFunc));
+    //scene->infiniteLights.push_back(std::make_shared<TextureInfiniteLight>(std::make_shared<FloatImageTexture>("/home/markov/Downloads/kloofendal_48d_partly_cloudy_puresky_8k.hdr"),600,[](float r){return 4 * std::sqrt(r);}));
+    //scene->infiniteLights.push_back(std::make_shared<TextureInfiniteLight>(std::make_shared<FloatImageTexture>("/home/markov/Downloads/lilienstein_4k.hdr"),600,[](float r){return 4 * std::sqrt(r);}));
+    
     std::shared_ptr<LightSampler> ls = std::make_shared<PowerLightSampler>();
     scene->PreProcess();
 
@@ -304,7 +307,7 @@ void NoModel(){
 
    
 
-    int samples = 64*4;
+    int samples = 100;
 
 
 
@@ -323,7 +326,7 @@ void NoModel(){
     integrator->Render();
     camera->GetFilm()->WritePNG("RenderedScene");
     camera->GetFilm()->WritePPM("RenderedScene");
-    camera->GetFilm()->WriteJPG("RenderedScene",100);
+    camera->GetFilm()->WriteJPG("RenderedScene",90);
     ResourceManager::get_instance().releaseTextures();
 }
 
@@ -347,6 +350,7 @@ void Miguel(){
 
     //scene->infiniteLights.push_back(std::make_shared<UniformInfiniteLight>(glm::vec3{0,0,1}));
     scene->infiniteLights.push_back(std::make_shared<FunctionInfiniteLight>(lightFunc));
+    //scene->infiniteLights.push_back(std::make_shared<TextureInfiniteLight>(std::make_shared<FloatImageTexture>("/home/markov/Downloads/noon_grass_8k.hdr"),600,[](float r){return 4 * std::sqrt(r);}));
 
     std::shared_ptr<LightSampler> ls = std::make_shared<PowerLightSampler>();
     scene->PreProcess();
@@ -370,7 +374,7 @@ void Miguel(){
     int samples = 100;//64*16*4 -> 4 hours
     int sqrts = std::sqrt(samples);
 
-    std::shared_ptr<Film> film = std::make_shared<Film>(glm::ivec2{2560,1440},std::make_shared<MitchellFilter>());
+    std::shared_ptr<Film> film = std::make_shared<Film>(glm::ivec2{1920,1080},std::make_shared<MitchellFilter>());
 
     
     auto camera = std::make_shared<Camera>(lookfrom,lookat,fov,film);
@@ -438,8 +442,9 @@ void temp(){
 
     //scene->infiniteLights.push_back(std::make_shared<UniformInfiniteLight>(glm::vec3{0,0,1}));
     //scene->infiniteLights.push_back(std::make_shared<FunctionInfiniteLight>(lightFunc));
-    scene->infiniteLights.push_back(std::make_shared<TextureInfiniteLight>(std::make_shared<ImageTexture>("/home/markov/Documents/Coding/CPP/raytracing_in_one_weekend/kloofendal_48d_partly_cloudy_puresky.jpg",true),5));
-    
+    //scene->infiniteLights.push_back(std::make_shared<TextureInfiniteLight>(std::make_shared<ImageTexture>("/home/markov/Documents/Coding/CPP/raytracing_in_one_weekend/kloofendal_48d_partly_cloudy_puresky.jpg",true),5));
+    scene->infiniteLights.push_back(std::make_shared<TextureInfiniteLight>(std::make_shared<FloatImageTexture>("/home/markov/Downloads/kloofendal_48d_partly_cloudy_puresky_8k.hdr"),600,[](float r){return 4 * std::sqrt(r);}));
+
     std::shared_ptr<LightSampler> ls = std::make_shared<PowerLightSampler>();
     scene->PreProcess();
     ls->Add(scene->GetLights());
@@ -485,10 +490,12 @@ void temp(){
 // </###   <- .
 //getMedium would be nullptr, but we would set medium to be ### (coming from inside)
 
+//examples folder -> give links to models
+
 int main(){
     stbi_set_flip_vertically_on_load(true);
     //"/home/markov/Documents/Coding/CPP/testing/stanford/common-3d-test-models-master/data/lucy.obj"
-    switch(2){
+    switch(1){
         case 0:
             temp();
             break;

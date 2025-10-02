@@ -27,6 +27,8 @@ public:
 //uniform infinite
 //texture infinite
 
+
+//should remove InfiniteLight!
 class InfiniteLight : public Light {
 public:
     virtual ~InfiniteLight() = default;
@@ -52,6 +54,9 @@ public:
 
     LightSample sample(const glm::vec2& uv, float time) const override;
 
+    float PDF(const GeometricInteraction& interaction, const Ray& ray) const override;
+
+
     float Power() const override;
 
 private:
@@ -71,18 +76,23 @@ public:
 
     LightSample sample(const glm::vec2& uv, float time) const override;
 
+    float PDF(const GeometricInteraction& interaction, const Ray& ray) const override;
+
     float Power() const override;
+
+    void PreProcess(const AABB& bbox) override;
 
 private:
     std::function<glm::vec3(const Ray& ray)> lightFunction;
     std::function<float(float)> powerFunction;
+    float cachedPower;//need to implement
 };
 
 class TextureInfiniteLight : public InfiniteLight {
 public:
     virtual ~TextureInfiniteLight() = default;
 
-    TextureInfiniteLight(const std::shared_ptr<Texture>& tex, float LeScale,const std::function<float(float)>& powerFunc = [](float r) -> float { return std::sqrt(r); }) : tex{tex}, LeScale(LeScale), powerFunction{powerFunc} {}
+    TextureInfiniteLight(const std::shared_ptr<Texture>& tex, float LeScale = 1.0f,const std::function<float(float)>& powerFunc = [](float r) -> float { return std::sqrt(r); }) : tex{tex}, LeScale(LeScale), powerFunction{powerFunc} {}
 
     glm::vec3 Le(const Ray& ray) const override;
 
@@ -92,10 +102,19 @@ public:
 
     float Power() const override;
 
+    float PDF(const GeometricInteraction& interaction, const Ray& ray) const override;
+
+    void PreProcess(const AABB& bbox) override;
+
 private:
     std::shared_ptr<Texture> tex;
     float LeScale;
-    std::function<float(float)> powerFunction;
+    float cachedPower;
+    std::vector<float> weights;
+    std::vector<float> accWeights;
+    double totalWeight;
+    std::function<float(float)> powerFunction;// no_unique_address ? 
+    static constexpr int spp = 300;//HIGH MEMORY USAGE
 };
 
 

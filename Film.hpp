@@ -19,7 +19,7 @@ inline std::filesystem::path findProjectRoot(std::filesystem::path p = std::file
 }
 
 inline double luminance(const glm::dvec3& v){
-    return dot(v, glm::dvec3(0.2126f, 0.7152f, 0.0722f));
+    return dot(v, glm::dvec3(0.2126, 0.7152, 0.0722));
 }
 
 inline glm::dvec3 change_luminance(const glm::dvec3& c_in, double l_out){

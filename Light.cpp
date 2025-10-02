@@ -1,5 +1,11 @@
 #include "Light.hpp"
 #include <numbers>
+#include "Sampler.hpp"
+
+inline double luminance(const glm::dvec3& v){//taken from gilm to film
+    return dot(v, glm::dvec3(0.2126, 0.7152, 0.0722));
+}
+
 
 void InfiniteLight::PreProcess(const AABB& bbox) {
     glm::vec3 center = (bbox.max + bbox.min ) * 0.5f;
@@ -7,7 +13,7 @@ void InfiniteLight::PreProcess(const AABB& bbox) {
 }
 
 bool InfiniteLight::isDelta() const {
-    return true;
+    return false;
 }
 
 float InfiniteLight::PDF(const GeometricInteraction& interaction, float time) const{
@@ -36,6 +42,10 @@ LightSample UniformInfiniteLight::sample(const glm::vec2& uv, float time) const{
     return {color,{},glm::vec3(x,y,z)};
 }
 
+float UniformInfiniteLight::PDF(const GeometricInteraction& interaction, const Ray& ray) const{
+    return 1.0f / (4.0f * std::numbers::pi_v<float>);
+}
+
 float UniformInfiniteLight::Power() const {
     return (color.x + color.y + color.z) * powerFunction(sceneRadius);//
 }
@@ -58,21 +68,43 @@ LightSample FunctionInfiniteLight::sample(const glm::vec2& uv, float time) const
     return {Le({{0,0,0},glm::vec3(x,y,z)}),{},glm::vec3(x,y,z)};
 }
 
+float FunctionInfiniteLight::PDF(const GeometricInteraction& interaction, const Ray& ray) const{
+    //wrong if we sample based on funciton
+    return 1.0f / (4.0f * std::numbers::pi_v<float>);
+}
+
 float FunctionInfiniteLight::Power() const {
-    glm::vec3 acc = {0,0,0};
+    return cachedPower;
+}
+
+void FunctionInfiniteLight::PreProcess(const AABB& bbox) {
+    glm::vec3 center = (bbox.max + bbox.min ) * 0.5f;
+    sceneRadius = glm::distance(bbox.max,center);
+
+    double acc = 0;
     int samples = 100*100;
     int sqrtSamples = std::sqrt(samples);
+    constexpr int SPP = 100;//lower based on spp
+    auto sampler = std::make_shared<StratifiedSampler>(sqrtSamples,sqrtSamples);
     for(int y = 0;y < sqrtSamples; y++){
         for(int x = 0; x < sqrtSamples; x++){
-            glm::vec2 uv = glm::vec2{(x + random_double()), (y + random_double())} / static_cast<float>(sqrtSamples);
-            float z = 2.0f * uv.x - 1.0f;
-            float theta = 2.0f* std::numbers::pi_v<float> * uv.y;
-            float r = std::sqrt(1.0f - z*z);
-            Ray ray(glm::vec3{0,0,0},{r * std::cos(theta),r * std::sin(theta),z});
-            acc += Le(ray);
+            double temp = 0;
+            sampler->StartPixelSample({x,y},x + y*sqrtSamples);
+            for(int sp = 0;sp<SPP;sp++){
+                glm::vec2 UV = sampler->get2D();
+                glm::vec2 uv = glm::vec2{(x + UV.x), (y + UV.y)} / static_cast<float>(sqrtSamples);
+                float z = 2.0f * uv.x - 1.0f;
+                float theta = 2.0f* std::numbers::pi_v<float> * uv.y;
+                float r = std::sqrt(1.0f - z*z);
+                Ray ray(glm::vec3{0,0,0},{r * std::cos(theta),r * std::sin(theta),z});
+                glm::vec3 l = Le(ray);
+                temp+=luminance(l);
+            }
+            temp/=SPP;
+            acc += temp;
         }
     }
-    return (acc.x + acc.y + acc.z) / samples * powerFunction(sceneRadius);
+    cachedPower = acc / samples * powerFunction(sceneRadius);
 }
 
 
@@ -85,38 +117,81 @@ glm::vec3 TextureInfiniteLight::L(const GeometricInteraction& interaction, const
 }
 
 LightSample TextureInfiniteLight::sample(const glm::vec2& uv, float time) const{
-    float z = 2.0f * uv.x - 1.0f;
-    float theta = 2.0f* std::numbers::pi_v<float> * uv.y;
+
+    float weight = random_double() * totalWeight;
+    int index = std::upper_bound(accWeights.begin(), accWeights.end(), weight) - accWeights.begin();
+    int cellX = index % spp;
+    int cellY = index / spp;
+
+    glm::vec2 cellUV = glm::vec2{ (cellX + uv.x) / float(spp),
+                                  (cellY + uv.y) / float(spp) };
+    
+
+
+    float z = 2.0f * cellUV.x - 1.0f;
+    float theta = 2.0f * std::numbers::pi_v<float> * cellUV.y;
     float r = std::sqrt(1.0f - z*z);
-    float x = r * std::cos(theta);
-    float y = r * std::sin(theta);
-    return {Le({{0,0,0},glm::vec3(x,y,z)}),{},glm::vec3(x,y,z)};
+    float sx = r * std::cos(theta);
+    float sy = r * std::sin(theta);
+    glm::vec3 dir = glm::vec3(sx, sy, z);
+    
+    //float cellOmega = 4.0f * std::numbers::pi_v<float> / static_cast<float>(spp*spp);
+
+    //float pdf = (weights[index] / totalWeight) * (1.0f / cellOmega);
+    //Le({{0,0,0},dir})
+    return {{0,0,0},{},dir};
+}
+
+float TextureInfiniteLight::PDF(const GeometricInteraction& interaction, const Ray& ray) const{
+    glm::vec3 l = Le(ray);
+    float cellOmega = 4.0f * std::numbers::pi_v<float> / static_cast<float>(spp*spp);
+    return (luminance(l) / totalWeight)  * (1.0f / cellOmega);
 }
 
 float TextureInfiniteLight::Power() const {
-    glm::vec3 acc = {0,0,0};
-    int samples = 100*100;
-    int sqrtSamples = std::sqrt(samples);
-    for(int y = 0;y < sqrtSamples; y++){
-        for(int x = 0; x < sqrtSamples; x++){
-            glm::vec2 uv = glm::vec2{(x + random_double()), (y + random_double())} / static_cast<float>(sqrtSamples);
-            float z = 2.0f * uv.x - 1.0f;
-            float theta = 2.0f* std::numbers::pi_v<float> * uv.y;
-            float r = std::sqrt(1.0f - z*z);
-            Ray ray(glm::vec3{0,0,0},{r * std::cos(theta),r * std::sin(theta),z});
-            acc += Le(ray);
-        }
-    }
-    return (acc.x + acc.y + acc.z) / samples * powerFunction(sceneRadius);
+    return cachedPower;
 }
 
+void TextureInfiniteLight::PreProcess(const AABB& bbox) {
+    glm::vec3 center = (bbox.max + bbox.min ) * 0.5f;
+    sceneRadius = glm::distance(bbox.max,center);
 
+    weights.clear();
+    totalWeight = 0;
+    double acc = 0;
+    int samples = spp*spp;
+    int sqrtSamples = std::sqrt(samples);
+    constexpr int SPP = 100;//lower based on spp
+    auto sampler = std::make_shared<StratifiedSampler>(sqrtSamples,sqrtSamples);
+    for(int y = 0;y < sqrtSamples; y++){
+        for(int x = 0; x < sqrtSamples; x++){
+            double temp = 0;
+            sampler->StartPixelSample({x,y},x + y*sqrtSamples);
+            for(int sp = 0;sp<SPP;sp++){
+                glm::vec2 UV = sampler->get2D();
+                glm::vec2 uv = glm::vec2{(x + UV.x), (y + UV.y)} / static_cast<float>(sqrtSamples);
+                float z = 2.0f * uv.x - 1.0f;
+                float theta = 2.0f* std::numbers::pi_v<float> * uv.y;
+                float r = std::sqrt(1.0f - z*z);
+                Ray ray(glm::vec3{0,0,0},{r * std::cos(theta),r * std::sin(theta),z});
+                glm::vec3 l = Le(ray);
+                temp+=luminance(l);
+            }
+            temp/=SPP;
+            acc += temp;
+            weights.push_back(temp);
+            totalWeight += weights.back();
+            accWeights.push_back(totalWeight);
+        }
+    }
+    cachedPower = acc / samples * powerFunction(sceneRadius);
+    
+}
 
 bool DistantLight::isDelta() const {
     return true;
 }
 glm::vec3 DistantLight::L(const GeometricInteraction& interaction, const Ray& ray) const {
-    //this should be 0
     return {0,0,0};
 }
 LightSample DistantLight::sample(const glm::vec2& uv, float time) const{

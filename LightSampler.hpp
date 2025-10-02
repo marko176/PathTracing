@@ -14,7 +14,7 @@ public:
     virtual std::shared_ptr<Light> Sample(float u) const = 0;
     virtual float PMF(const std::shared_ptr<Light>& light) const = 0;
     virtual glm::vec3 SampleLd(const Ray& curr_ray,const SurfaceInteraction& interaction,const TLAS& bvh,float u,glm::vec2& UV) const = 0;
-    virtual void PreProcess(const AABB& bbox) {}
+    virtual void PreProcess(const AABB& bbox) = 0;
 };
 
 class UniformLightSampler : public LightSampler {
@@ -28,6 +28,8 @@ public:
     float PMF(const std::shared_ptr<Light>& light) const override ;
 
     glm::vec3 SampleLd(const Ray& curr_ray,const SurfaceInteraction& interaction,const TLAS& bvh,float u,glm::vec2& UV) const override ;
+
+    void PreProcess(const AABB& bbox) override;
 private:
     std::vector<std::shared_ptr<Light>> lights;
 };
