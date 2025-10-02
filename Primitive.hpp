@@ -88,6 +88,7 @@ public:
 
     BVH(const std::vector<T>& prims) {
         auto start = std::chrono::high_resolution_clock::now();
+        std::cout<<"Building BVH"<<std::endl;
         nodes.reserve(prims.size()*2-1);
         primitives.reserve(prims.size());
         std::vector<PrimitiveInfo> primitiveInfo;
@@ -107,7 +108,7 @@ public:
             primitives.emplace_back(prims[info.index]);
         }
         auto duration = std::chrono::high_resolution_clock::now() - start;
-        std::cout<<"BVH build time in ms: "<<std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()<<"\n";
+        std::cout<<"BVH built in: "<<std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()<<" ms"<<std::endl;
     }
 
 

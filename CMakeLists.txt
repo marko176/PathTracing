@@ -9,7 +9,7 @@ set(ASSIMP_BUILD_TESTS OFF)
 add_subdirectory(assimp)
 
 #set(CMAKE_CXX_COMPILER "/usr/bin/x86_64-linux-gnu-g++-14")
-set(CMAKE_CXX_STANDARD 23) 
+set(CMAKE_CXX_STANDARD 20) 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 message(STATUS "C++ compiler: ${CMAKE_CXX_COMPILER}")

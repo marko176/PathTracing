@@ -32,7 +32,7 @@ void TileIntegrator::Render() const {
         int k;
         std::shared_ptr<Sampler> clonedSampler = sampler->Clone();
         while((k = done.fetch_add(1, std::memory_order_relaxed))<tileCount){
-            int tileX = k % ((resolution.x + tileSize - 1) / tileSize);//k % 61
+            int tileX = k % ((resolution.x + tileSize - 1) / tileSize);
             int tileY = k / ((resolution.x + tileSize - 1) / tileSize);
             int minX = tileX * tileSize;
             int minY = tileY * tileSize;
@@ -82,7 +82,7 @@ void TileIntegrator::Render() const {
     }
     for(auto& worker : workers)worker.join();
     auto duration = std::chrono::high_resolution_clock::now() - start;
-    std::cout<<"\nRender time in ms: "<<std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()<<"\n";
+    std::cout<<"\nRender time: "<<std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()<<" ms"<<std::endl;
 }
 
 glm::vec3 SimplePathIntegrator::Li(Ray ray) const {
@@ -153,7 +153,14 @@ glm::vec3 PathIntegrator::Li(Ray ray) const {
         
         if(!Intersect(ray,interaction,1e30f)){
             for(auto&& light : scene->infiniteLights){
-                output += color * light->Le(ray);
+                glm::vec3 L = light->Le(ray);
+                if(spec){
+                    output += color * L;
+                }else{
+                    float light_pdf = lightSampler->PMF(light) * light->PDF({},ray);
+                    float w = prevPDF * prevPDF / (prevPDF * prevPDF + light_pdf * light_pdf);
+                    output += color * L * w;
+                }
             }
             return output;
         }
@@ -232,9 +239,9 @@ glm::vec3 PathIntegrator::SampleLd(const Ray& ray,const SurfaceInteraction& inte
     Ray shadow_ray(interaction.p, glm::normalize(lightDir),ray.time);
     float light_pdf = lightSampler->PMF(sampled_light);
     if(light_pdf <= 0 || glm::dot(interaction.ns,shadow_ray.dir) <= 0 || !Unoccluded(shadow_ray,t))return {0,0,0};
-
+    glm::vec3 f = interaction.mat->calc_attenuation(ray,interaction,shadow_ray);
     if(sampled_light->isDelta()){
-        return lightSample.L * interaction.mat->calc_attenuation(ray,interaction,shadow_ray) / light_pdf;
+        return lightSample.L * f / light_pdf;
     }else{
         light_pdf *= sampled_light->PDF(lightSample.interaction,shadow_ray);
         if(light_pdf <= 0)return {0,0,0};
@@ -242,7 +249,7 @@ glm::vec3 PathIntegrator::SampleLd(const Ray& ray,const SurfaceInteraction& inte
         float w1 = interaction.mat->PDF(ray,interaction,shadow_ray);
         w1 = w1*w1;
         float w_light = (w2) / (w1 + w2);
-        return sampled_light->L(lightSample.interaction,shadow_ray) * interaction.mat->calc_attenuation(ray,interaction,shadow_ray) * w_light / light_pdf;
+        return sampled_light->L(lightSample.interaction,shadow_ray) * f * w_light / light_pdf;
         
     }
     return {0,0,0};

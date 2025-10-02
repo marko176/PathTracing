@@ -349,8 +349,8 @@ void Miguel(){
     };
 
     //scene->infiniteLights.push_back(std::make_shared<UniformInfiniteLight>(glm::vec3{0,0,1}));
-    scene->infiniteLights.push_back(std::make_shared<FunctionInfiniteLight>(lightFunc));
-    //scene->infiniteLights.push_back(std::make_shared<TextureInfiniteLight>(std::make_shared<FloatImageTexture>("/home/markov/Downloads/noon_grass_8k.hdr"),600,[](float r){return 4 * std::sqrt(r);}));
+    //scene->infiniteLights.push_back(std::make_shared<FunctionInfiniteLight>(lightFunc));
+    scene->infiniteLights.push_back(std::make_shared<TextureInfiniteLight>(std::make_shared<FloatImageTexture>("/home/markov/Downloads/noon_grass_8k.hdr"),600,[](float r){return 4 * std::sqrt(r);}));
 
     std::shared_ptr<LightSampler> ls = std::make_shared<PowerLightSampler>();
     scene->PreProcess();
@@ -495,7 +495,7 @@ void temp(){
 int main(){
     stbi_set_flip_vertically_on_load(true);
     //"/home/markov/Documents/Coding/CPP/testing/stanford/common-3d-test-models-master/data/lucy.obj"
-    switch(1){
+    switch(2){
         case 0:
             temp();
             break;

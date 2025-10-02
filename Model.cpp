@@ -26,7 +26,6 @@ Model::Model(const std::string& path){
             }
         }
         model_bvh = BLAS(std::move(primitives));
-        std::cout<<"MODEL BUILT\n";
     }
 }
 
@@ -47,7 +46,6 @@ Model::Model(const std::string& path,const std::shared_ptr<Material>& material, 
             }
         }
         model_bvh = BLAS(std::move(primitives));
-        std::cout<<"MODEL BUILT\n";
     }
 }
 
@@ -98,11 +96,9 @@ auto Model::load_model(const std::string& path) -> bool {
         exporter.Export(scene,"assbin",outputPath + ".assbin");//model_path + temp.assbin
     }
 
-
-
-    std::cout<<"MODEL PATH"<<model_path<<"\n";
     process_node(scene->mRootNode,scene);
     importer.FreeScene();
+    std::cout<<"Model "<< path.substr(path.find_last_of('/') + 1)<<" Created"<<std::endl;
     return true;
 }
 auto Model::process_node(aiNode* node, const aiScene* scene) -> void {
