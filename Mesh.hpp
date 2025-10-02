@@ -61,6 +61,10 @@ public:
     bool operator!=(const Mesh& other) const {
         return !(*this == other);
     }
+
+    ~Mesh() {
+        TriangleShape::removeMesh(this);
+    }
 private:
     friend class TriangleShape;
     friend class Model;

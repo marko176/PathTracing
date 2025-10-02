@@ -428,31 +428,7 @@ class dielectric : public Material {
     public:
     dielectric(float r, glm::vec3 color = glm::vec3(1,1,1)) : ri(r) , color(color){}
   
-
-    inline glm::vec3 refract(const glm::vec3& vec, const glm::vec3& n, float r) const{
-        float cosTheta = std::min(glm::dot(-vec,n),1.0f);
-        glm::vec3 outPerp = r * ( vec + cosTheta * n);
-        glm::vec3 outParallel = -std::sqrt(std::abs(1.0f - glm::dot(outPerp,outPerp))) * n;
-        return outParallel + outPerp;
-    }
-
     bool scatter(const Ray& r_in, const SurfaceInteraction& interaction, Ray& scattered,const glm::vec2& UV) const final{
-        /*
-        double r = glm::dot(r_in.dir,interaction.ns) < 0 ? (1.0 / ri) : ri;
-
-        double cosTheta = std::min(glm::dot(-r_in.dir,interaction.ns),1.0f);
-        double sinTheta = std::sqrt(1.0 - cosTheta * cosTheta);
-
-        bool cannotRefract = r * sinTheta > 1.0;
-        if(cannotRefract || schlick(cosTheta,r) > UV.x){
-            scattered = Ray(interaction.p + 0.002f * N,glm::normalize(glm::reflect(r_in.dir,interaction.ns)));
-        }else{
-            scattered = Ray(interaction.p - 0.002f * N,glm::normalize(refract(r_in.dir,interaction.ns, (float)r)));
-        }
-
-        return true;
-        */
-        
         float r = ri;
         glm::vec3 N;
         glm::vec3 Ng;//normal on our side
@@ -478,32 +454,17 @@ class dielectric : public Material {
         glm::vec3 dir = glm::refract(r_in.dir,N,r);
 
         if(dir == glm::vec3(0,0,0) || schlick(cos_theta,r) > UV.x){
-            //if reflect and front face
-
-            //case outside to outside -> p += 0
-            //case outside to inside -> p += -0.002 n
-            //case inside to outside -> p += 0
-            //case inside to inside -> p += -0.002 n
             dir = glm::normalize(glm::reflect(r_in.dir,N));
-            //float eps = glm::dot(interaction.ns,dir) < 0 ? 0.0001f : -0.0001f;//test if -0.002f here works
+ 
             glm::vec3 point = r_in.at(interaction.t) + shadowEpsilon * Ng;
-           
-            //should be + in the N direction??
-            //also + 0.0005*Ng workes ? but not 0.001
-            scattered = Ray{point ,dir,r_in.time};//was + eps*Ng //fix this
+
+            scattered = Ray{point ,dir,r_in.time};
 
         }else{
             
-            //float eps = false && glm::dot(interaction.ns,dir) < 0 ? 0.0001f : -0.0001f;
             glm::vec3 point = r_in.at(interaction.t) - shadowEpsilon * Ng;
      
-            //case outside to outside -> p += 0 Ng = n
-            //case outside to inside -> p += -0.002 Ng = n
-            //case inside to outside -> p += -0.002 NG = -n
-            //case inside to inside -> p += 0 Ng = -n
-            //p is always on ray side (can be backface)
-            //refract always into surface
-            scattered = Ray{point,dir,r_in.time};//test//was - eps*Ng
+            scattered = Ray{point,dir,r_in.time};
 
         }
 
@@ -519,7 +480,7 @@ class dielectric : public Material {
         return true;
     }
 
-    private:
+private:
 
     static double reflectance(double cosine, double refraction_index) {
         // Use Schlick's approximation for reflectance.

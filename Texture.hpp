@@ -45,7 +45,6 @@ struct Image{
     int channels;
 
     Image(const std::string& filename,float gammaCorrection = false);
-    glm::vec3 at(int x,int y) const;
     //getChannel
     float GetChannelAt(const glm::ivec2& p,int ch) const {//pass wrap mode
         //channel 1,2,3,4
@@ -80,7 +79,6 @@ struct FloatImage{
     int channels;
 
     FloatImage(const std::string& filename);
-    glm::vec3 at(int x,int y) const;
     //getChannel
     float GetChannelAt(const glm::ivec2& p,int ch) const {//pass wrap mode
         //channel 1,2,3,4

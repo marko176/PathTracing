@@ -62,9 +62,8 @@ public:
     
     glm::vec3 Li(Ray ray) const override ;
 protected:
-    glm::vec3 SampleLd(const Ray& ray,const SurfaceInteraction& interaction,float u,const glm::vec2& UV) const ;
-    glm::vec3 SampleLdMedium(const Ray& ray,const MediumInteraction& interaction,float u,const glm::vec2& UV) const ;
-    
+    glm::vec3 SampleLd(const Ray& ray,const GeometricInteraction& interaction,float u,const glm::vec2& UV) const ;
+ 
     std::shared_ptr<LightSampler> lightSampler;
     uint32_t maxDepth;
 };

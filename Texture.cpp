@@ -14,11 +14,6 @@ Image::Image(const std::string& filename,float gammaCorrection) {
     }
 }
 
-glm::vec3 Image::at(int x,int y) const{
-    if(channels == 1) return glm::vec3(data[(y*width + x)],data[(y*width + x)],data[(y*width + x)])/255.0f;
-    return glm::vec3{data[(y*width + x)*channels + 0],data[(y*width + x)*channels + 1],data[(y*width + x)*channels + 2]}/255.0f;
-}
-
 Image::~Image() {
     stbi_image_free((void*)data);
 }
@@ -27,13 +22,6 @@ Image::~Image() {
 FloatImage::FloatImage(const std::string& filename) {
     data = stbi_loadf(filename.c_str(),&width,&height,&channels,0);
 }
-
-glm::vec3 FloatImage::at(int x,int y) const{
-    if(channels == 1) return glm::vec3(data[(y*width + x)],data[(y*width + x)],data[(y*width + x)])/255.0f;
-    return glm::vec3{data[(y*width + x)*channels + 0],data[(y*width + x)*channels + 1],data[(y*width + x)*channels + 2]}/255.0f;
-}
-
-
 
 FloatImage::~FloatImage() {
     stbi_image_free((void*)data);
@@ -44,9 +32,8 @@ SolidColor::SolidColor(float r,float g,float b) : albedo(r,g,b) {}
 
 glm::vec3 ImageTexture::texel(int x, int y) const {
     // repeat wrap:
-    x = wrap_index(x,image.width);
-    y = wrap_index(image.height - y -1,image.height);
-    return image.at(x, y);
+    glm::ivec2 p = {wrap_index(x,image.width),wrap_index(image.height - y - 1,image.height)};
+    return {image.GetChannelAt(p,1),image.GetChannelAt(p,2),image.GetChannelAt(p,3)};
 }
 
 
@@ -81,9 +68,8 @@ float ImageTexture::alpha(float u,float v) const {
 
 glm::vec3 FloatImageTexture::texel(int x, int y) const {
     // repeat wrap:
-    x = wrap_index(x,image.width);
-    y = wrap_index(image.height - y -1,image.height);
-    return image.at(x, y);
+glm::ivec2 p = {wrap_index(x,image.width),wrap_index(image.height - y - 1,image.height)};
+    return {image.GetChannelAt(p,1),image.GetChannelAt(p,2),image.GetChannelAt(p,3)};
 }
 
 

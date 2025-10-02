@@ -303,7 +303,7 @@ glm::vec3 VolPathIntegrator::Li(Ray ray) const {
         float rr_random_variable = sampler->get1D();
         glm::vec2 phase_random_variables = sampler->get2D();
         if(medInteraction.isValid()){
-            output += color * SampleLdMedium(ray,medInteraction,light_selection_random_variable,light_random_variables);
+            output += color * SampleLd(ray,medInteraction,light_selection_random_variable,light_random_variables);
             output += color * ray.medium->Le();
             glm::vec3 scattered;
             medInteraction.phaseFunction->Sample(ray.dir,scattered,phase_random_variables);
@@ -378,7 +378,7 @@ glm::vec3 VolPathIntegrator::Li(Ray ray) const {
 }
 
 
-glm::vec3 VolPathIntegrator::SampleLd(const Ray& ray,const SurfaceInteraction& interaction,float u,const glm::vec2& UV) const {
+glm::vec3 VolPathIntegrator::SampleLd(const Ray& ray,const GeometricInteraction& interaction,float u,const glm::vec2& UV) const {
     std::shared_ptr<Light> sampled_light = lightSampler->Sample(u);
     if(sampled_light == nullptr)return {0,0,0};
     glm::vec3 Tr = {1,1,1};
@@ -389,85 +389,37 @@ glm::vec3 VolPathIntegrator::SampleLd(const Ray& ray,const SurfaceInteraction& i
     float t = 0;
     if(lightSample.interaction.n == glm::vec3{0,0,0}){
         lightDir = lightSample.dir;
-        t = std::numeric_limits<float>::max();
+        t = std::numeric_limits<float>::infinity();
     }else{
         lightDir = lightSample.interaction.p - interaction.p;
         t = glm::length(lightDir) - shadowEpsilon;//was 0.0001f
     }
     Ray shadow_ray(interaction.p, glm::normalize(lightDir),ray.time,ray.medium);
     float light_pdf = lightSampler->PMF(sampled_light);
-    if(light_pdf <= 0 || glm::dot(interaction.ns,shadow_ray.dir) <= 0 || IntersectTr(shadow_ray,intr,Tr,t))return {0,0,0};
-    glm::vec3 f = interaction.mat->calc_attenuation(ray,interaction,shadow_ray);
+    if(light_pdf <= 0) return {0,0,0};
+
+    glm::vec3 f;
+    float samplingPDF;
+    if(interaction.isMediumInteraction()){
+        samplingPDF = static_cast<const MediumInteraction*>(&interaction)->phaseFunction->PDF(ray.dir,shadow_ray.dir);
+        f = glm::vec3(samplingPDF);
+    }else{
+        const SurfaceInteraction* surfIntr = static_cast<const SurfaceInteraction*>(&interaction);
+        if(glm::dot(surfIntr->ns,shadow_ray.dir) <= 0)return {0,0,0};
+        samplingPDF = surfIntr->mat->PDF(ray,*surfIntr,shadow_ray);
+        f = surfIntr->mat->calc_attenuation(ray,*surfIntr,shadow_ray);
+    }
+    
+
+    if(IntersectTr(shadow_ray,intr,Tr,t))return {0,0,0};
+
     if(sampled_light->isDelta()){
         return Tr * lightSample.L * f / light_pdf;
     }else{
         light_pdf *= sampled_light->PDF(lightSample.interaction,shadow_ray);
         if(light_pdf <= 0)return {0,0,0};
         float w2 = light_pdf*light_pdf;
-        float w1 = interaction.mat->PDF(ray,interaction,shadow_ray);
-        w1 = w1*w1;
-        float w_light = (w2) / (w1 + w2);
-        return Tr * sampled_light->L(lightSample.interaction,shadow_ray) * f * w_light / light_pdf;
-        
-    }
-    return {0,0,0};
-    /*
-    if(sampled_light->isDelta()){
-        glm::vec3 dir = sampled_light->sample(UV).dir;
-        Ray shadow_ray(interaction.p,dir);
-        if(glm::dot(interaction.ns,shadow_ray.dir) > 0 && !scene->IntersectTr(shadow_ray,intr, Tr, 1e30f)){
-            float light_pdf = lightSampler->PMF(sampled_light);
-            if(light_pdf <= 0)return {0,0,0};
-            return Tr * sampled_light->L({},shadow_ray) * interaction.mat->calc_attenuation(ray,interaction,shadow_ray) / light_pdf;
-        }
-    }else{
-        LightSample lightSample = sampled_light->sample(UV);
-        glm::vec3 to_light = lightSample.interaction.p - interaction.p;
-        Ray shadow_ray(interaction.p, glm::normalize(to_light));
-        if(glm::dot(interaction.ns,shadow_ray.dir) > 0 && !scene->IntersectTr(shadow_ray,intr, Tr, glm::length(to_light)-0.001f)){
-            float light_pdf = lightSampler->PMF(sampled_light) * sampled_light->PDF(lightSample.interaction,shadow_ray);
-            if(light_pdf <= 0)return {0,0,0};
-            float w2 = light_pdf*light_pdf;
-            float w1 = interaction.mat->PDF(ray,interaction,shadow_ray);
-            w1 = w1*w1;
-            float w_light = (w2) / (w1 + w2);
-            return Tr * sampled_light->L(lightSample.interaction,shadow_ray) * interaction.mat->calc_attenuation(ray,interaction,shadow_ray) * w_light / light_pdf;
-        }
-    }
-    return {0,0,0};
-    */
-}
-
-glm::vec3 VolPathIntegrator::SampleLdMedium(const Ray& ray,const MediumInteraction& interaction,float u,const glm::vec2& UV) const {
-    std::shared_ptr<Light> sampled_light = lightSampler->Sample(u);
-    if(sampled_light == nullptr)return {0,0,0};
-    glm::vec3 Tr = {1,1,1};
-    SurfaceInteraction intr;
-
-    LightSample lightSample = sampled_light->sample(UV, ray.time);
-    glm::vec3 lightDir;
-    float t = 0;
-    if(lightSample.interaction.n == glm::vec3{0,0,0}){
-        lightDir = lightSample.dir;
-        t = std::numeric_limits<float>::max();
-    }else{
-        lightDir = lightSample.interaction.p - interaction.p;
-        t = glm::length(lightDir) - shadowEpsilon;//was 0.0001f
-    }
-    Ray shadow_ray(interaction.p, glm::normalize(lightDir),ray.time,ray.medium);
-    float light_pdf = lightSampler->PMF(sampled_light);
-    if(light_pdf <= 0 || IntersectTr(shadow_ray,intr,Tr,t))return {0,0,0};
-
-
-    float pPhase = interaction.phaseFunction->PDF(ray.dir,shadow_ray.dir);
-    glm::vec3 f = glm::vec3(pPhase);
-    if(sampled_light->isDelta()){
-        return Tr * lightSample.L * f / light_pdf;
-    }else{
-        light_pdf *= sampled_light->PDF(lightSample.interaction,shadow_ray);
-        if(light_pdf <= 0)return {0,0,0};
-        float w2 = light_pdf*light_pdf;
-        float w1 = pPhase;
+        float w1 = samplingPDF;
         w1 = w1*w1;
         float w_light = (w2) / (w1 + w2);
         return Tr * sampled_light->L(lightSample.interaction,shadow_ray) * f * w_light / light_pdf;
@@ -475,3 +427,4 @@ glm::vec3 VolPathIntegrator::SampleLdMedium(const Ray& ray,const MediumInteracti
     }
     return {0,0,0};
 }
+
