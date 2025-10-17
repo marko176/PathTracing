@@ -102,6 +102,7 @@ glm::vec3 SimplePathIntegrator::Li(Ray ray) const {
         }
         
         glm::vec2 random_variables = sampler->get2D();
+        float scatter_random_variable = sampler->get1D();
         float rr_random_variable = sampler->get1D();
         
         glm::vec3 L = {0,0,0};
@@ -110,23 +111,13 @@ glm::vec3 SimplePathIntegrator::Li(Ray ray) const {
         }
         
         Ray new_ray;
-        
-        if(!interaction.mat->scatter(ray,interaction,new_ray,random_variables)){
+        std::optional<BxDFSample> bxdf = interaction.mat->scatter(ray,interaction,new_ray,scatter_random_variable,random_variables);
+        if(!bxdf){
             return output;//absorbed   
         }
         new_ray.time = ray.time;
         
-        if(interaction.mat->is_specular(interaction)){
-            color *= interaction.mat->f_PDF(ray,interaction,new_ray);
-            ray = new_ray;
-            continue;
-        }
-        
-        float brdfPDF = interaction.mat->PDF(ray,interaction,new_ray);
-        glm::vec3 color_attenuation = interaction.mat->calc_attenuation(ray,interaction,new_ray);
-
-        if(brdfPDF <= 0)break;
-        color *= color_attenuation / brdfPDF;
+        color *= bxdf->f * std::abs(glm::dot(interaction.ns,new_ray.dir))/ bxdf->pdf;/// brdfPDF;
         
         
         if(rr_depth++>3){
@@ -148,6 +139,9 @@ glm::vec3 PathIntegrator::Li(Ray ray) const {
     int rr_depth = 0;
     float prevPDF = 1;
     bool spec = true;
+
+    //NEE path splitting count variable -> TODO
+
     while(depth++<maxDepth && (color.x + color.y + color.z) != 0.0f){
         SurfaceInteraction interaction;
         
@@ -167,6 +161,7 @@ glm::vec3 PathIntegrator::Li(Ray ray) const {
         
         glm::vec2 random_variables = sampler->get2D();
         glm::vec2 light_random_variables = sampler->get2D();
+        float scatter_random_variable = sampler->get1D();
         float light_selection_random_variable = sampler->get1D();
         float rr_random_variable = sampler->get1D();
         
@@ -189,27 +184,35 @@ glm::vec3 PathIntegrator::Li(Ray ray) const {
         Ray new_ray;
         
         
-        if(!interaction.mat->scatter(ray,interaction,new_ray,random_variables)){
+        
+        std::optional<BxDFSample> bxdf = interaction.mat->scatter(ray,interaction,new_ray,scatter_random_variable,random_variables);
+        if(!bxdf){
             return output;//absorbed   
         }
         new_ray.time = ray.time;
+        if(false && interaction.mat->is_specular(interaction)){
+            
+            //is dielectric
+            color *= bxdf->f * std::abs(glm::dot(interaction.ns,new_ray.dir)) / bxdf->pdf;
+            
+            prevPDF = interaction.mat->PDF(ray,interaction,new_ray);
+            spec = false;
+            glm::vec3 acc = color * SampleLd(ray,interaction,light_selection_random_variable,light_random_variables);
+            output += acc;
+            if(acc == glm::vec3(0,0,0))spec = true;
+            //maybe do same for general reflection not just dielectrics
         
-        spec = false;
-        if(interaction.mat->is_specular(interaction)){
-            color *= interaction.mat->f_PDF(ray,interaction,new_ray);
+            
             ray = new_ray;
-            spec = true;
             continue;
         }
-        
-        float brdfPDF = interaction.mat->PDF(ray,interaction,new_ray);
-        prevPDF = brdfPDF;
-        output += color * SampleLd(ray,interaction,light_selection_random_variable,light_random_variables);
-        glm::vec3 color_attenuation = interaction.mat->calc_attenuation(ray,interaction,new_ray);
-
-        if(brdfPDF <= 0)break;
-        color *= color_attenuation / (brdfPDF);
-        
+    
+        spec = bxdf->isSpecular();
+        if(!spec){
+            prevPDF = interaction.mat->PDF(ray,interaction,new_ray);
+            output += color * SampleLd(ray,interaction,light_selection_random_variable,light_random_variables);
+        }
+        color *= bxdf->f * std::abs(glm::dot(interaction.ns,new_ray.dir)) / bxdf->pdf;
         
         if(rr_depth++>3){
             float rr_prob = std::fmin(0.95f,std::fmaxf(std::fmaxf(color.x, color.y), color.z));
@@ -238,8 +241,10 @@ glm::vec3 PathIntegrator::SampleLd(const Ray& ray,const SurfaceInteraction& inte
     }
     Ray shadow_ray(interaction.p, glm::normalize(lightDir),ray.time);
     float light_pdf = lightSampler->PMF(sampled_light);
-    if(light_pdf <= 0 || glm::dot(interaction.ns,shadow_ray.dir) <= 0 || !Unoccluded(shadow_ray,t))return {0,0,0};
-    glm::vec3 f = interaction.mat->calc_attenuation(ray,interaction,shadow_ray);
+
+    float dot = glm::dot(interaction.ns,shadow_ray.dir);
+    if(light_pdf <= 0 || dot*glm::dot(ray.dir,interaction.ns)>=0 || !Unoccluded(shadow_ray,t))return {0,0,0};
+    glm::vec3 f = interaction.mat->calc_attenuation(ray,interaction,shadow_ray) * std::abs(dot);
     if(sampled_light->isDelta()){
         return lightSample.L * f / light_pdf;
     }else{
@@ -263,13 +268,12 @@ glm::vec3 VolPathIntegrator::Li(Ray ray) const {
     int rr_depth = 0;
     float prevPDF = 1;
     bool spec = true;
+    bool EnableCaustics = false;
     while(depth++<maxDepth && (color.x + color.y + color.z) != 0.0f){
         SurfaceInteraction interaction;
         MediumInteraction medInteraction;
         
         if(!Intersect(ray,interaction,std::numeric_limits<float>::infinity())){
-
-            //just do output += color * lights when uniform -> PDF is 0
             for(auto&& light : scene->infiniteLights){
                 glm::vec3 L = light->Le(ray);
                 if(spec){
@@ -282,6 +286,7 @@ glm::vec3 VolPathIntegrator::Li(Ray ray) const {
             }
             return output;
         }
+
         //maybe set medium here
         //
         
@@ -299,9 +304,11 @@ glm::vec3 VolPathIntegrator::Li(Ray ray) const {
         
         glm::vec2 random_variables = sampler->get2D();
         glm::vec2 light_random_variables = sampler->get2D();
+        float scatter_random_variable = sampler->get1D();
         float light_selection_random_variable = sampler->get1D();
         float rr_random_variable = sampler->get1D();
         glm::vec2 phase_random_variables = sampler->get2D();
+
         if(medInteraction.isValid()){
             output += color * SampleLd(ray,medInteraction,light_selection_random_variable,light_random_variables);
             output += color * ray.medium->Le();
@@ -333,36 +340,53 @@ glm::vec3 VolPathIntegrator::Li(Ray ray) const {
             Ray new_ray;
             
 
-            
-            if(!interaction.mat->scatter(ray,interaction,new_ray,random_variables)){
+            std::optional<BxDFSample> bxdf = interaction.mat->scatter(ray,interaction,new_ray,scatter_random_variable,random_variables);
+            if(!bxdf){
                 return output;//absorbed   
             }
 
-            
+
             new_ray.medium = interaction.getMedium(new_ray.dir);
             new_ray.time = ray.time;
 
-            if(interaction.mat->is_specular(interaction)){
-                color *= interaction.mat->f_PDF(ray,interaction,new_ray);
+            if(EnableCaustics && interaction.mat->is_specular(interaction)){
+                //&& !bxdf->isSpecular() 
+                //is dielectric
+                color *= bxdf->f * std::abs(glm::dot(interaction.ns,new_ray.dir)) / bxdf->pdf;
+                
+                prevPDF = interaction.mat->PDF(ray,interaction,new_ray);
+                spec = false;
+                glm::vec3 acc = color * SampleLd(ray,interaction,light_selection_random_variable,light_random_variables);
+                output += acc;
+                if(acc == glm::vec3(0,0,0))spec = true;
+                //maybe do same for general reflection not just dielectrics
+            
+                
                 ray = new_ray;
-                spec = true;
                 continue;
             }
+   
+            
+
+            
 
             //this helps when medium intersect another object
             //when we bounce we will be in same medium as before
-            if(glm::dot(ray.dir,interaction.ns)<=0) 
+            //this breaks if we go into specular surface so do this if also not specular?
+            if(!bxdf->isTransmissive() && glm::dot(ray.dir,interaction.ns)<=0) //transmissive flag
                 new_ray.medium = ray.medium;
             
-
-            float brdfPDF = interaction.mat->PDF(ray,interaction,new_ray);
-            prevPDF = brdfPDF;
-            output += color * SampleLd(ray,interaction,light_selection_random_variable,light_random_variables);
-            glm::vec3 color_attenuation = interaction.mat->calc_attenuation(ray,interaction,new_ray);
-    
             
-            if(brdfPDF <= 0)break;
-            color *= color_attenuation / (brdfPDF);
+            spec = bxdf->isSpecular();
+            if(!spec){
+                prevPDF = interaction.mat->PDF(ray,interaction,new_ray);
+                output += color * SampleLd(ray,interaction,light_selection_random_variable,light_random_variables);
+            }
+
+
+            color *= bxdf->f * std::abs(glm::dot(interaction.ns,new_ray.dir)) / bxdf->pdf;
+            
+            
             ray = new_ray;
         }
         if(rr_depth++>3){
@@ -405,9 +429,10 @@ glm::vec3 VolPathIntegrator::SampleLd(const Ray& ray,const GeometricInteraction&
         f = glm::vec3(samplingPDF);
     }else{
         const SurfaceInteraction* surfIntr = static_cast<const SurfaceInteraction*>(&interaction);
-        if(glm::dot(surfIntr->ns,shadow_ray.dir) <= 0)return {0,0,0};
+        float dot = glm::dot(surfIntr->ns,shadow_ray.dir);
+        if(dot*glm::dot(ray.dir,surfIntr->ns)>=0)return {0,0,0};
         samplingPDF = surfIntr->mat->PDF(ray,*surfIntr,shadow_ray);
-        f = surfIntr->mat->calc_attenuation(ray,*surfIntr,shadow_ray);
+        f = surfIntr->mat->calc_attenuation(ray,*surfIntr,shadow_ray) * std::abs(dot);//maybe need abs?
     }
     
 

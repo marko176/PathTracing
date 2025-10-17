@@ -11,6 +11,8 @@ bool SphereShape::Intersect(const Ray& ray, SurfaceInteraction& interaction, flo
         if (temp < max && temp > shadowEpsilon) {
             interaction.t = temp;
             interaction.ns = (ray.at(temp) - center) / radius;
+
+            interaction.ns = glm::normalize(interaction.ns);
             interaction.n = interaction.ns;
             interaction.tangent = glm::vec3(0,0,0);
             interaction.p = ray.at(temp) + shadowEpsilon * interaction.n;
@@ -21,6 +23,8 @@ bool SphereShape::Intersect(const Ray& ray, SurfaceInteraction& interaction, flo
         if (temp < max && temp > shadowEpsilon) {
             interaction.t = temp;
             interaction.ns = (ray.at(temp) - center) / radius;
+
+            interaction.ns = glm::normalize(interaction.ns);
             interaction.n = interaction.ns;
             interaction.tangent = glm::vec3(0,0,0);
             interaction.p = ray.at(temp) + shadowEpsilon * interaction.n;
@@ -106,8 +110,11 @@ bool TriangleShape::Intersect(const Ray& ray, SurfaceInteraction& interaction,fl
     glm::vec3 e2 = mesh->vertices[index2] - mesh->vertices[index0];
     glm::vec3 N = glm::normalize(glm::cross(e1,e2));
     interaction.n = N;
-    if(glm::dot(ray.dir,N)>0.0f){
+    if(glm::dot(N,norm_normal)<0){
         norm_normal = -norm_normal;
+    }
+    if(glm::dot(ray.dir,N)>0.0f){
+        //norm_normal = -norm_normal;//WRONG BUT TIR DOESNT WORK
         N*=-1;
     }
     interaction.t = t;
@@ -133,6 +140,7 @@ bool TriangleShape::Intersect(const Ray& ray, SurfaceInteraction& interaction,fl
     }else{
         interaction.tangent = glm::vec3(0,0,0);
     }
+
     //if(glm::dot(rec.normal,ray.dir)>=0)rec.normal = norm_normal;
     return true;
 }

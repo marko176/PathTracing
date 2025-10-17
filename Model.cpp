@@ -242,7 +242,7 @@ auto Model::process_mesh(aiMesh* mesh, const aiScene* scene) -> std::shared_ptr<
                     float r = linear_to_sRGB(Ks.r);
                     float g = linear_to_sRGB(Ks.g);
                     float b = linear_to_sRGB(Ks.b);
-                    mat = std::make_shared<metal>(glm::vec3(r,g,b));
+                    mat = std::make_shared<SpecularConductor>(glm::vec3(r,g,b));
                 }else if(kdLum < ksLum){
                     
                     mat = std::make_shared<dielectric>(1.33,glm::vec3(0.98,1,1));//maybe set as color kdlum ?? not the same

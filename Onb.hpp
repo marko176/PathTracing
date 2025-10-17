@@ -6,20 +6,18 @@ public:
         axis[2] = glm::normalize(n);
         glm::vec3 a = (std::fabs(axis[2].x) > 0.9999) ? glm::vec3(0,1,0) : glm::vec3(1,0,0);
         axis[1] = glm::normalize(glm::cross(axis[2], a));
-        axis[0] = glm::cross(axis[2], axis[1]);
+        axis[0] = glm::cross(axis[1],axis[2]);
     }
 
     onb(const SurfaceInteraction& interaction) {
+        axis[2] = glm::normalize(interaction.ns);
         if(interaction.tangent == glm::vec3(0,0,0)){
-            axis[2] = glm::normalize(interaction.ns);
             glm::vec3 a = (std::fabs(axis[2].x) > 0.9999) ? glm::vec3(0,1,0) : glm::vec3(1,0,0);
             axis[1] = glm::normalize(glm::cross(axis[2], a));
-            axis[0] = glm::cross(axis[2], axis[1]);
-        }else{
-            //maybe nromalize normal
-            axis[2] = interaction.ns;      
-            axis[0] = glm::normalize(interaction.tangent - interaction.ns * glm::dot(interaction.ns,interaction.tangent));     // T 
-            axis[1] = glm::cross(interaction.ns,axis[0]);
+            axis[0] = glm::cross(axis[2],axis[1]);
+        }else{    
+            axis[0] = glm::normalize(interaction.tangent - axis[2] * glm::dot(axis[2],interaction.tangent));     // T 
+            axis[1] = glm::cross(axis[2],axis[0]);
             if(glm::dot(axis[1],interaction.bitangent)<0){
                 axis[0]=-axis[0];
                 axis[1]=-axis[1];

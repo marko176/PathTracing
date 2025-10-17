@@ -63,7 +63,6 @@ private:
     std::shared_ptr<Primitive> primitive;
     glm::vec3 dir;
     glm::vec2 timeBounds;
-    //have transform for last and first pos
 };
 
 

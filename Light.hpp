@@ -114,7 +114,7 @@ private:
     std::vector<float> accWeights;
     double totalWeight;
     std::function<float(float)> powerFunction;// no_unique_address ? 
-    static constexpr int spp = 300;//HIGH MEMORY USAGE
+    static constexpr int spp = 500;//HIGH MEMORY USAGE
 };
 
 

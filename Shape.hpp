@@ -32,7 +32,8 @@ public:
         return bbox;
     }
 
-    static glm::vec2 getSphereUV(const glm::vec3& p){
+    static glm::vec2 getSphereUV(glm::vec3 p){
+        p = glm::normalize(p);
         float theta = std::acos(glm::clamp(p.y,-1.0f,1.0f));
         float phi = std::atan2(p.z,p.x);
         if(phi < 0) phi += 2.0f * std::numbers::pi_v<float>;

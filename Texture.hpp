@@ -49,7 +49,7 @@ struct Image{
     float GetChannelAt(const glm::ivec2& p,int ch) const {//pass wrap mode
         //channel 1,2,3,4
         int x = wrap_index(p.x,width);
-        int y = wrap_index(height - p.y - 1,height);
+        int y = wrap_index(p.y,height);
         return data[(y*width + x)*channels + (ch - 1)]/255.0f;
     }
 
@@ -83,7 +83,7 @@ struct FloatImage{
     float GetChannelAt(const glm::ivec2& p,int ch) const {//pass wrap mode
         //channel 1,2,3,4
         int x = wrap_index(p.x,width);
-        int y = wrap_index(height - p.y - 1,height);
+        int y = wrap_index(p.y,height);
         return data[(y*width + x)*channels + (ch - 1)];
     }
 
