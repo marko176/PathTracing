@@ -32,7 +32,7 @@ SolidColor::SolidColor(float r,float g,float b) : albedo(r,g,b) {}
 
 glm::vec3 ImageTexture::texel(int x, int y) const {
     // repeat wrap:
-    glm::ivec2 p = {wrap_index(x,image.width),wrap_index(image.height - y - 1,image.height)};
+    glm::ivec2 p = {x,y};
     return {image.GetChannelAt(p,1),image.GetChannelAt(p,2),image.GetChannelAt(p,3)};
 }
 

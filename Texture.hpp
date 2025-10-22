@@ -25,12 +25,12 @@ inline constexpr T sRGB_to_linear(T sRGB){
     return std::pow<T>((sRGB + 0.055) / 1.055, 2.4);
 }
 
-static inline std::array<unsigned char,256> sRGBLUT = [](){
+inline std::array<unsigned char,256> sRGBLUT = [](){
     std::array<unsigned char,256> LUT;
     for(int i = 0;i<256;i++){
         double sRGB = static_cast<unsigned char>(i)/255.0;
         double linear = glm::clamp(sRGB_to_linear(sRGB),0.0,1.0);
-        LUT[i] = (unsigned char)std::lround(linear * 255.0);
+        LUT[i] = static_cast<unsigned char>(std::lround(linear * 255.0));
     }
     return LUT;
 }();

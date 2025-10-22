@@ -186,6 +186,7 @@ struct Material {
         return nullptr;
     }
 
+    //glm::vec2 uv or interaction
     virtual float Alpha(float u,float v) const{
         return 1;
     }

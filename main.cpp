@@ -514,12 +514,12 @@ void Miguel(){
     int samples = 100;//64*16*4 -> 4 hours
     int sqrts = std::sqrt(samples);
 
-    std::shared_ptr<Film> film = std::make_shared<Film>(glm::ivec2{1920,1080},std::make_shared<MitchellFilter>());
+    std::shared_ptr<Film> film = std::make_shared<Film>(glm::ivec2{2560,1440},std::make_shared<MitchellFilter>());
 
     
     auto camera = std::make_shared<Camera>(lookfrom,lookat,fov,film);
     auto sampler = std::make_shared<StratifiedSampler>(sqrts,sqrts);
-    auto integrator = std::make_shared<PathIntegrator>(scene,camera,sampler,ls,128);
+    auto integrator = std::make_shared<PathIntegrator>(scene,camera,sampler,ls,64);
 
     //camera->SetMedium(outsideMedium);
     //scene->SetMedium(outsideMedium);
@@ -634,7 +634,7 @@ void temp(){
 //examples folder -> give links to models
 
 int main(){
-    stbi_set_flip_vertically_on_load(true);
+    //stbi_set_flip_vertically_on_load(true);
     //"/home/markov/Documents/Coding/CPP/testing/stanford/common-3d-test-models-master/data/lucy.obj"
     switch(1){
         case 0:

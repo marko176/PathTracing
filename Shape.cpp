@@ -84,7 +84,7 @@ bool TriangleShape::Intersect(const Ray& ray, SurfaceInteraction& interaction,fl
     
     glm::vec2 baryPos;
     float t = -1;
-    Mesh* mesh = meshList[MeshIndex];
+    const Mesh* mesh = meshList[MeshIndex];
     int index0 = mesh->indices[TriIndex*3+0];
     int index1 = mesh->indices[TriIndex*3+1];
     int index2 = mesh->indices[TriIndex*3+2];
@@ -101,7 +101,7 @@ bool TriangleShape::Intersect(const Ray& ray, SurfaceInteraction& interaction,fl
                     v * mesh->texCoords[index2]+
                     w * mesh->texCoords[index0];
 
-    if(random_float()>mesh->material->Alpha(u,v))return 0;
+    if(random_float()>mesh->material->Alpha(uv.x,uv.y))return 0;
     glm::vec3 norm_normal = glm::normalize( u * mesh->normals[index1] +
                                             v * mesh->normals[index2] +
                                             w * mesh->normals[index0]);
@@ -148,7 +148,7 @@ bool TriangleShape::IntersectPred(const Ray& ray, float max) const {
     
     glm::vec2 baryPos;
     float t = -1;
-    Mesh* mesh = meshList[MeshIndex];
+    const Mesh* mesh = meshList[MeshIndex];
     int index0 = mesh->indices[TriIndex*3+0];
     int index1 = mesh->indices[TriIndex*3+1];
     int index2 = mesh->indices[TriIndex*3+2];
@@ -161,30 +161,17 @@ bool TriangleShape::IntersectPred(const Ray& ray, float max) const {
     float v = baryPos.y;
     float w = 1.0f - u - v;
     
-    //mesh->normal.at(u,v);
-    glm::vec3 norm_normal = glm::normalize( u * mesh->normals[index1] +
-                                            v * mesh->normals[index2] +
-                                            w * mesh->normals[index0]);
-                                            
-    //if(mesh->normals[mesh->indices[TriIndex*3]] != mesh->normals[index1])std::cout<<"FAIL";
-    glm::vec3 e1 = mesh->vertices[index1] - mesh->vertices[index0];
-    glm::vec3 e2 = mesh->vertices[index2] - mesh->vertices[index0];
-    glm::vec3 N = glm::normalize(glm::cross(e1,e2));
-    if(glm::dot(ray.dir,N)>0.0f){
-        norm_normal = -norm_normal;
-        N*=-1;
-    }
   
     glm::vec2 uv =  u * mesh->texCoords[index1] +
                     v * mesh->texCoords[index2]+
                     w * mesh->texCoords[index0];
 
-    //if(random_float()>mesh->material->Alpha(u,v))return false;
-    return random_float()<=mesh->material->Alpha(u,v);
+   
+    return random_float()<=mesh->material->Alpha(uv.x,uv.y);
 }
 
 AABB TriangleShape::BoundingBox() const {
-    Mesh* mesh = meshList[MeshIndex];
+    const Mesh* mesh = meshList[MeshIndex];
     AABB bbox(mesh->vertices[mesh->indices[TriIndex*3+0]]);
     bbox.Expand(mesh->vertices[mesh->indices[TriIndex*3+1]]);
     bbox.Expand(mesh->vertices[mesh->indices[TriIndex*3+2]]);
