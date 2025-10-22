@@ -82,7 +82,7 @@ void TileIntegrator::Render() const {
     }
     for(auto& worker : workers)worker.join();
     auto duration = std::chrono::high_resolution_clock::now() - start;
-    std::cout<<"\nRender time: "<<std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()<<" ms"<<std::endl;
+    std::cout<<"\nRender time: "<<std::chrono::duration_cast<std::chrono::milliseconds>(duration)<<std::endl;
 }
 
 glm::vec3 SimplePathIntegrator::Li(Ray ray) const {
@@ -150,7 +150,7 @@ glm::vec3 PathIntegrator::Li(Ray ray) const {
                 glm::vec3 L = light->Le(ray);
                 if(spec){
                     output += color * L;
-                }else{
+                }else if(prevPDF > 0){
                     float light_pdf = lightSampler->PMF(light) * light->PDF({},ray);
                     float w = prevPDF * prevPDF / (prevPDF * prevPDF + light_pdf * light_pdf);
                     output += color * L * w;
@@ -169,7 +169,7 @@ glm::vec3 PathIntegrator::Li(Ray ray) const {
         if(interaction.AreaLight && (L = interaction.AreaLight->L(interaction,ray)) != glm::vec3(0,0,0)){
             if(spec){
                 output += color * L;
-            }else{
+            }else if(prevPDF > 0){
                 float light_pdf = lightSampler->PMF(interaction.AreaLight) * interaction.AreaLight->PDF(interaction,ray);
                 float w = prevPDF * prevPDF / (prevPDF * prevPDF + light_pdf * light_pdf);
                 output += color * L * w;
@@ -278,7 +278,7 @@ glm::vec3 VolPathIntegrator::Li(Ray ray) const {
                 glm::vec3 L = light->Le(ray);
                 if(spec){
                     output += color * L;
-                }else{
+                }else if(prevPDF > 0){
                     float light_pdf = lightSampler->PMF(light) * light->PDF({},ray);
                     float w = prevPDF * prevPDF / (prevPDF * prevPDF + light_pdf * light_pdf);
                     output += color * L * w;
@@ -321,7 +321,7 @@ glm::vec3 VolPathIntegrator::Li(Ray ray) const {
             if(interaction.AreaLight && (L = interaction.AreaLight->L(interaction,ray)) != glm::vec3(0,0,0)){
                 if(spec){
                     output += color * L;
-                }else{
+                }else if(prevPDF > 0){
                     float light_pdf = lightSampler->PMF(interaction.AreaLight) * interaction.AreaLight->PDF(interaction,ray);
                     float w = prevPDF * prevPDF / (prevPDF * prevPDF + light_pdf * light_pdf);
                     output += color * L * w;
@@ -436,7 +436,7 @@ glm::vec3 VolPathIntegrator::SampleLd(const Ray& ray,const GeometricInteraction&
     }
     
 
-    if(IntersectTr(shadow_ray,intr,Tr,t))return {0,0,0};
+    if(f == glm::vec3(0,0,0) || IntersectTr(shadow_ray,intr,Tr,t))return {0,0,0};
 
     if(sampled_light->isDelta()){
         return Tr * lightSample.L * f / light_pdf;

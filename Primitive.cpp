@@ -25,6 +25,8 @@ std::vector<std::shared_ptr<Light>> GeometricPrimitive::GetLights() const {
 AABB TransformedPrimitive::BoundingBox() const {
     AABB bbox;
     AABB temp = primitive->BoundingBox();
+
+    //maybe simd?
     for(int i = 0;i<8;i++){
         bbox.Expand(transform * glm::vec4(temp.Corner(i),1));
     }

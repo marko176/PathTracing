@@ -252,7 +252,7 @@ void MatTest(){
     auto green = ResourceManager::get_instance().GetTexture<SolidColor>("greenTexture",glm::vec3(.2,.3,.1));
     auto light = std::make_shared<lambertian>(glm::vec3(0));
     auto ch =  std::make_shared<lambertian>(glm::vec3{.2,.3,.1});
-    auto glass = std::make_shared<dielectric>(1.5,glm::vec3(1));
+    auto glass = std::make_shared<MicrofacetDielectric>(1.5,0.0,glm::vec3(1));
     auto checker = std::make_shared<lambertian>(ResourceManager::get_instance().GetTexture<CheckerTexture>("greenTexture",white,green,glm::vec2{0.02}));
     ch =  std::make_shared<lambertian>(std::make_shared<CheckerTexture>(white,green,glm::vec2{0.001,0.001}));
     std::shared_ptr<AreaLight> area = std::make_shared<AreaLight>(std::make_shared<QuadShape>(glm::vec3(0.3,1.5,0), glm::vec3(-0.15,0,0), glm::vec3(0,0,-0.15)),glm::vec3(600),false);
@@ -367,7 +367,7 @@ void NoModel(){
     auto green = ResourceManager::get_instance().GetTexture<SolidColor>("greenTexture",glm::vec3(.2,.3,.1));
     auto light = std::make_shared<lambertian>(glm::vec3(0));
     auto ch =  std::make_shared<lambertian>(glm::vec3{.2,.3,.1});
-    auto glass = std::make_shared<dielectric>(1.5,glm::vec3(1));
+    auto glass = std::make_shared<MicrofacetDielectric>(1.5,0.0,glm::vec3(1));
     auto checker = std::make_shared<lambertian>(ResourceManager::get_instance().GetTexture<CheckerTexture>("greenTexture",white,green,glm::vec2{0.02}));
     ch =  std::make_shared<lambertian>(std::make_shared<CheckerTexture>(white,green,glm::vec2{0.001,0.001}));
     std::shared_ptr<AreaLight> area = std::make_shared<AreaLight>(std::make_shared<QuadShape>(glm::vec3(0.3,1.5,0), glm::vec3(-0.15,0,0), glm::vec3(0,0,-0.15)),glm::vec3(600),false);
@@ -473,7 +473,7 @@ void Miguel(){
     auto green = ResourceManager::get_instance().GetTexture<SolidColor>("greenTexture",glm::vec3(.2,.3,.1));
     auto light = std::make_shared<lambertian>(glm::vec3(0));
     auto ch =  std::make_shared<lambertian>(glm::vec3{.2,.3,.1});
-    auto glass = std::make_shared<dielectric>(1.5,glm::vec3(1));
+    auto glass = std::make_shared<MicrofacetDielectric>(1.5,0.0,glm::vec3(1));
     auto checker = std::make_shared<lambertian>(ResourceManager::get_instance().GetTexture<CheckerTexture>("greenTexture",white,green,glm::vec2{0.02}));
     ch =  std::make_shared<lambertian>(std::make_shared<CheckerTexture>(white,green,glm::vec2{0.001,0.001}));
     std::shared_ptr<AreaLight> area = std::make_shared<AreaLight>(std::make_shared<QuadShape>(glm::vec3(0.3,1.5,0), glm::vec3(-0.15,0,0), glm::vec3(0,0,-0.15)),glm::vec3(600),false);
@@ -510,6 +510,7 @@ void Miguel(){
     //2k 100 -> 1100 s
     //100 -> 572 s with bxdf sample
     //8% improvement
+    //100 -> 516 basic simd
     int samples = 100;//64*16*4 -> 4 hours
     int sqrts = std::sqrt(samples);
 
@@ -537,7 +538,7 @@ void temp(){
     auto green = ResourceManager::get_instance().GetTexture<SolidColor>("greenTexture",glm::vec3(.2,.3,.1));
     auto light = std::make_shared<lambertian>(glm::vec3(0));
     auto ch =  std::make_shared<lambertian>(glm::vec3{.2,.3,.1});
-    auto glass = std::make_shared<dielectric>(1.5,glm::vec3(1));
+    auto glass = std::make_shared<MicrofacetDielectric>(1.5,0.0,glm::vec3(1));
     auto checker = std::make_shared<lambertian>(ResourceManager::get_instance().GetTexture<CheckerTexture>("greenTexture",white,green,glm::vec2{0.02}));
     ch =  std::make_shared<lambertian>(std::make_shared<CheckerTexture>(white,green,glm::vec2{0.001,0.001}));
     std::shared_ptr<AreaLight> area = std::make_shared<AreaLight>(std::make_shared<QuadShape>(glm::vec3(0.3,1.5,0), glm::vec3(-0.15,0,0), glm::vec3(0,0,-0.15)),glm::vec3(600),false);
@@ -554,14 +555,14 @@ void temp(){
     std::shared_ptr<Primitive> transformedModel = std::make_shared<TransformedPrimitive>(ResourceManager::get_instance().GetModel("Glass Dragon","/home/markov/Documents/Coding/CPP/testing/models/temp_other.assbin",glass,std::make_shared<HomogeneusMedium>(glm::vec3{0.01f, 0.9f, 0.9f},glm::vec3{1.0f, 0.1f, 0.1f},std::make_shared<HenyeyGreenstein>(0.8),25.0f)),pos);
   
     //scene->Add(transformedModel);
-    auto micro = std::make_shared<MicrofacetDielectric>(1.5,0.5,glm::vec3{1});
+    auto micro = std::make_shared<MicrofacetDielectric>(1.5,0.0,glm::vec3{1});
 
     scene->Add(ResourceManager::get_instance().GetModel("Medium Dragon","/home/markov/Documents/Coding/CPP/testing/models/temp_other.assbin",
             micro,
             std::make_shared<HomogeneusMedium>( glm::vec3{0.01f, 0.9f, 0.9f},
                                                 glm::vec3{1.0f, 0.1f, 0.1f},
                                                 std::make_shared<HenyeyGreenstein>(0.8),
-                                                6.0f,//was 25
+                                                0.0f,//was 25
                                                 glm::vec3{1,1,1},
                                                 0)));//was1.2
 
@@ -603,7 +604,7 @@ void temp(){
     lookat = {0,0,0};
 
     //64*4
-    int samples = 100;//64*16*4 -> 4 hours
+    int samples = 36;//64*16*4 -> 4 hours
     int sqrts = std::sqrt(samples);
 
     std::shared_ptr<Film> film = std::make_shared<Film>(glm::ivec2{1920,1080},std::make_shared<MitchellFilter>());
@@ -635,7 +636,7 @@ void temp(){
 int main(){
     stbi_set_flip_vertically_on_load(true);
     //"/home/markov/Documents/Coding/CPP/testing/stanford/common-3d-test-models-master/data/lucy.obj"
-    switch(3){
+    switch(1){
         case 0:
             temp();
             break;

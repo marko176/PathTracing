@@ -67,7 +67,10 @@ private:
 
 
 
-
+struct Bin {
+    AABB aabb;
+    uint32_t triCount = 0;
+};
 
 struct BVH_NODE{
     AABB bbox;
@@ -77,7 +80,22 @@ struct BVH_NODE{
 };
 
 
-
+//if __SSE__
+#if defined(__SSE__)
+struct alignas(32) simdBVH_NODE{
+    //this should be SoA -> 64 bytes -> holds 2 AABB
+    //everything else always use SSE
+    float minx;
+    float miny;
+    float minz;
+    uint32_t right;
+    float maxx;
+    float maxy;
+    float maxz;
+    uint32_t count;
+};
+#endif
+//maybe have BVHBase 
 
 template <typename T>
 class BVH : public Primitive{
@@ -107,12 +125,17 @@ public:
             primitives.emplace_back(prims[info.index]);
         }
         auto duration = std::chrono::high_resolution_clock::now() - start;
-        std::cout<<"BVH built in: "<<std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()<<" ms"<<std::endl;
+        std::cout<<"BVH built in: "<<std::chrono::duration_cast<std::chrono::milliseconds>(duration)<<std::endl;
+        if(nodes.empty()){
+            BVHbbox = AABB{};
+        }else{
+            BVHbbox = nodes[0].bbox;
+        }
     }
 
 
     bool IntersectPred(const Ray& ray, float max = std::numeric_limits<float>::infinity()) const final {
-        if(!nodes[0].bbox.Hit(ray,max))return false;
+        if(!BVHbbox.Hit(ray,max))return false;
         uint32_t stack[32];
         int i = 0;
         stack[i++]=0;
@@ -139,7 +162,7 @@ public:
 
 
     bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max = std::numeric_limits<float>::infinity()) const final {
-        if(!nodes[0].bbox.Hit(ray,max))return false;
+        if(!BVHbbox.Hit(ray,max))return false;
         uint32_t stack[32];
         int i = 0;
         stack[i++]=0;
@@ -191,15 +214,11 @@ public:
     }
 
     AABB BoundingBox() const final{
-        return nodes.empty() ? AABB{} : nodes[0].bbox;
+        return BVHbbox;
     }
 
     
 private:
-    struct Bin {
-        AABB aabb;
-        uint32_t triCount = 0;
-    };
 
     struct PrimitiveInfo{
         PrimitiveInfo(uint32_t index, const AABB& bbox) : index{index}, bbox{bbox}, centroid(0.5f * (bbox.max + bbox.min)) {
@@ -210,11 +229,13 @@ private:
         AABB bbox;
         glm::vec3 centroid;
     };
-    
+
     int build_bvh(int first_triangle, int last_triangle,std::vector<PrimitiveInfo>& primitiveInfo){
         int index = nodes.size();
         BVH_NODE& node = nodes.emplace_back();
         size_t object_span = last_triangle - first_triangle;
+
+
         for(int i = first_triangle;i<last_triangle;i++){
             node.bbox.Expand(primitiveInfo[i].bbox);
         }
@@ -237,18 +258,19 @@ private:
             bins.reserve(BINS);
             rightArea.reserve(BINS-1);
             for(int axis = 0;axis<3;axis++){
-                //int count = 200;//set count to sqrt(span)
                 bins.assign(BINS,Bin{});
                 rightArea.clear();
+                
                 
                 float max = -std::numeric_limits<float>::max();
                 float min = std::numeric_limits<float>::max();
                 for(int i = first_triangle;i<last_triangle;i++){
-                    //float triangle_centroid = (vertices[indices[i*3+0]][axis]+vertices[indices[i*3+1]][axis]+vertices[indices[i*3+2]][axis])/3.0f;
                     float triangle_centroid = primitiveInfo[i].centroid[axis];
                     max = std::max(max,triangle_centroid);
                     min = std::min(min,triangle_centroid);
                 }
+                
+            
                 if(max == min)continue;
                 float scale = BINS/(max - min);
 
@@ -285,8 +307,8 @@ private:
             if(bestCost >= parent_cost){
                 return index;
             }
-
-            int mid = std::partition(primitiveInfo.begin() + first_triangle,primitiveInfo.begin() + last_triangle,[&](PrimitiveInfo& info){
+            
+            int mid = std::partition(primitiveInfo.begin() + first_triangle,primitiveInfo.begin() + last_triangle,[&](const PrimitiveInfo& info){
                 float triangle_centroid = info.centroid[best_axis];
                 return triangle_centroid <= bestPos;
             }) - primitiveInfo.begin();
@@ -337,9 +359,11 @@ private:
     }
 
     Mesh* mesh;
+    AABB BVHbbox;
     std::vector<BVH_NODE> nodes;
     std::vector<T> primitives;
 };
 
 using BLAS = BVH<GeometricPrimitive>;
 using TLAS = BVH<std::shared_ptr<Primitive>>;
+

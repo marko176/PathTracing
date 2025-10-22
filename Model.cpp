@@ -236,7 +236,7 @@ auto Model::process_mesh(aiMesh* mesh, const aiScene* scene) -> std::shared_ptr<
                 float opacity = 1.0f;
                 material->Get(AI_MATKEY_OPACITY, opacity);
                 if(opacity < 0.99f){
-                    mat = std::make_shared<dielectric>(1.5);//maybe set as color kdlum ?? not the same
+                    mat = std::make_shared<MicrofacetDielectric>(1.5,0,glm::vec3(1));//maybe set as color kdlum ?? not the same
                 }else if(ksLum > 0.1 && (/*kdLum == ksLum ||*/ ksLum >= 0.4)){
                     //this is wrong but gives good results in san miguel
                     float r = linear_to_sRGB(Ks.r);
@@ -245,16 +245,16 @@ auto Model::process_mesh(aiMesh* mesh, const aiScene* scene) -> std::shared_ptr<
                     mat = std::make_shared<SpecularConductor>(glm::vec3(r,g,b));
                 }else if(kdLum < ksLum){
                     
-                    mat = std::make_shared<dielectric>(1.33,glm::vec3(0.98,1,1));//maybe set as color kdlum ?? not the same
+                    mat = std::make_shared<MicrofacetDielectric>(1.33,0,glm::vec3(0.98,1,1));//maybe set as color kdlum ?? not the same
                 }else if(ksLum > 0.1){
-                    mat = std::make_shared<dielectric>(1.5,glm::vec3(1,1,1));//maybe set as color kdlum ?? not the same
+                    mat = std::make_shared<MicrofacetDielectric>(1.5,0,glm::vec3(1,1,1));//maybe set as color kdlum ?? not the same
                 }else if(kdLum > 0.1 && ksLum < 0.03){
                     //remove ksLum< 0.03
                     //std::cout<<"Dielectric:" <<Kd.r << " " <<Kd.g << " "<<Kd.b << " "<< " "<<Ks.r << " " <<Ks.g << " "<<Ks.b<<"\n";
                     float r = Ks.r + Kd.r;
                     float g = Ks.g + Kd.g;
                     float b = Ks.b + Kd.b;
-                    mat = std::make_shared<dielectric>(1.33,glm::vec3(r,g,b));
+                    mat = std::make_shared<MicrofacetDielectric>(1.33,0,glm::vec3(r,g,b));
                     
                 }else{
                     float r = Kd.r;
