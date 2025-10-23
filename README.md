@@ -7,7 +7,7 @@ A physically based offline CPU pathtracer written in C++20
 
 ## Screenshots
 
-![san_miguel](https://github.com/marko176/PathTracing/assets/SanMiguel1024.jpg)
+![san_miguel](assets/SanMiguel1024.jpg)
 
 Cloning the project:
 ```bash
