@@ -72,7 +72,7 @@ struct Bin {
     uint32_t triCount = 0;
 };
 
-struct BVH_NODE{
+struct alignas(32) BVH_NODE{
     AABB bbox;
     uint32_t right = 0;// right node / first triangle / meshID  / modelID
     uint32_t count = 0;// is_leaf / tirangle count / mesh count / modelCount
@@ -80,21 +80,7 @@ struct BVH_NODE{
 };
 
 
-//if __SSE__
-#if defined(__SSE__)
-struct alignas(32) simdBVH_NODE{
-    //this should be SoA -> 64 bytes -> holds 2 AABB
-    //everything else always use SSE
-    float minx;
-    float miny;
-    float minz;
-    uint32_t right;
-    float maxx;
-    float maxy;
-    float maxz;
-    uint32_t count;
-};
-#endif
+
 //maybe have BVHBase 
 
 template <typename T>
@@ -173,8 +159,6 @@ public:
             int index = stack[--i];
             const BVH_NODE& node = nodes[index];
             
-            // switch to intercesion test
-            
             if(node.count == 0){
                 int child1 = index+1;
                 int child2 = node.right;
@@ -239,9 +223,6 @@ private:
         for(int i = first_triangle;i<last_triangle;i++){
             node.bbox.Expand(primitiveInfo[i].bbox);
         }
-
-
-
        
         node.right = first_triangle;//triangle
         node.count = object_span;

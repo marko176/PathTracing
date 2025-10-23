@@ -510,11 +510,13 @@ void Miguel(){
     //2k 100 -> 1100 s
     //100 -> 572 s with bxdf sample
     //8% improvement
-    //100 -> 516 basic simd
-    int samples = 100;//64*16*4 -> 4 hours
+    //100 -> 516 simd
+
+    //1024 at 1080p 5027040ms
+    int samples = 4;//64*16*4 -> 4 hours
     int sqrts = std::sqrt(samples);
 
-    std::shared_ptr<Film> film = std::make_shared<Film>(glm::ivec2{2560,1440},std::make_shared<MitchellFilter>());
+    std::shared_ptr<Film> film = std::make_shared<Film>(glm::ivec2{1920,1080},std::make_shared<MitchellFilter>());
 
     
     auto camera = std::make_shared<Camera>(lookfrom,lookat,fov,film);

@@ -651,6 +651,8 @@ private:
     std::shared_ptr<Texture> tex;//remove 
 };
 
+//thindielectric
+
 /*
 class dielectric : public Material {
     public:

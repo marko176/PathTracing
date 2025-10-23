@@ -47,7 +47,7 @@ struct AABB{
         const __m128 vmax4 = _mm_max_ps(t1,t2);
         const __m128 vmin4 = _mm_min_ps(t1,t2);
 
-        float min[4],max[4];
+        alignas(16) float min[4],max[4];
         _mm_store_ps(min,vmin4);
         _mm_store_ps(max,vmax4);
         //__m128 tmp = _mm_max_ps(vmin4, _mm_movehl_ps(vmin4,vmin4));// max ( [0,z,0,z] [0,z,y,x] ) -> max of z and x
@@ -71,10 +71,6 @@ struct AABB{
     }
 
     inline float HitDistance(const Ray& ray,float max_t) const {// add interval
-        
-        //__m128 O4 = _mm_set_ps(0,ray.origin.z,ray.origin.y,ray.origin.x);
-        //__m128 D4 = _mm_set_ps(0,ray.dir.z,ray.dir.y,ray.dir.x);
-        //__m128 rD4 = _mm_set_ps(0,ray.inv_dir.z,ray.inv_dir.y,ray.inv_dir.x);
 #if defined(__SSE__)
         const __m128 bmin4 = _mm_set_ps(0,min.z,min.y,min.x);
         const __m128 bmax4 = _mm_set_ps(0,max.z,max.y,max.x);
@@ -84,7 +80,7 @@ struct AABB{
         const __m128 vmax4 = _mm_max_ps(t1,t2);
         const __m128 vmin4 = _mm_min_ps(t1,t2);
 
-        float min[4],max[4];
+        alignas(16) float min[4],max[4];
         _mm_store_ps(min,vmin4);
         _mm_store_ps(max,vmax4);
         //__m128 tmp = _mm_max_ps(vmin4, _mm_movehl_ps(vmin4,vmin4));// max ( [0,z,0,z] [0,z,y,x] ) -> max of z and x
