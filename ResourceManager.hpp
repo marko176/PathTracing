@@ -16,12 +16,12 @@ public:
     ResourceManager(const ResourceManager&) = delete;
 	ResourceManager& operator=(const ResourceManager&) = delete;
     
-    auto GetImageTexture(const std::string& path, float tempSRGB = false) -> std::shared_ptr<Texture>;//maybe get image?
+    [[nodiscard]] std::shared_ptr<Texture> GetImageTexture(const std::string& path, float gammaCorrection = false);//maybe get image?
 
 
     template <typename T, typename... Args>
     requires std::is_base_of_v<Texture,T>
-    std::shared_ptr<Texture> GetTexture(const std::string& name,Args&&... args) {
+    [[nodiscard]] std::shared_ptr<Texture> GetTexture(const std::string& name,Args&&... args) {
         if(name.empty())return nullptr;
         auto it = texture_cache.find(name);
         if(it != texture_cache.end()){
@@ -31,7 +31,7 @@ public:
     }
 
     template <typename... Args>
-    auto getMesh(Args&&... args) -> std::shared_ptr<Mesh> {
+    [[nodiscard]] std::shared_ptr<Mesh> getMesh(Args&&... args) {
         std::shared_ptr<Mesh> newMesh = std::make_shared<Mesh>(std::forward<Args>(args)...);
         for(auto&& ptr : meshCache){
             if(*ptr == *newMesh){
@@ -43,7 +43,7 @@ public:
     }
 
     template <typename... Args>
-    auto GetModel(const std::string& name, Args&&... args) -> std::shared_ptr<Model> {
+    [[nodiscard]] std::shared_ptr<Model> GetModel(const std::string& name, Args&&... args) {
         auto it = modelCache.find(name);
         if(it != modelCache.end()){
             return it->second;
@@ -51,7 +51,17 @@ public:
         return modelCache.try_emplace(name,std::make_shared<Model>(std::forward<Args>(args)...)).first->second;
     }
 
-    void releaseTextures();
+    void releaseTextures() {
+        texture_cache.clear();
+    }
+
+    void releaseModels() {
+        modelCache.clear();
+    }
+
+    void releaseMeshCache() {
+        meshCache.clear();
+    }
 private:
     ResourceManager() = default;
     ~ResourceManager() = default;

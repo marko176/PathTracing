@@ -10,8 +10,8 @@ float HenyeyGreenstein::Sample(const glm::vec3& in, glm::vec3& out,const glm::ve
     if (std::abs(g) < 1e-3)
         cosTheta = 1 - 2 * u[0];
     else {
-        float sqrTerm = (1 - g * g) / (1 - g + 2 * g * u[0]);
-        cosTheta = (1 + g * g - sqrTerm * sqrTerm) / (2 * g);
+        float sqr = (1 - g * g) / (1 - g + 2 * g * u[0]);
+        cosTheta = (1 + g * g - sqr * sqr) / (2 * g);
     }
 
     float sinTheta = std::sqrt(std::max<float>(0,

@@ -38,6 +38,36 @@ public:
 
     
 private:
+    enum Format {
+        OBJ,
+        GLTF,
+        ASSBIN,
+        NONE
+    };
+
+    static Format GetFormat(const std::string& filepath){
+        static std::unordered_map<std::string,Format> map = {{"obj",OBJ},{"gltf",GLTF},{"assbin",ASSBIN}};
+        std::size_t index = filepath.find_last_of('.');
+        if(index == std::string::npos)return NONE;
+        std::string tmp = filepath.substr(index+1);
+        std::transform(tmp.begin(),tmp.end(),tmp.begin(),[](unsigned char c){
+            return std::tolower(c);
+        });
+        auto it = map.find(tmp);
+        if(it == map.end())return NONE;
+        return it->second;
+    }
+
+    static std::string GetModelDirectory(const std::string& filepath){
+        return filepath.substr(0,filepath.find_last_of('/')).append("/");
+    }
+
+    static std::string GetModelPath(const std::string& filepath){
+        std::size_t index = filepath.find_last_of('.');
+        if(index == std::string::npos)return filepath;
+        return filepath.substr(0,index);
+    }
+
     auto load_model(const std::string& path) -> bool;
     auto process_node(aiNode* node, const aiScene* scene) -> void;
     auto process_mesh(aiMesh* mesh, const aiScene* scene) -> std::shared_ptr<Mesh>;

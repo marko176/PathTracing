@@ -1,8 +1,12 @@
 #include "Texture.hpp"
 #include <iostream>
 
-Image::Image(const std::string& filename,float gammaCorrection) {
-    data = stbi_load(filename.c_str(),&width,&height,&channels,0);
+Image::Image(const std::string_view filename,float gammaCorrection) {
+    data = stbi_load(filename.data(),&width,&height,&channels,0);
+    if(data == nullptr){
+        std::cerr<<"Failed to load image: "<<filename<<std::endl;
+        std::abort();
+    }
     if(gammaCorrection && data){
         for(int y = 0;y<height;y++){
             for(int x = 0;x<width;x++){
@@ -19,8 +23,12 @@ Image::~Image() {
 }
 
 
-FloatImage::FloatImage(const std::string& filename) {
-    data = stbi_loadf(filename.c_str(),&width,&height,&channels,0);
+FloatImage::FloatImage(const std::string_view filename) {
+    data = stbi_loadf(filename.data(),&width,&height,&channels,0);
+    if(data == nullptr){
+        std::cerr<<"Failed to load image: "<<filename<<std::endl;
+        std::abort();
+    }
 }
 
 FloatImage::~FloatImage() {
@@ -31,7 +39,6 @@ SolidColor::SolidColor(const glm::vec3& color) : albedo(color) {}
 SolidColor::SolidColor(float r,float g,float b) : albedo(r,g,b) {}
 
 glm::vec3 ImageTexture::texel(int x, int y) const {
-    // repeat wrap:
     glm::ivec2 p = {x,y};
     return {image.GetChannelAt(p,1),image.GetChannelAt(p,2),image.GetChannelAt(p,3)};
 }
@@ -39,9 +46,10 @@ glm::vec3 ImageTexture::texel(int x, int y) const {
 
 
 float ImageTexture::alpha(float u,float v) const {
-    if(image.channels != 4)return 1;
-    float x = u*image.width - 0.5f;
-    float y = v*image.height - 0.5f;
+    if(image.Channels() != 4)return 1;
+    glm::ivec2 res = image.Resolution();
+    float x = u*res.x - 0.5f;
+    float y = v*res.y - 0.5f;
     int xi = std::floor(x);
     int yi = std::floor(y);
     float dx = x - xi;
@@ -53,31 +61,21 @@ float ImageTexture::alpha(float u,float v) const {
     float d = image.GetChannelAt({xi+1,yi+1},4);
     return ((1 - dx) * (1 - dy) * a + dx * (1 - dy) * b +
     (1 - dx) *      dy  * c + dx *      dy  * d);
-    /*
-    u = glm::fract(u);
-    v = 1.0f - glm::fract(v);
-    //u = std::clamp(u,0.f,1.f);
-    //v = 1.0f - std::clamp(v,0.f,1.f);
-
-    int i = u * image.width;
-    int j = std::min<int>(v * image.height,image.height-1);//floor to height-1
-
-    return image.W(i,j);
-    */
 }
 
 glm::vec3 FloatImageTexture::texel(int x, int y) const {
     // repeat wrap:
-    glm::ivec2 p = {wrap_index(x,image.width),wrap_index(image.height - y - 1,image.height)};
+    glm::ivec2 p = {x,y};
     return {image.GetChannelAt(p,1),image.GetChannelAt(p,2),image.GetChannelAt(p,3)};
 }
 
 
 
 float FloatImageTexture::alpha(float u,float v) const {
-    if(image.channels != 4)return 1;
-    float x = u*image.width - 0.5f;
-    float y = v*image.height - 0.5f;
+    if(image.Channels() != 4)return 1;
+    glm::ivec2 res = image.Resolution();
+    float x = u*res.x - 0.5f;
+    float y = v*res.y - 0.5f;
     int xi = std::floor(x);
     int yi = std::floor(y);
     float dx = x - xi;

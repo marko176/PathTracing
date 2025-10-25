@@ -4,17 +4,13 @@
 #include <fstream>
 
 
-auto ResourceManager::GetImageTexture(const std::string& path, float tempSRGB) -> std::shared_ptr<Texture> {
+[[nodiscard]] std::shared_ptr<Texture> ResourceManager::GetImageTexture(const std::string& path, float gammaCorrection) {
     if(path.empty())return nullptr;
     auto it = texture_cache.find(path);
     if(it != texture_cache.end()){
         return it->second;
     }
-    return texture_cache.try_emplace(path,std::make_shared<ImageTexture>(path,tempSRGB)).first->second;
+    return texture_cache.try_emplace(path,std::make_shared<ImageTexture>(path,gammaCorrection)).first->second;
 }
 
 
-
-void ResourceManager::releaseTextures() {
-    texture_cache.clear();
-}

@@ -1,7 +1,7 @@
 #include "Light.hpp"
 #include <numbers>
 #include "Sampler.hpp"
-
+#include <thread>
 inline double luminance(const glm::dvec3& v){//taken from gilm to film
     return dot(v, glm::dvec3(0.2126, 0.7152, 0.0722));
 }
@@ -120,11 +120,11 @@ LightSample TextureInfiniteLight::sample(const glm::vec2& uv, float time) const{
 
     float weight = random_double() * totalWeight;
     int index = std::upper_bound(accWeights.begin(), accWeights.end(), weight) - accWeights.begin();
-    int cellX = index % spp;
-    int cellY = index / spp;
+    int cellX = index % ySamples;
+    int cellY = index / ySamples;
 
-    glm::vec2 cellUV = glm::vec2{ (cellX + uv.x) / float(spp),
-                                  (cellY + uv.y) / float(spp) };
+    glm::vec2 cellUV = glm::vec2{ (cellX + uv.x) / float(xSamples),
+                                  (cellY + uv.y) / float(ySamples) };
     
 
 
@@ -144,7 +144,7 @@ LightSample TextureInfiniteLight::sample(const glm::vec2& uv, float time) const{
 
 float TextureInfiniteLight::PDF(const GeometricInteraction& interaction, const Ray& ray) const{
     glm::vec3 l = Le(ray);
-    float cellOmega = 4.0f * std::numbers::pi_v<float> / static_cast<float>(spp*spp);
+    float cellOmega = 4.0f * std::numbers::pi_v<float> / static_cast<float>(xSamples*ySamples);
     return (luminance(l) / totalWeight)  * (1.0f / cellOmega);
 }
 
@@ -157,19 +157,29 @@ void TextureInfiniteLight::PreProcess(const AABB& bbox) {
     sceneRadius = glm::distance(bbox.max,center);
 
     weights.clear();
+    accWeights.clear();
     totalWeight = 0;
-    double acc = 0;
-    int samples = spp*spp;
-    int sqrtSamples = std::sqrt(samples);
-    constexpr int SPP = 100;//lower based on spp
-    auto sampler = std::make_shared<StratifiedSampler>(sqrtSamples,sqrtSamples);
-    for(int y = 0;y < sqrtSamples; y++){
-        for(int x = 0; x < sqrtSamples; x++){
+    int samples = xSamples*ySamples;
+    constexpr int SPP = 64;//lower based on spp
+    weights.assign(samples,0);
+    accWeights.assign(samples,0);
+
+    unsigned int threads = std::thread::hardware_concurrency();
+    std::vector<std::thread> workers;
+    std::atomic<int> done{0};
+
+    auto sampler = std::make_shared<StratifiedSampler>(std::sqrt(SPP),std::sqrt(SPP));
+    auto lamb = [&](){
+        int k;
+        std::shared_ptr<Sampler> clonedSampler = sampler->Clone();
+        while((k = done.fetch_add(1,std::memory_order_relaxed))<samples){
+            int y = k/ySamples;
+            int x = k%ySamples;
             double temp = 0;
-            sampler->StartPixelSample({x,y},x + y*sqrtSamples);
             for(int sp = 0;sp<SPP;sp++){
-                glm::vec2 UV = sampler->get2D();
-                glm::vec2 uv = glm::vec2{(x + UV.x), (y + UV.y)} / static_cast<float>(sqrtSamples);
+                clonedSampler->StartPixelSample({x,y},sp);
+                glm::vec2 UV = clonedSampler->getPixel2D();
+                glm::vec2 uv = glm::vec2{(x + UV.x) / static_cast<float>(xSamples), (y + UV.y) / static_cast<float>(ySamples)};
                 float z = 2.0f * uv.x - 1.0f;
                 float theta = 2.0f* std::numbers::pi_v<float> * uv.y;
                 float r = std::sqrt(1.0f - z*z);
@@ -178,14 +188,16 @@ void TextureInfiniteLight::PreProcess(const AABB& bbox) {
                 temp+=luminance(l);
             }
             temp/=SPP;
-            acc += temp;
-            weights.push_back(temp);
-            totalWeight += weights.back();
-            accWeights.push_back(totalWeight);
+            weights[k]=temp;
         }
+    };
+    for(unsigned int t = 0;t<threads;t++){
+        workers.emplace_back(lamb);
     }
-    cachedPower = acc / samples * powerFunction(sceneRadius);
-    
+    for(auto& worker : workers)worker.join();
+    std::partial_sum(weights.begin(),weights.end(),accWeights.begin());
+    totalWeight = accWeights.back();
+    cachedPower = totalWeight / samples * powerFunction(sceneRadius);
 }
 
 bool DistantLight::isDelta() const {
@@ -268,9 +280,9 @@ std::shared_ptr<Shape> AreaLight::getShape() const {
 }
 
 
-//we could ahve transform class
+//we could have transform class
 //transform(interaction,ray) at some time
-//ligth uses the transformed stuff
+//light uses the transformed stuff
 
 
 

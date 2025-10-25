@@ -19,7 +19,7 @@ public:
 
 class SphereShape : public Shape{ 
 public:
-    SphereShape(const glm::vec3& center, float r) : center(center), bbox{}, radius(r) {
+    SphereShape(const glm::vec3& sphereCenter, float sphereRadius) : center(sphereCenter), bbox{}, radius(sphereRadius) {
         glm::vec3 rvec = glm::vec3(radius);
         bbox.Expand(center-rvec);
         bbox.Expand(center+rvec);
@@ -59,7 +59,7 @@ private:
 
 class TriangleShape : public Shape {
 public:
-    TriangleShape(uint32_t meshIndex, uint32_t TriIndex) : MeshIndex(meshIndex), TriIndex(TriIndex) {}
+    TriangleShape(uint32_t meshIndex, uint32_t triangleIndex) : MeshIndex(meshIndex), TriIndex(triangleIndex) {}
 
     bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max) const override;
 
@@ -76,21 +76,21 @@ public:
     float PDF(const GeometricInteraction& interaction,const Ray& ray) const override;
 
     //maybe move this to resource manager?
-    static std::size_t addMesh(Mesh* mesh) {
+    static uint32_t addMesh(Mesh* mesh) {
         const std::lock_guard<std::mutex> ml(meshListLock);
-        for(int i = 0;i<meshList.size();i++){
+        for(std::size_t i = 0;i<meshList.size();i++){
             if(meshList[i]==nullptr || meshList[i] == mesh){
                 meshList[i]=mesh;
                 return i;
             }
         }
         meshList.push_back(mesh);
-        return meshList.size()-1;
+        return static_cast<uint32_t>(meshList.size()-1);
     }
     
     static void removeMesh(Mesh* mesh) {
         const std::lock_guard<std::mutex> ml(meshListLock);
-        for(int i = 0;i<meshList.size();i++){
+        for(std::size_t i = 0;i<meshList.size();i++){
             if(meshList[i]==mesh){
                 meshList[i]=nullptr;
             }
@@ -105,7 +105,7 @@ private:
 
 class QuadShape : public Shape {
 public:
-    QuadShape(const glm::vec3& Q, const glm::vec3& u, const glm::vec3& v) : Q(Q), u(u), v(v) , bbox{} {
+    QuadShape(const glm::vec3& origin, const glm::vec3& u, const glm::vec3& v) : Q(origin), u(u), v(v) , bbox{} {
         glm::vec3 n = glm::cross(u,v);
         normal = glm::normalize(n);
         D = glm::dot(normal,Q);
@@ -150,7 +150,8 @@ private:
         return a>=0 && a<=1 && b>=0 && b<=1;
     }
     glm::vec3 Q;
-    glm::vec3 u,v;
+    glm::vec3 u;
+    glm::vec3 v;
     glm::vec3 normal;
     float D;
     glm::vec3 w;

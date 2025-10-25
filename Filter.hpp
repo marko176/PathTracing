@@ -128,7 +128,7 @@ public:
 
     double Integral() const final {
         double acc = 0;
-        int samples = 100*100;
+        int samples = 256*256;
         int sqrtSamples = std::sqrt(samples);
         double area = 2 * radius.x * radius.y;
         for(int y = 0;y < sqrtSamples; y++){

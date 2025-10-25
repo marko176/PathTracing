@@ -13,7 +13,6 @@ inline int wrap_index(int i, int n) {
 
 template <std::floating_point T>
 inline constexpr T linear_to_sRGB(T linear){
-    if(linear != linear)std::cout<<"linear component is NaN\n";
     linear = glm::clamp<T>(linear,0.0,1.0);
     return linear < static_cast<T>(0.0031308) ? static_cast<T>(12.92) * linear : static_cast<T>(1.055) * std::pow(linear,1.0/2.4) - 0.055;
 }
@@ -39,12 +38,8 @@ inline std::array<unsigned char,256> sRGBLUT = [](){
 //add FloatImage -> for alpha mask -> no division needed
 
 struct Image{
-    unsigned char* data;
-    int width;
-    int height;
-    int channels;
 
-    Image(const std::string& filename,float gammaCorrection = false);
+    Image(const std::string_view filename,float gammaCorrection = false);
     //getChannel
     float GetChannelAt(const glm::ivec2& p,int ch) const {//pass wrap mode
         //channel 1,2,3,4
@@ -69,16 +64,17 @@ struct Image{
 
 
     ~Image() ;
-
-};
-
-struct FloatImage{
-    float* data;
+private:
+    unsigned char* data;
     int width;
     int height;
     int channels;
+};
 
-    FloatImage(const std::string& filename);
+struct FloatImage{
+
+
+    FloatImage(const std::string_view filename);
     //getChannel
     float GetChannelAt(const glm::ivec2& p,int ch) const {//pass wrap mode
         //channel 1,2,3,4
@@ -103,7 +99,11 @@ struct FloatImage{
 
 
     ~FloatImage() ;
-
+private:
+    float* data;
+    int width;
+    int height;
+    int channels;
 };
 
 class Texture{
@@ -138,8 +138,9 @@ public:
     float alpha(float u,float v) const override;
     
     glm::vec3 Evaluate(const SurfaceInteraction& interaction) const override { //take enum? bilerp
-        float x = interaction.uv.x*image.width - 0.5f;
-        float y = interaction.uv.y*image.height - 0.5f;
+        glm::ivec2 res = image.Resolution();
+        float x = interaction.uv.x*res.x - 0.5f;
+        float y = interaction.uv.y*res.y - 0.5f;
         int xi = std::floor(x);
         int yi = std::floor(y);
         float dx = x - xi;
@@ -165,9 +166,10 @@ public:
 
     float alpha(float u,float v) const override;
     
-    glm::vec3 Evaluate(const SurfaceInteraction& interaction) const override { //take enum? bilerp
-        float x = interaction.uv.x*image.width - 0.5f;
-        float y = interaction.uv.y*image.height - 0.5f;
+    glm::vec3 Evaluate(const SurfaceInteraction& interaction) const override {
+        glm::ivec2 res = image.Resolution();
+        float x = interaction.uv.x*res.x - 0.5f;
+        float y = interaction.uv.y*res.y - 0.5f;
         int xi = std::floor(x);
         int yi = std::floor(y);
         float dx = x - xi;
@@ -189,7 +191,7 @@ private:
 class CheckerTexture : public Texture {
 public:
     virtual ~CheckerTexture() = default;
-    CheckerTexture(const std::shared_ptr<Texture>& tex1, const std::shared_ptr<Texture>& tex2,const glm::vec2& scale) : tex1(tex1), tex2(tex2), invScale(1.0f/scale) {}
+    CheckerTexture(const std::shared_ptr<Texture>& textureA, const std::shared_ptr<Texture>& textureB,const glm::vec2& scale) : tex1(textureA), tex2(textureB), invScale(1.0f/scale) {}
     float alpha(float u,float v) const override;
     
 

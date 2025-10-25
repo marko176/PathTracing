@@ -265,8 +265,8 @@ void MatTest(){
     auto b = std::make_shared<SolidColor>(glm::vec3{.1,.2,.5});
     std::vector<float> values = {1,0.9,0.8,0.7,0.6,0.5,0.4,0.3,0.2,0.1,0.0005f,0.0,0.05,0.01,0.005,0.001,0.0001,0.000};
     std::vector<float> metalValues = {0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1};
-    for(int i = 0;i<values.size();i++){
-        for(int j = 0;j<metalValues.size();j++){
+    for(std::size_t i = 0;i<values.size();i++){
+        for(std::size_t j = 0;j<metalValues.size();j++){
             auto mat = std::make_shared<lambertian>(b,nullptr,std::make_shared<SolidColor>(glm::vec3(values[i])),std::make_shared<SolidColor>(glm::vec3(metalValues[j])));
             auto matee = std::make_shared<SpecularConductor>(glm::vec3{.1,.2,.5});
             
@@ -377,7 +377,7 @@ void NoModel(){
     scene->Add(std::make_shared<GeometricPrimitive>(area->getShape(), light, area, nullptr));//-0.3, -1
 
 
-    auto micro = std::make_shared<MicrofacetDielectric>(1.5,0.5,glm::vec3{1});
+    auto micro = std::make_shared<MicrofacetDielectric>(1.5,0.15,glm::vec3{1});
     scene->Add(std::make_shared<GeometricPrimitive>(std::make_shared<QuadShape>(glm::vec3(-100,-0.3,-100), glm::vec3(1000,0,0), glm::vec3(0,0,1000)), ch, nullptr, nullptr));
     
 
@@ -393,7 +393,7 @@ void NoModel(){
     
     
     
-    scene->Add(std::make_shared<GeometricPrimitive>(std::make_shared<SphereShape>(glm::vec3(-1,0.3,-1),0.5),glass,nullptr));
+    scene->Add(std::make_shared<GeometricPrimitive>(std::make_shared<SphereShape>(glm::vec3(-1,0.3,-1),0.5),micro,nullptr));
     
 
 
@@ -444,7 +444,7 @@ void NoModel(){
 
    
 
-    int samples = 16;
+    int samples = 100;
 
 
 
@@ -513,7 +513,7 @@ void Miguel(){
     //100 -> 516 simd
 
     //1024 at 1080p 5027040ms
-    int samples = 4;//64*16*4 -> 4 hours
+    int samples = 100;//64*16*4 -> 4 hours
     int sqrts = std::sqrt(samples);
 
     std::shared_ptr<Film> film = std::make_shared<Film>(glm::ivec2{1920,1080},std::make_shared<MitchellFilter>());
@@ -557,14 +557,14 @@ void temp(){
     std::shared_ptr<Primitive> transformedModel = std::make_shared<TransformedPrimitive>(ResourceManager::get_instance().GetModel("Glass Dragon","/home/markov/Documents/Coding/CPP/testing/models/temp_other.assbin",glass,std::make_shared<HomogeneusMedium>(glm::vec3{0.01f, 0.9f, 0.9f},glm::vec3{1.0f, 0.1f, 0.1f},std::make_shared<HenyeyGreenstein>(0.8),25.0f)),pos);
   
     //scene->Add(transformedModel);
-    auto micro = std::make_shared<MicrofacetDielectric>(1.5,0.0,glm::vec3{1});
+    auto micro = std::make_shared<MicrofacetDielectric>(1.5,0.5,glm::vec3{1});
 
     scene->Add(ResourceManager::get_instance().GetModel("Medium Dragon","/home/markov/Documents/Coding/CPP/testing/models/temp_other.assbin",
             micro,
             std::make_shared<HomogeneusMedium>( glm::vec3{0.01f, 0.9f, 0.9f},
                                                 glm::vec3{1.0f, 0.1f, 0.1f},
                                                 std::make_shared<HenyeyGreenstein>(0.8),
-                                                0.0f,//was 25
+                                                6.0f,//was 25
                                                 glm::vec3{1,1,1},
                                                 0)));//was1.2
 
@@ -606,7 +606,7 @@ void temp(){
     lookat = {0,0,0};
 
     //64*4
-    int samples = 36;//64*16*4 -> 4 hours
+    int samples = 64;//64*16*4 -> 4 hours
     int sqrts = std::sqrt(samples);
 
     std::shared_ptr<Film> film = std::make_shared<Film>(glm::ivec2{1920,1080},std::make_shared<MitchellFilter>());

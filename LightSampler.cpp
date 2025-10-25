@@ -55,7 +55,8 @@ std::shared_ptr<Light> PowerLightSampler::Sample(float u) const {
     if(lights.empty())return nullptr;
     float currPower = 0;
     float power = u*totalPower;
-    for(int i = 0;i<lightPowers.size();i++){
+    //to binary search
+    for(std::size_t i = 0;i<lightPowers.size();i++){
         currPower+=lightPowers[i];
         if(currPower >= power){
             return lights[i];

@@ -36,7 +36,7 @@ public:
         return Ray(lookFrom + offset,glm::normalize(direction - offset),t,GetMedium());
     }
 
-    std::shared_ptr<Film> GetFilm() const {
+    [[nodiscard]] std::shared_ptr<Film> GetFilm() const {
         return film;
     }
 

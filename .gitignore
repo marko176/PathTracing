@@ -42,6 +42,7 @@
 
 build*
 
+Debug/
 Release/
 Output/
 
@@ -49,3 +50,5 @@ Output/
 
 
 *.ppm
+
+examples/

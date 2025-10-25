@@ -21,7 +21,7 @@ Model::Model(const std::string& path){
         //std::shared_ptr<Medium> med = std::make_shared<HomogeneusMedium>(glm::vec3(0.0,0,0),glm::vec3(0.01,0.9,0.9),50.0f);
         for(const std::shared_ptr<Mesh>& m : meshes){
             uint32_t n = m->triangle_count;
-            for(int j = 0;j<n;j++){
+            for(uint32_t j = 0;j<n;j++){
                 primitives.emplace_back(std::shared_ptr<Shape>(m->GetControlPtr(),m->GetShape(j)),m->material,nullptr,nullptr);
             }
         }
@@ -30,18 +30,15 @@ Model::Model(const std::string& path){
 }
 
 Model::Model(const std::string& path,const std::shared_ptr<Material>& material, const std::shared_ptr<Medium>& medium){
-    //pass in texure and use primitive uv coords !
     if(!load_model(path)){
         std::cerr << "Failed to load model: " + path<<std::endl;
     }else{
         std::vector<GeometricPrimitive> primitives;
         primitives.reserve(1'000'000);
-        //auto mat = std::make_shared<dielectric>(1.5,glm::vec3(1));
-        //std::shared_ptr<Medium> med = std::make_shared<HomogeneusMedium>(glm::vec3(0.0,0,0),glm::vec3(0.01,0.9,0.9),50.0f);
-   
+
         for(const std::shared_ptr<Mesh>& m : meshes){
             uint32_t n = m->triangle_count;
-            for(int j = 0;j<n;j++){
+            for(uint32_t j = 0;j<n;j++){
                 primitives.emplace_back(std::shared_ptr<Shape>(m->GetControlPtr(),m->GetShape(j)),material,nullptr,medium);
             }
         }
@@ -51,22 +48,22 @@ Model::Model(const std::string& path,const std::shared_ptr<Material>& material, 
 
 
 
-auto Model::load_model(const std::string& path) -> bool {
+bool Model::load_model(const std::string& path) {
     Assimp::Importer importer;
 
     const aiScene* scene = nullptr;
-    model_path = path.substr(0,path.find_last_of('/'));
-    model_path.append("/");
-    int index = path.find_last_of('.');
-    
-    if(index != std::string::npos && path.substr(index) == ".assbin"){
+    model_path = GetModelDirectory(path);
+    std::size_t index = path.find_last_of('.');
+    Format format = GetFormat(path);
+
+    if(format == Format::ASSBIN){
         scene = importer.ReadFile(path,0);
         if(!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode){
             std::cout << "ERROR::ASSIMP::" << importer.GetErrorString() << "\n";
             importer.FreeScene();
             return false;
         }
-    }else{
+    }else if(format != Format::NONE){
         scene = importer.ReadFile(path,  aiProcess_Triangulate |
                                                     //aiProcess_RemoveComponent    |
 		                                            aiProcess_JoinIdenticalVertices | //not needed?
@@ -88,10 +85,7 @@ auto Model::load_model(const std::string& path) -> bool {
             return false;
         }
 
-        std::string outputPath = path;
-        if(index != std::string::npos){
-            outputPath = path.substr(0,index);
-        }
+        std::string outputPath = GetModelPath(path);
         Assimp::Exporter exporter;
         exporter.Export(scene,"assbin",outputPath + ".assbin");//model_path + temp.assbin
     }
@@ -103,12 +97,12 @@ auto Model::load_model(const std::string& path) -> bool {
 }
 auto Model::process_node(aiNode* node, const aiScene* scene) -> void {
 
-    for(int i = 0;i< node->mNumMeshes;i++){
+    for(unsigned int i = 0;i< node->mNumMeshes;i++){
         aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
         meshes.push_back(process_mesh(mesh,scene));
     }
 
-    for(int i = 0;i<node->mNumChildren;i++){
+    for(unsigned int i = 0;i<node->mNumChildren;i++){
         process_node(node->mChildren[i],scene);
     }
 
@@ -117,10 +111,10 @@ auto Model::process_node(aiNode* node, const aiScene* scene) -> void {
 
 //we should pass function to process mesh!
 //std::shared_ptr<Mesh> foo(aiMesh* mesh, const aiScene* scene){}
-auto Model::process_mesh(aiMesh* mesh, const aiScene* scene) -> std::shared_ptr<Mesh>{
+std::shared_ptr<Mesh> Model::process_mesh(aiMesh* mesh, const aiScene* scene) {
 
-    int n = mesh->mNumVertices;
-    
+    unsigned int n = mesh->mNumVertices;
+
     std::vector<glm::vec3> vertices;
     std::vector<glm::vec3> tangents;
     std::vector<glm::vec3> bitangents;
@@ -133,7 +127,7 @@ auto Model::process_mesh(aiMesh* mesh, const aiScene* scene) -> std::shared_ptr<
     normals.reserve(n);
     texCoords.reserve(n*3/2);
     indices.reserve(n*3/2);
-    for(int i = 0;i<n;i++){
+    for(unsigned int i = 0;i<n;i++){
     
         if(mesh->HasPositions()){
             glm::vec3 pos = {mesh->mVertices[i].x,mesh->mVertices[i].y,mesh->mVertices[i].z};
@@ -161,10 +155,10 @@ auto Model::process_mesh(aiMesh* mesh, const aiScene* scene) -> std::shared_ptr<
     
     }
 
-    for(int i = 0; i < mesh->mNumFaces; i++)
+    for(unsigned int i = 0; i < mesh->mNumFaces; i++)
     {
         aiFace face = mesh->mFaces[i];
-        for(int j = 0; j < face.mNumIndices; j++)
+        for(unsigned int j = 0; j < face.mNumIndices; j++)
             indices.push_back(face.mIndices[j]);
     }  
     if(mesh->mMaterialIndex >= 0){
@@ -172,6 +166,21 @@ auto Model::process_mesh(aiMesh* mesh, const aiScene* scene) -> std::shared_ptr<
         aiString name;
         material->Get(AI_MATKEY_NAME,name);
 
+
+        std::vector<std::shared_ptr<Texture>> textures(AI_TEXTURE_TYPE_MAX);
+        //textures[aiTextureType_SHININESS] = std::make_shared<SolidColor>(glm::vec3(1));//use resource manager
+        //textures[aiTextureType_AMBIENT] = std::make_shared<SolidColor>(glm::vec3(0));//use resource manager
+        //if nullptr then do it in material 
+        for(int i = 0;i<AI_TEXTURE_TYPE_MAX;i++){
+            aiString texturePath;
+            material->GetTexture(aiTextureType(i),0,&texturePath);
+            std::string path = model_path + texturePath.C_Str();
+            std::replace(path.begin(),path.end(),'\\','/');
+            std::shared_ptr<Texture> tex = nullptr;
+            if(path != model_path)tex = ResourceManager::get_instance().GetImageTexture(path);
+            textures[i]=tex;
+        }
+        //aiTextureFlags_UseAlpha?
         aiString albedoPath;
 		material->GetTexture(aiTextureType_DIFFUSE, 0, &albedoPath);
 		aiString metallicPath;
@@ -202,7 +211,7 @@ auto Model::process_mesh(aiMesh* mesh, const aiScene* scene) -> std::shared_ptr<
         std::replace(emissive.begin(),emissive.end(),'\\','/');
         
         if(emissive != model_path){
-            std::cout<<"founde emissive texure\n";
+            std::cout<<"found emissive texure\n";
             std::abort();
         }
 

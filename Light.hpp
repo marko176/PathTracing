@@ -8,6 +8,11 @@ struct LightSample {
     glm::vec3 L;
     GeometricInteraction interaction;
     glm::vec3 dir;
+
+
+    bool isDeltaInteraction() const {
+        return interaction.n == glm::vec3{0,0,0};
+    }
 };
 
 class Light  {
@@ -115,6 +120,8 @@ private:
     double totalWeight;
     std::function<float(float)> powerFunction;// no_unique_address ? 
     static constexpr int spp = 500;//HIGH MEMORY USAGE
+    static constexpr int xSamples = 1920;
+    static constexpr int ySamples = 1080;
 };
 
 

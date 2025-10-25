@@ -10,9 +10,7 @@ bool SphereShape::Intersect(const Ray& ray, SurfaceInteraction& interaction, flo
         float temp = (-b - std::sqrt(discriminant)) / a;
         if (temp < max && temp > shadowEpsilon) {
             interaction.t = temp;
-            interaction.ns = (ray.at(temp) - center) / radius;
-
-            interaction.ns = glm::normalize(interaction.ns);
+            interaction.ns = glm::normalize(ray.at(temp) - center);
             interaction.n = interaction.ns;
             interaction.tangent = glm::vec3(0,0,0);
             interaction.p = ray.at(temp) + shadowEpsilon * interaction.n;
@@ -22,9 +20,7 @@ bool SphereShape::Intersect(const Ray& ray, SurfaceInteraction& interaction, flo
         temp = (-b + std::sqrt(discriminant)) / a;
         if (temp < max && temp > shadowEpsilon) {
             interaction.t = temp;
-            interaction.ns = (ray.at(temp) - center) / radius;
-
-            interaction.ns = glm::normalize(interaction.ns);
+            interaction.ns = glm::normalize(ray.at(temp) - center);
             interaction.n = interaction.ns;
             interaction.tangent = glm::vec3(0,0,0);
             interaction.p = ray.at(temp) + shadowEpsilon * interaction.n;
@@ -222,13 +218,10 @@ bool TriangleShape::Intersect(const Ray& ray, SurfaceInteraction& interaction,fl
     interaction.t = t;
     interaction.ns = norm_normal;  
     interaction.uv = uv;
-
-    //if angle small do just ray.at(t- eps) ? 
-    interaction.p = ray.at(t) + shadowEpsilon * N;//was 0.0001 * N should be shadowEpsilon for dragon
-    //interaction.n = N;
-    interaction.AreaLight = nullptr;//(hittable*)&primitives[TriIndex];
+    interaction.p = ray.at(t) + shadowEpsilon * N;
+    interaction.AreaLight = nullptr;
     interaction.mat = mesh->material;
-    if(!mesh->tangents.empty() /*&& !mesh->bitangents.empty() */){
+    if(!mesh->tangents.empty()){
         glm::vec3 tangent =  u * mesh->tangents[index1] +
                             v * mesh->tangents[index2]+
                             w * mesh->tangents[index0];
@@ -243,7 +236,6 @@ bool TriangleShape::Intersect(const Ray& ray, SurfaceInteraction& interaction,fl
         interaction.tangent = glm::vec3(0,0,0);
     }
 
-    //if(glm::dot(rec.normal,ray.dir)>=0)rec.normal = norm_normal;
     return true;
 }
 bool TriangleShape::IntersectPred(const Ray& ray, float max) const {
