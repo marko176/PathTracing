@@ -63,13 +63,14 @@ Output images will be stored in: `Output/`
   - **Russian Roulette** path termination
 
 - **Texture Mapping**
-  - Albedo, Normal, Roughness, Metallic, Emissive
+  - Albedo, Normal, Roughness, Metallic, Alpha, Emissive
   - support for HDR textures
 
 ## Dependencies
   - [Assimp](https://github.com/assimp/assimp)
   - [stb_image](https://github.com/nothings/stb)
   - [glm](https://github.com/g-truc/glm)
+  - [pcg](https://github.com/imneme/pcg-cpp)
 
 
 

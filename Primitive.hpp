@@ -206,6 +206,8 @@ public:
                 primLights = prim->GetLights();
             }else {
                 primLights = prim.GetLights();
+              
+
             }
             lights.insert(lights.end(),primLights.begin(),primLights.end());
         }

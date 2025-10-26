@@ -4,7 +4,7 @@
 #include <fstream>
 
 
-[[nodiscard]] std::shared_ptr<Texture> ResourceManager::GetImageTexture(const std::string& path, float gammaCorrection) {
+[[nodiscard]] std::shared_ptr<Texture> ResourceManager::GetImageTexture(const std::string& path, bool gammaCorrection) {
     if(path.empty())return nullptr;
     auto it = texture_cache.find(path);
     if(it != texture_cache.end()){

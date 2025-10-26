@@ -6,7 +6,7 @@
 struct LightSample {
     //should have light color!
     glm::vec3 L;
-    GeometricInteraction interaction;
+    SurfaceInteraction interaction;
     glm::vec3 dir;
 
 
@@ -19,7 +19,7 @@ class Light  {
 public:
     virtual ~Light() = default;
     virtual bool isDelta() const = 0;
-    virtual glm::vec3 L(const GeometricInteraction& interaction, const Ray& ray) const = 0;
+    virtual glm::vec3 L(const SurfaceInteraction& interaction, const Ray& ray) const = 0;
     virtual LightSample sample(const glm::vec2& uv, float time) const = 0;
     virtual float PDF(const GeometricInteraction& interaction, float time) const = 0;
     virtual float PDF(const GeometricInteraction& interaction, const Ray& ray) const = 0;
@@ -55,7 +55,7 @@ public:
 
     glm::vec3 Le(const Ray& ray) const override;
 
-    glm::vec3 L(const GeometricInteraction& interaction, const Ray& ray) const override;
+    glm::vec3 L(const SurfaceInteraction& interaction, const Ray& ray) const override;
 
     LightSample sample(const glm::vec2& uv, float time) const override;
 
@@ -77,7 +77,7 @@ public:
 
     glm::vec3 Le(const Ray& ray) const override;
 
-    glm::vec3 L(const GeometricInteraction& interaction, const Ray& ray) const override;
+    glm::vec3 L(const SurfaceInteraction& interaction, const Ray& ray) const override;
 
     LightSample sample(const glm::vec2& uv, float time) const override;
 
@@ -101,7 +101,7 @@ public:
 
     glm::vec3 Le(const Ray& ray) const override;
 
-    glm::vec3 L(const GeometricInteraction& interaction, const Ray& ray) const override;
+    glm::vec3 L(const SurfaceInteraction& interaction, const Ray& ray) const override;
 
     LightSample sample(const glm::vec2& uv, float time) const override;
 
@@ -134,7 +134,7 @@ public:
 
     bool isDelta() const final;
 
-    glm::vec3 L(const GeometricInteraction& interaction, const Ray& ray) const override;
+    glm::vec3 L(const SurfaceInteraction& interaction, const Ray& ray) const override;
 
     LightSample sample(const glm::vec2& uv, float time) const override;
 
@@ -160,7 +160,7 @@ public:
 
     bool isDelta() const final;
 
-    glm::vec3 L(const GeometricInteraction& interaction, const Ray& ray) const override;
+    glm::vec3 L(const SurfaceInteraction& interaction, const Ray& ray) const override;
 
     LightSample sample(const glm::vec2& uv, float time) const override;
 
@@ -182,11 +182,12 @@ class AreaLight : public Light {
 public:
     virtual ~AreaLight() = default;
 
-    AreaLight(const std::shared_ptr<Shape>& light_shape, const glm::vec3& light_color, bool oneSided = false) : shape{light_shape} , color{light_color}, oneSided{oneSided} {}
+    AreaLight(const std::shared_ptr<Shape>& light_shape, const glm::vec3& light_color, bool oneSided = false) : shape{light_shape} , emissiveTexture{std::make_shared<SolidColor>(light_color)}, cachedPower{0}, oneSided{oneSided} {}
+    AreaLight(const std::shared_ptr<Shape>& light_shape, const std::shared_ptr<Texture>& emissiveTex, bool oneSided = false) : shape{light_shape} , emissiveTexture{emissiveTex},  cachedPower{0}, oneSided{oneSided} {}
 
     bool isDelta() const final;
 
-    glm::vec3 L(const GeometricInteraction& interaction, const Ray& ray) const override ;
+    glm::vec3 L(const SurfaceInteraction& interaction, const Ray& ray) const override ;
 
     LightSample sample(const glm::vec2& uv, float time) const override ;
 
@@ -196,10 +197,13 @@ public:
 
     float Power() const override ;
 
+    void PreProcess(const AABB& bbox) override;
+
     std::shared_ptr<Shape> getShape() const ;
 private:
     std::shared_ptr<Shape> shape;
-    glm::vec3 color; //switch to texture/image
+    std::shared_ptr<Texture> emissiveTexture; //switch to texture/image
+    float cachedPower;
     bool oneSided; 
     //add alpha mask
 };
@@ -212,13 +216,15 @@ public:
 
     bool isDelta() const final;
 
-    glm::vec3 L(const GeometricInteraction& interaction, const Ray& ray) const override ;
+    glm::vec3 L(const SurfaceInteraction& interaction, const Ray& ray) const override ;
 
     LightSample sample(const glm::vec2& uv, float time) const override ;
 
     float PDF(const GeometricInteraction& interaction, float time) const override ;
 
     float PDF(const GeometricInteraction& interaction, const Ray& ray) const override ;
+
+    void PreProcess(const AABB& bbox) override;
 
     float Power() const override ;
 
@@ -237,13 +243,15 @@ public:
 
     bool isDelta() const final;
 
-    glm::vec3 L(const GeometricInteraction& interaction, const Ray& ray) const override ;
+    glm::vec3 L(const SurfaceInteraction& interaction, const Ray& ray) const override ;
 
     LightSample sample(const glm::vec2& uv, float time) const override ;
 
     float PDF(const GeometricInteraction& interaction, float time) const override ;
 
     float PDF(const GeometricInteraction& interaction, const Ray& ray) const override ;
+
+    void PreProcess(const AABB& bbox) override;
 
     float Power() const override ;
 

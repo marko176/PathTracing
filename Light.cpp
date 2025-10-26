@@ -29,7 +29,7 @@ glm::vec3 UniformInfiniteLight::Le(const Ray& ray) const {
     return color;
 }
 
-glm::vec3 UniformInfiniteLight::L(const GeometricInteraction& interaction, const Ray& ray) const {
+glm::vec3 UniformInfiniteLight::L(const SurfaceInteraction& interaction, const Ray& ray) const {
     return color;
 }
 
@@ -39,7 +39,7 @@ LightSample UniformInfiniteLight::sample(const glm::vec2& uv, float time) const{
     float r = std::sqrt(1.0f - z*z);
     float x = r * std::cos(theta);
     float y = r * std::sin(theta);
-    return {color,{},glm::vec3(x,y,z)};
+    return {color,{{},{},SphereShape::getSphereUV(glm::normalize(glm::vec3(x,y,z)))},glm::vec3(x,y,z)};
 }
 
 float UniformInfiniteLight::PDF(const GeometricInteraction& interaction, const Ray& ray) const{
@@ -55,7 +55,7 @@ glm::vec3 FunctionInfiniteLight::Le(const Ray& ray) const {
     return lightFunction(ray);
 }
 
-glm::vec3 FunctionInfiniteLight::L(const GeometricInteraction& interaction, const Ray& ray) const {
+glm::vec3 FunctionInfiniteLight::L(const SurfaceInteraction& interaction, const Ray& ray) const {
     return Le(ray);
 }
 
@@ -65,7 +65,7 @@ LightSample FunctionInfiniteLight::sample(const glm::vec2& uv, float time) const
     float r = std::sqrt(1.0f - z*z);
     float x = r * std::cos(theta);
     float y = r * std::sin(theta);
-    return {Le({{0,0,0},glm::vec3(x,y,z)}),{},glm::vec3(x,y,z)};
+    return {Le({{0,0,0},glm::vec3(x,y,z)}),{{},{},SphereShape::getSphereUV(glm::normalize(glm::vec3(x,y,z)))},glm::vec3(x,y,z)};
 }
 
 float FunctionInfiniteLight::PDF(const GeometricInteraction& interaction, const Ray& ray) const{
@@ -112,7 +112,7 @@ glm::vec3 TextureInfiniteLight::Le(const Ray& ray) const {
     return LeScale*tex->Evaluate({{0,0,0},{0,0,0},SphereShape::getSphereUV(ray.dir)});//must be normalized
 }
 
-glm::vec3 TextureInfiniteLight::L(const GeometricInteraction& interaction, const Ray& ray) const {
+glm::vec3 TextureInfiniteLight::L(const SurfaceInteraction& interaction, const Ray& ray) const {
     return Le(ray);
 }
 
@@ -139,7 +139,7 @@ LightSample TextureInfiniteLight::sample(const glm::vec2& uv, float time) const{
 
     //float pdf = (weights[index] / totalWeight) * (1.0f / cellOmega);
     //Le({{0,0,0},dir})
-    return {{0,0,0},{},dir};
+    return {{0,0,0},{{},{},SphereShape::getSphereUV(glm::normalize(dir))},dir};
 }
 
 float TextureInfiniteLight::PDF(const GeometricInteraction& interaction, const Ray& ray) const{
@@ -203,7 +203,7 @@ void TextureInfiniteLight::PreProcess(const AABB& bbox) {
 bool DistantLight::isDelta() const {
     return true;
 }
-glm::vec3 DistantLight::L(const GeometricInteraction& interaction, const Ray& ray) const {
+glm::vec3 DistantLight::L(const SurfaceInteraction& interaction, const Ray& ray) const {
     return {0,0,0};
 }
 LightSample DistantLight::sample(const glm::vec2& uv, float time) const{
@@ -212,7 +212,7 @@ LightSample DistantLight::sample(const glm::vec2& uv, float time) const{
     float r = std::sqrt(1.0f - z*z);
     float x = r * std::cos(theta);
     float y = r * std::sin(theta);
-    return {color,{},glm::normalize(dir + glm::vec3(x,y,z)*0.02f)};
+    return {color,{{},{},uv},glm::normalize(dir + glm::vec3(x,y,z)*0.02f)};
 }
 float DistantLight::PDF(const GeometricInteraction& interaction, float time) const{
     return 0;
@@ -231,11 +231,11 @@ void DistantLight::PreProcess(const AABB& bbox) {
 bool PointLight::isDelta() const {
     return true;
 }
-glm::vec3 PointLight::L(const GeometricInteraction& interaction, const Ray& ray) const {
+glm::vec3 PointLight::L(const SurfaceInteraction& interaction, const Ray& ray) const {
     return {0,0,0};
 }
 LightSample PointLight::sample(const glm::vec2& uv, float time) const{
-    return {color,GeometricInteraction{p,glm::vec3{1,1,1}},glm::vec3{0,0,0}};
+    return {color,SurfaceInteraction{p,glm::vec3{1,1,1},uv},glm::vec3{0,0,0}};
 }
 float PointLight::PDF(const GeometricInteraction& interaction, float time) const{
     return 0;
@@ -255,9 +255,9 @@ void PointLight::PreProcess(const AABB& bbox) {
 bool AreaLight::isDelta() const  {
     return false;
 }
-glm::vec3 AreaLight::L(const GeometricInteraction& interaction, const Ray& ray) const  {
+glm::vec3 AreaLight::L(const SurfaceInteraction& interaction, const Ray& ray) const  {
     if(oneSided && glm::dot(ray.dir,interaction.n)>0)return {0,0,0};
-    return color;
+    return emissiveTexture->Evaluate(interaction);
 }
 LightSample AreaLight::sample(const glm::vec2& uv, float time) const {
     return {{0,0,0},shape->Sample(uv),{}};
@@ -272,7 +272,20 @@ float AreaLight::PDF(const GeometricInteraction& interaction, const Ray& ray) co
     return shape->PDF(interaction,ray);
 }
 float AreaLight::Power() const  {
-    return (oneSided ? 1 : 2) * shape->Area() * (color.x + color.y + color.z);
+    return cachedPower;//(color.x + color.y + color.z); FIXX!!!
+}
+
+void AreaLight::PreProcess(const AABB& bbox) {
+    glm::vec3 acc = {0,0,0};
+    //have stratified sampler
+    //do multi threading?
+    for(int i = 0;i<512;i++){
+        
+        glm::vec2 uv = {random_float(),random_float()};
+        acc+=emissiveTexture->Evaluate(shape->Sample(uv));
+    }
+    acc/=512;
+    cachedPower = (oneSided ? 1 : 2) * shape->Area() * (acc.x + acc.y + acc.z);
 }
 
 std::shared_ptr<Shape> AreaLight::getShape() const {
@@ -289,11 +302,11 @@ std::shared_ptr<Shape> AreaLight::getShape() const {
 bool TransformedLight::isDelta() const  {
     return light->isDelta();
 }
-glm::vec3 TransformedLight::L(const GeometricInteraction& interaction, const Ray& ray) const  {
-    GeometricInteraction temp;
+glm::vec3 TransformedLight::L(const SurfaceInteraction& interaction, const Ray& ray) const  {
+    SurfaceInteraction temp;
     temp.n = normalMatrix * interaction.n;
     temp.p = transform * glm::vec4(interaction.p,1);
-    return light->L(interaction,ray);
+    return light->L(temp,ray);
 }
 LightSample TransformedLight::sample(const glm::vec2& uv, float time) const {
     LightSample lightSample = light->sample(uv,time);
@@ -305,7 +318,6 @@ LightSample TransformedLight::sample(const glm::vec2& uv, float time) const {
 float TransformedLight::PDF(const GeometricInteraction& interaction, float time) const {
     glm::vec3 p = glm::vec3(invTransform * glm::vec4(interaction.p, 1.0f));
     glm::vec3 n = glm::normalize(glm::vec3(invTransform * glm::vec4(interaction.n, 0.0f)));
-
     return light->PDF(GeometricInteraction(p,n),time);
 }
 float TransformedLight::PDF(const GeometricInteraction& interaction, const Ray& ray) const {
@@ -313,11 +325,16 @@ float TransformedLight::PDF(const GeometricInteraction& interaction, const Ray& 
     glm::vec3 n = glm::normalize(glm::vec3(invTransform * glm::vec4(interaction.n, 0.0f)));
     Ray localRay(glm::vec3(invTransform * glm::vec4(ray.origin,1)),
                     glm::normalize(glm::vec3(invTransform * glm::vec4(ray.dir,0))),ray.time);
-
+                    
     return light->PDF(GeometricInteraction(p,n),localRay);
 }
+
+void TransformedLight::PreProcess(const AABB& bbox) {
+    light->PreProcess(bbox);
+}
+
 float TransformedLight::Power() const  {
-    return light->Power();
+    return light->Power();// * scale of transform;
 }
 
 
@@ -325,7 +342,7 @@ float TransformedLight::Power() const  {
 bool AnimatedLight::isDelta() const  {
     return light->isDelta();
 }
-glm::vec3 AnimatedLight::L(const GeometricInteraction& interaction, const Ray& ray) const  {
+glm::vec3 AnimatedLight::L(const SurfaceInteraction& interaction, const Ray& ray) const  {
     float t = glm::clamp(ray.time - timeBounds.x,timeBounds.x,timeBounds.y) / (timeBounds.y - timeBounds.x);
     return TransformedLight(light,glm::translate(glm::mat4(1),dir * t)).L(interaction,ray);
 }
@@ -341,6 +358,11 @@ float AnimatedLight::PDF(const GeometricInteraction& interaction, const Ray& ray
     float t = glm::clamp(ray.time - timeBounds.x,timeBounds.x,timeBounds.y) / (timeBounds.y - timeBounds.x);
     return TransformedLight(light,glm::translate(glm::mat4(1),dir * t)).PDF(interaction,ray);
 }
+
+void AnimatedLight::PreProcess(const AABB& bbox) {
+    light->PreProcess(bbox);
+}
+
 float AnimatedLight::Power() const  {
     return light->Power();
 }

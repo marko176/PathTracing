@@ -39,7 +39,7 @@ inline std::array<unsigned char,256> sRGBLUT = [](){
 
 struct Image{
 
-    Image(const std::string_view filename,float gammaCorrection = false);
+    Image(const std::string_view filename,bool gammaCorrection = false);
     //getChannel
     float GetChannelAt(const glm::ivec2& p,int ch) const {//pass wrap mode
         //channel 1,2,3,4
@@ -122,7 +122,6 @@ public:
     SolidColor(const glm::vec3& color);
     SolidColor(float r,float g,float b);
 
-
     glm::vec3 Evaluate(const SurfaceInteraction& interaction) const override {
         return albedo;
     }
@@ -133,7 +132,7 @@ private:
 class ImageTexture : public Texture {
 public:
     virtual ~ImageTexture() = default;
-    ImageTexture(const std::string& filename,float gammaCorrection = false) : image(filename,gammaCorrection) {};
+    ImageTexture(const std::string& filename,bool gammaCorrection = false) : image(filename,gammaCorrection) {};
 
     float alpha(float u,float v) const override;
     

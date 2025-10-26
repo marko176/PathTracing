@@ -250,7 +250,7 @@ glm::vec3 PathIntegrator::SampleLd(const Ray& ray,const SurfaceInteraction& inte
 
     if(sampled_light->isDelta()){
         return lightSample.L * f / light_pdf;
-    }else{
+    }else {
         light_pdf *= sampled_light->PDF(lightSample.interaction,shadow_ray);
         if(light_pdf <= 0)return {0,0,0};
         float w2 = light_pdf*light_pdf;
@@ -424,6 +424,7 @@ glm::vec3 VolPathIntegrator::SampleLd(const Ray& ray,const GeometricInteraction&
     }else{
         lightDir = lightSample.interaction.p - interaction.p;
         t = glm::length(lightDir) - shadowEpsilon;//was 0.0001f
+        t-= shadowEpsilon;
     }
 
     Ray shadow_ray(interaction.p, glm::normalize(lightDir),ray.time,ray.medium);
@@ -446,18 +447,17 @@ glm::vec3 VolPathIntegrator::SampleLd(const Ray& ray,const GeometricInteraction&
     
 
     if(f == glm::vec3(0,0,0) || IntersectTr(shadow_ray,intr,Tr,t))return {0,0,0};
-
+    
     if(sampled_light->isDelta()){
         return Tr * lightSample.L * f / light_pdf;
-    }else{
+    }else{//if(!lightSample.isDeltaInteraction()) prevents n being (0,0,0) -> good for dengenerate triagnle, bad for infinite area lights
         light_pdf *= sampled_light->PDF(lightSample.interaction,shadow_ray);
-        if(light_pdf <= 0)return {0,0,0};
+        if(light_pdf <= 0 )return {0,0,0};
         float w2 = light_pdf*light_pdf;
         float w1 = samplingPDF;
         w1 = w1*w1;
         float w_light = (w2) / (w1 + w2);
-        return Tr * sampled_light->L(lightSample.interaction,shadow_ray) * f * w_light / light_pdf;
-        
+        return Tr * sampled_light->L(lightSample.interaction,shadow_ray) * f * w_light / light_pdf;        
     }
     return {0,0,0};
 }

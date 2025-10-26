@@ -12,7 +12,7 @@ public:
     virtual bool IntersectPred(const Ray& ray, float max) const = 0;
     virtual bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max) const = 0;
     virtual float Area() const = 0;
-    virtual GeometricInteraction Sample(const glm::vec2& u) const = 0;
+    virtual SurfaceInteraction Sample(const glm::vec2& u) const = 0;
     virtual float PDF(const GeometricInteraction& interaction) const = 0;
     virtual float PDF(const GeometricInteraction& interaction,const Ray& ray) const = 0; //should just give normal info (shape sample context, maybe get that from sample?) 
 };
@@ -43,7 +43,7 @@ public:
     }
 
 
-    GeometricInteraction Sample(const glm::vec2& u) const override ;
+    SurfaceInteraction Sample(const glm::vec2& u) const override ;
 
     float Area() const override ;
 
@@ -67,7 +67,7 @@ public:
 
     AABB BoundingBox() const override;
 
-    GeometricInteraction Sample(const glm::vec2& u) const override;
+    SurfaceInteraction Sample(const glm::vec2& u) const override;
 
     float Area() const override;
 
@@ -124,7 +124,7 @@ public:
         return bbox;
     }
 
-    GeometricInteraction Sample(const glm::vec2& uv) const override{
+    SurfaceInteraction Sample(const glm::vec2& uv) const override{
         return GeometricInteraction{Q + uv.x * u + uv.y * v, normal};
     }
 

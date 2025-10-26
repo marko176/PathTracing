@@ -199,12 +199,12 @@ class lambertian : public Material {
 public:
     virtual ~lambertian() = default;
     lambertian(const glm::vec3& albedo) : lambertian(std::make_shared<SolidColor>(albedo)) {}
-    lambertian(const std::shared_ptr<Texture>& tex,const std::shared_ptr<Texture>& norm = nullptr,const std::shared_ptr<Texture>& roughnessTexture = std::make_shared<SolidColor>(glm::vec3(1)),const std::shared_ptr<Texture>& metallicTexture = std::make_shared<SolidColor>(glm::vec3(0)),const std::shared_ptr<Texture>& alpha_mask = nullptr) : tex(tex), norm(norm), roughnessTexture(roughnessTexture), metallicTexture(metallicTexture),alpha(alpha_mask) {}
+    lambertian(const std::shared_ptr<Texture>& tex,const std::shared_ptr<Texture>& norm = nullptr,const std::shared_ptr<Texture>& roughnessTexture = std::make_shared<SolidColor>(glm::vec3(1)),const std::shared_ptr<Texture>& metallicTexture = std::make_shared<SolidColor>(glm::vec3(0)),const std::shared_ptr<Texture>& alpha_mask = nullptr) : tex(tex), norm(norm), roughnessTexture(roughnessTexture == nullptr ? std::make_shared<SolidColor>(1,1,1) : roughnessTexture), metallicTexture(metallicTexture == nullptr ? std::make_shared<SolidColor>(0,0,0) : metallicTexture),alpha(alpha_mask) {}
 
     std::optional<BxDFSample> scatter(const Ray& incoming, const SurfaceInteraction& interaction, Ray& scattered,float u,const glm::vec2& UV) const final {
         //doesnt support smooth material!
         float roughness = GetRoughness(interaction);
-        float metallic = metallicTexture->Evaluate(interaction).x;
+        float metallic = metallicTexture->Evaluate(interaction).b;//metallic is in b in gltf
 
 
         onb TBN(glm::dot(incoming.dir,interaction.ns)>0 ? -interaction.ns : interaction.ns); //should be interaction.ns 
@@ -298,7 +298,7 @@ public:
     }
 
     float GetRoughness(const SurfaceInteraction& interaction) const {
-        return std::max(roughnessTexture->Evaluate(interaction).x, 0.0005f);
+        return std::max(roughnessTexture->Evaluate(interaction).g, 0.0005f);//roughness is in g slor
     }
 
     float PDF(const Ray& incoming, const SurfaceInteraction& interaction,const Ray& scattered) const final{
@@ -309,7 +309,7 @@ public:
         glm::vec3 wo = TBN.toLocal(-incoming.dir);
         glm::vec3 wh = TBN.toLocal(glm::normalize(scattered.dir-incoming.dir));
 
-        float prob = SampleProb(roughness,metallicTexture->Evaluate(interaction).x);
+        float prob = SampleProb(roughness,metallicTexture->Evaluate(interaction).b);//metallic is in b in gltf
         
         float diffuse = prob * std::abs(glm::dot(interaction.ns,scattered.dir)) * std::numbers::inv_pi_v<float>;
      
@@ -338,7 +338,7 @@ public:
 
         
 
-        float metallic = metallicTexture->Evaluate(interaction).x;
+        float metallic = metallicTexture->Evaluate(interaction).b;//metallic is in b in gltf
         glm::vec3 textureColor = tex->Evaluate(interaction);
 
         glm::vec3 F0 = glm::mix(glm::vec3(0.04f),textureColor,metallic);
@@ -516,7 +516,7 @@ public:
     }
 
     float GetRoughness(const SurfaceInteraction& interaction) const {
-        return roughnessTexture->Evaluate(interaction).x;
+        return roughnessTexture->Evaluate(interaction).y;
     }
 
     

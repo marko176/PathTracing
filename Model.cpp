@@ -22,7 +22,13 @@ Model::Model(const std::string& path){
         for(const std::shared_ptr<Mesh>& m : meshes){
             uint32_t n = m->triangle_count;
             for(uint32_t j = 0;j<n;j++){
-                primitives.emplace_back(std::shared_ptr<Shape>(m->GetControlPtr(),m->GetShape(j)),m->material,nullptr,nullptr);
+                std::shared_ptr<Shape> shape = std::shared_ptr<Shape>(m->GetControlPtr(),m->GetShape(j));
+                std::shared_ptr<AreaLight> area = m->GetEmissiveTexture() != nullptr ? std::make_shared<AreaLight>(shape,m->GetEmissiveTexture()) : nullptr;
+                if(area){
+                    area->PreProcess({});
+                    if(area->Power()==0)area = nullptr;
+                }
+                primitives.emplace_back(shape,m->material,area,nullptr);
             }
         }
         model_bvh = BLAS(std::move(primitives));
@@ -39,7 +45,13 @@ Model::Model(const std::string& path,const std::shared_ptr<Material>& material, 
         for(const std::shared_ptr<Mesh>& m : meshes){
             uint32_t n = m->triangle_count;
             for(uint32_t j = 0;j<n;j++){
-                primitives.emplace_back(std::shared_ptr<Shape>(m->GetControlPtr(),m->GetShape(j)),material,nullptr,medium);
+                std::shared_ptr<Shape> shape = std::shared_ptr<Shape>(m->GetControlPtr(),m->GetShape(j));
+                std::shared_ptr<AreaLight> area = m->GetEmissiveTexture() != nullptr ? std::make_shared<AreaLight>(shape,m->GetEmissiveTexture()) : nullptr;
+                if(area){
+                    area->PreProcess({});
+                    if(area->Power()==0)area = nullptr;//this keeps black parts of emmisive texture out // should be 0 maybe?
+                }
+                primitives.emplace_back(shape,material,area,medium);
             }
         }
         model_bvh = BLAS(std::move(primitives));
@@ -64,6 +76,7 @@ bool Model::load_model(const std::string& path) {
             return false;
         }
     }else if(format != Format::NONE){
+        //need to fix degenerate triangles
         scene = importer.ReadFile(path,  aiProcess_Triangulate |
                                                     //aiProcess_RemoveComponent    |
 		                                            aiProcess_JoinIdenticalVertices | //not needed?
@@ -95,7 +108,7 @@ bool Model::load_model(const std::string& path) {
     std::cout<<"Model "<< path.substr(path.find_last_of('/') + 1)<<" Created"<<std::endl;
     return true;
 }
-auto Model::process_node(aiNode* node, const aiScene* scene) -> void {
+void Model::process_node(aiNode* node, const aiScene* scene) {
 
     for(unsigned int i = 0;i< node->mNumMeshes;i++){
         aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
@@ -107,6 +120,93 @@ auto Model::process_node(aiNode* node, const aiScene* scene) -> void {
     }
 
 }
+
+std::vector<std::shared_ptr<Texture>> Model::GetTextures(aiMaterial* material) const {
+    std::vector<std::shared_ptr<Texture>> textures(AI_TEXTURE_TYPE_MAX);
+    //textures[aiTextureType_SHININESS] = std::make_shared<SolidColor>(glm::vec3(1));//use resource manager
+    //textures[aiTextureType_AMBIENT] = std::make_shared<SolidColor>(glm::vec3(0));//use resource manager
+    //if nullptr then do it in material 
+    for(int i = 0;i<AI_TEXTURE_TYPE_MAX;i++){
+        aiString texturePath;
+        material->GetTexture(aiTextureType(i),0,&texturePath);
+        std::string path = model_path + texturePath.C_Str();
+        std::replace(path.begin(),path.end(),'\\','/');
+        std::shared_ptr<Texture> tex = nullptr;
+        if(path != model_path){
+            std::cout<<i<<" "<<path<<"\n";
+            
+            tex = ResourceManager::get_instance().GetImageTexture(path,i == aiTextureType_DIFFUSE || i == aiTextureType_BASE_COLOR);//gamma corection when i == i == aiTextureType_DIFFUSE
+        }
+        textures[i]=tex;
+    }
+    
+    return textures;
+}
+
+std::shared_ptr<Material> Model::SetupOBJMaterial(const std::vector<std::shared_ptr<Texture>>& textures,aiMaterial* material) const {
+    std::shared_ptr<Material> mat = nullptr;
+
+    if(textures[aiTextureType_DIFFUSE]){
+        //aiTextureType_DIFFUSE_ROUGHNESS
+        //aiTextureType_DIFFUSE_ROUGHNESS
+        std::shared_ptr<Texture> albedo = textures[aiTextureType_BASE_COLOR] != nullptr ? textures[aiTextureType_BASE_COLOR] : textures[aiTextureType_DIFFUSE];
+        std::shared_ptr<Texture> normal = textures[aiTextureType_NORMALS] != nullptr ? textures[aiTextureType_NORMALS] : textures[aiTextureType_HEIGHT];
+        std::shared_ptr<Texture> roughness = textures[aiTextureType_DIFFUSE_ROUGHNESS] != nullptr ? textures[aiTextureType_DIFFUSE_ROUGHNESS] : textures[aiTextureType_SHININESS];
+        std::shared_ptr<Texture> metallic = textures[aiTextureType_METALNESS] != nullptr ? textures[aiTextureType_METALNESS] : textures[aiTextureType_AMBIENT];
+        mat = std::make_shared<lambertian>(albedo,normal,roughness,metallic,textures[aiTextureType_OPACITY]);
+    }else{
+        
+        mat = std::make_shared<lambertian>(glm::vec3(.65, .05, .05));
+        //should be for eg galss get index of refraction
+        float ior = 1;
+        if(material->Get(AI_MATKEY_REFRACTI,ior) == AI_SUCCESS){
+            aiColor3D Kd(1,1,1), Ks(0,0,0);
+            material->Get(AI_MATKEY_COLOR_DIFFUSE,  Kd);
+            material->Get(AI_MATKEY_COLOR_SPECULAR, Ks);
+
+            // compute average luminance
+            float kdLum = (Kd.r + Kd.g + Kd.b) / 3.0f;
+            float ksLum = (Ks.r + Ks.g + Ks.b) / 3.0f;
+            
+            float opacity = 1.0f;
+            material->Get(AI_MATKEY_OPACITY, opacity);
+            if(opacity < 0.99f){
+                mat = std::make_shared<MicrofacetDielectric>(1.5,0,glm::vec3(1));//maybe set as color kdlum ?? not the same
+            }else if(ksLum > 0.1 && (/*kdLum == ksLum ||*/ ksLum >= 0.4)){
+                //this is wrong but gives good results in san miguel
+                float r = linear_to_sRGB(Ks.r);
+                float g = linear_to_sRGB(Ks.g);
+                float b = linear_to_sRGB(Ks.b);
+                mat = std::make_shared<SpecularConductor>(glm::vec3(r,g,b));
+            }else if(kdLum < ksLum){
+                
+                mat = std::make_shared<MicrofacetDielectric>(1.33,0,glm::vec3(0.98,1,1));//maybe set as color kdlum ?? not the same
+            }else if(ksLum > 0.1){
+                mat = std::make_shared<MicrofacetDielectric>(1.5,0,glm::vec3(1,1,1));//maybe set as color kdlum ?? not the same
+            }else if(kdLum > 0.1 && ksLum < 0.03){
+                //remove ksLum< 0.03
+                //std::cout<<"Dielectric:" <<Kd.r << " " <<Kd.g << " "<<Kd.b << " "<< " "<<Ks.r << " " <<Ks.g << " "<<Ks.b<<"\n";
+                float r = Ks.r + Kd.r;
+                float g = Ks.g + Kd.g;
+                float b = Ks.b + Kd.b;
+                mat = std::make_shared<MicrofacetDielectric>(1.33,0,glm::vec3(r,g,b));
+                
+            }else{
+                float r = Kd.r;
+                float g = Kd.g;
+                float b = Kd.b;
+                auto color = std::make_shared<SolidColor>(glm::vec3(r,g,b));
+                mat = std::make_shared<lambertian>(color);
+    
+                //std::cout<<Kd.r << " " <<Kd.g << " "<<Kd.b << " "<< " "<<ksLum<<"\n";
+            }
+        }
+        
+    }
+    return mat;
+}
+
+
 
 
 //we should pass function to process mesh!
@@ -160,129 +260,26 @@ std::shared_ptr<Mesh> Model::process_mesh(aiMesh* mesh, const aiScene* scene) {
         aiFace face = mesh->mFaces[i];
         for(unsigned int j = 0; j < face.mNumIndices; j++)
             indices.push_back(face.mIndices[j]);
+        
     }  
+
+    //if(mesh->mMaterialIndex >= 0) setupMaterial(scene->mMaterials[mesh->mMaterialIndex],obj/gltf )
+
+    //if is emmisive we need light which holds prt to this mesh?
+    //
     if(mesh->mMaterialIndex >= 0){
         aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
-        aiString name;
-        material->Get(AI_MATKEY_NAME,name);
+        std::vector<std::shared_ptr<Texture>> textures = GetTextures(material);
 
-
-        std::vector<std::shared_ptr<Texture>> textures(AI_TEXTURE_TYPE_MAX);
-        //textures[aiTextureType_SHININESS] = std::make_shared<SolidColor>(glm::vec3(1));//use resource manager
-        //textures[aiTextureType_AMBIENT] = std::make_shared<SolidColor>(glm::vec3(0));//use resource manager
-        //if nullptr then do it in material 
-        for(int i = 0;i<AI_TEXTURE_TYPE_MAX;i++){
-            aiString texturePath;
-            material->GetTexture(aiTextureType(i),0,&texturePath);
-            std::string path = model_path + texturePath.C_Str();
-            std::replace(path.begin(),path.end(),'\\','/');
-            std::shared_ptr<Texture> tex = nullptr;
-            if(path != model_path)tex = ResourceManager::get_instance().GetImageTexture(path);
-            textures[i]=tex;
-        }
-        //aiTextureFlags_UseAlpha?
-        aiString albedoPath;
-		material->GetTexture(aiTextureType_DIFFUSE, 0, &albedoPath);
-		aiString metallicPath;
-		material->GetTexture(aiTextureType_AMBIENT, 0, &metallicPath);
-		aiString normalPath;
-		material->GetTexture(aiTextureType_HEIGHT, 0, &normalPath);
-		aiString roughnessPath;
-		material->GetTexture(aiTextureType_SHININESS, 0, &roughnessPath);
-		aiString alphaMaskPath;
-		material->GetTexture(aiTextureType_OPACITY, 0, &alphaMaskPath);
-        aiString emissiveMaskPath;
-        material->GetTexture(aiTextureType_EMISSIVE, 0,&emissiveMaskPath);
-        
-        //change to + '/' + 
-        //std::cout<<"Texture:" << albedoPath.C_Str() << " .. Path: "<<model_path + albedoPath.C_Str()<<"\n";
-
-        std::string albedo = model_path + albedoPath.C_Str();
-        std::replace(albedo.begin(),albedo.end(),'\\','/');
-        std::string normal = model_path + normalPath.C_Str();
-        std::replace(normal.begin(),normal.end(),'\\','/');
-        std::string alphaMask = model_path + alphaMaskPath.C_Str();
-        std::replace(alphaMask.begin(),alphaMask.end(),'\\','/');
-        std::string roughness = model_path + roughnessPath.C_Str();
-        std::replace(roughness.begin(),roughness.end(),'\\','/');
-        std::string metallic = model_path + metallicPath.C_Str();
-        std::replace(metallic.begin(),metallic.end(),'\\','/');
-        std::string emissive = model_path + emissiveMaskPath.C_Str();
-        std::replace(emissive.begin(),emissive.end(),'\\','/');
-        
-        if(emissive != model_path){
-            std::cout<<"found emissive texure\n";
-            std::abort();
-        }
-
-        std::shared_ptr<Texture> norm = nullptr;
-        if(normal != model_path)norm = ResourceManager::get_instance().GetImageTexture(normal);
-
-        std::shared_ptr<Texture> alpha_tex = nullptr;
-        if(alphaMask != model_path)alpha_tex = ResourceManager::get_instance().GetImageTexture(alphaMask);
-
-        std::shared_ptr<Texture> roughness_tex = std::make_shared<SolidColor>(glm::vec3(1,1,1));
-        if(roughness != model_path)roughness_tex = ResourceManager::get_instance().GetImageTexture(roughness);
-
-        std::shared_ptr<Texture> metallic_tex = std::make_shared<SolidColor>(glm::vec3(0,0,0));
-        if(metallic != model_path)metallic_tex = ResourceManager::get_instance().GetImageTexture(metallic);
-        std::shared_ptr<Material> mat = nullptr;
-        if(albedo != model_path){
-            mat = std::make_shared<lambertian>(ResourceManager::get_instance().GetImageTexture(albedo,true),norm,roughness_tex,metallic_tex,alpha_tex);
-        }else{
-            mat = std::make_shared<lambertian>(glm::vec3(.65, .05, .05));
-            //should be for eg galss get index of refraction
-            float ior = 1;
-            if(material->Get(AI_MATKEY_REFRACTI,ior) == AI_SUCCESS){
-                aiColor3D Kd(1,1,1), Ks(0,0,0);
-                material->Get(AI_MATKEY_COLOR_DIFFUSE,  Kd);
-                material->Get(AI_MATKEY_COLOR_SPECULAR, Ks);
-    
-                // compute average luminance
-                float kdLum = (Kd.r + Kd.g + Kd.b) / 3.0f;
-                float ksLum = (Ks.r + Ks.g + Ks.b) / 3.0f;
-                
-                float opacity = 1.0f;
-                material->Get(AI_MATKEY_OPACITY, opacity);
-                if(opacity < 0.99f){
-                    mat = std::make_shared<MicrofacetDielectric>(1.5,0,glm::vec3(1));//maybe set as color kdlum ?? not the same
-                }else if(ksLum > 0.1 && (/*kdLum == ksLum ||*/ ksLum >= 0.4)){
-                    //this is wrong but gives good results in san miguel
-                    float r = linear_to_sRGB(Ks.r);
-                    float g = linear_to_sRGB(Ks.g);
-                    float b = linear_to_sRGB(Ks.b);
-                    mat = std::make_shared<SpecularConductor>(glm::vec3(r,g,b));
-                }else if(kdLum < ksLum){
-                    
-                    mat = std::make_shared<MicrofacetDielectric>(1.33,0,glm::vec3(0.98,1,1));//maybe set as color kdlum ?? not the same
-                }else if(ksLum > 0.1){
-                    mat = std::make_shared<MicrofacetDielectric>(1.5,0,glm::vec3(1,1,1));//maybe set as color kdlum ?? not the same
-                }else if(kdLum > 0.1 && ksLum < 0.03){
-                    //remove ksLum< 0.03
-                    //std::cout<<"Dielectric:" <<Kd.r << " " <<Kd.g << " "<<Kd.b << " "<< " "<<Ks.r << " " <<Ks.g << " "<<Ks.b<<"\n";
-                    float r = Ks.r + Kd.r;
-                    float g = Ks.g + Kd.g;
-                    float b = Ks.b + Kd.b;
-                    mat = std::make_shared<MicrofacetDielectric>(1.33,0,glm::vec3(r,g,b));
-                    
-                }else{
-                    float r = Kd.r;
-                    float g = Kd.g;
-                    float b = Kd.b;
-                    auto color = std::make_shared<SolidColor>(glm::vec3(r,g,b));
-                    mat = std::make_shared<lambertian>(color);
-      
-                    //std::cout<<Kd.r << " " <<Kd.g << " "<<Kd.b << " "<< " "<<ksLum<<"\n";
-                }
-            }
-            
-        }
-        return ResourceManager::get_instance().getMesh(indices,vertices,tangents,bitangents,normals,texCoords,mat);
+        std::shared_ptr<Material> mat = SetupOBJMaterial(textures,material);
+        //std::shared_ptr<Texture> tmp = std::make_shared<SolidColor>(glm::vec3(.65, .05, .05));
+        //std::shared_ptr<Material> mat = std::make_shared<lambertian>(tmp);
+        return ResourceManager::get_instance().getMesh(indices,vertices,tangents,bitangents,normals,texCoords,mat,textures[aiTextureType_EMISSIVE]);
         //return std::make_shared<Mesh>(indices,vertices,tangents,bitangents,normals,texCoords,mat);
     }
     std::shared_ptr<Texture> tmp = std::make_shared<SolidColor>(glm::vec3(.65, .05, .05));
     std::shared_ptr<Material> mat = std::make_shared<lambertian>(tmp);
-    return ResourceManager::get_instance().getMesh(indices,vertices,tangents,bitangents,normals,texCoords,mat);
+    return ResourceManager::get_instance().getMesh(indices,vertices,tangents,bitangents,normals,texCoords,mat,nullptr);
     //return std::make_shared<Mesh>(indices,vertices,tangents,bitangents,normals,texCoords,mat);
 }
 

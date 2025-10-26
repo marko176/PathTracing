@@ -12,7 +12,7 @@
 
 class Mesh{
 public:
-    Mesh(const std::vector<uint32_t>& indices,const std::vector<glm::vec3>& vertices,const std::vector<glm::vec3>& tangents,const std::vector<glm::vec3>& bitangents,const std::vector<glm::vec3>& normals, const std::vector<glm::vec2>& texCoords, const std::shared_ptr<Material>& mat) : triangle_count(indices.size()/3), vertex_count(vertices.size()), indices(indices), vertices(vertices), tangents(tangents),bitangents(bitangents),normals(normals), texCoords(texCoords), material(mat), shapes(std::make_shared<std::vector<TriangleShape>>()) {
+    Mesh(const std::vector<uint32_t>& indices,const std::vector<glm::vec3>& vertices,const std::vector<glm::vec3>& tangents,const std::vector<glm::vec3>& bitangents,const std::vector<glm::vec3>& normals, const std::vector<glm::vec2>& texCoords, const std::shared_ptr<Material>& mat,const std::shared_ptr<Texture>& emissiveTex) : triangle_count(indices.size()/3), vertex_count(vertices.size()), indices(indices), vertices(vertices), tangents(tangents),bitangents(bitangents),normals(normals), texCoords(texCoords), material(mat), emissiveTexture(emissiveTex),shapes(std::make_shared<std::vector<TriangleShape>>()) {
             
         shapes->reserve(triangle_count);
         uint32_t meshIndex = TriangleShape::addMesh(this);
@@ -56,6 +56,10 @@ public:
         return material;
     }
 
+    std::shared_ptr<Texture> GetEmissiveTexture() const {
+        return emissiveTexture;
+    }
+
     const std::shared_ptr<std::vector<TriangleShape>>& GetControlPtr() const {
         return shapes;
     }
@@ -83,6 +87,7 @@ private:
     std::vector<glm::vec3> normals;
     std::vector<glm::vec2> texCoords;
     std::shared_ptr<Material> material;
+    std::shared_ptr<Texture> emissiveTexture;
     std::shared_ptr<std::vector<TriangleShape>> shapes;
 };
 

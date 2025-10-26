@@ -1,7 +1,7 @@
 #include "Texture.hpp"
 #include <iostream>
 
-Image::Image(const std::string_view filename,float gammaCorrection) {
+Image::Image(const std::string_view filename,bool gammaCorrection) {
     data = stbi_load(filename.data(),&width,&height,&channels,0);
     if(data == nullptr){
         std::cerr<<"Failed to load image: "<<filename<<std::endl;

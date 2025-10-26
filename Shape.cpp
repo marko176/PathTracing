@@ -60,18 +60,18 @@ float SphereShape::PDF(const GeometricInteraction& interaction,const Ray& ray) c
     float dist_squared = glm::dot(to_shape,to_shape);
     float light_cosine = std::abs(glm::dot(-ray.dir,interaction.n));
     float area = Area();
-    if(area == 0)return 0;
+    if(area * light_cosine == 0)return 0;
     return (dist_squared) / (light_cosine * area);
 }
 
-GeometricInteraction SphereShape::Sample(const glm::vec2& u) const  {
+SurfaceInteraction SphereShape::Sample(const glm::vec2& u) const  {
     // sample a point uniformly on unit‐sphere
     float z    = 1.0f - 2.0f * u.x;
     float r    = std::sqrt(1.0f - z*z);
     float phi  = 2.0f * std::numbers::pi_v<float> * u.y;
     glm::vec3 dir{ r * std::cos(phi), r * std::sin(phi), z };
     glm::vec3 p = center + radius * dir;  
-    return GeometricInteraction{p, (p-center)/ radius};      
+    return SurfaceInteraction{p, glm::normalize(p-center), getSphereUV(p)};      
 }
 
 inline bool IntersectRayTriangle(const glm::vec3& origin, const glm::vec3& dir,const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3, float& u,float& v, float& t) {
@@ -271,15 +271,30 @@ AABB TriangleShape::BoundingBox() const {
     bbox.Expand(mesh->vertices[mesh->indices[TriIndex*3+2]]);
     return bbox;
 }
-GeometricInteraction TriangleShape::Sample(const glm::vec2& u) const {
+SurfaceInteraction TriangleShape::Sample(const glm::vec2& u) const {
     float w = 1.0f - u.x - u.y;
     Mesh* mesh = meshList[MeshIndex];
 
-    glm::vec3 e1 = mesh->vertices[TriIndex*3+1] - mesh->vertices[TriIndex*3+0];
-    glm::vec3 e2 = mesh->vertices[TriIndex*3+2] - mesh->vertices[TriIndex*3+0];
+    int index0 = mesh->indices[TriIndex*3+0];
+    int index1 = mesh->indices[TriIndex*3+1];
+    int index2 = mesh->indices[TriIndex*3+2];
+
+    glm::vec3 e1 = mesh->vertices[index1] - mesh->vertices[index0];
+    glm::vec3 e2 = mesh->vertices[index2] - mesh->vertices[index0];
     glm::vec3 n = glm::normalize(glm::cross(e1,e2));
-    glm::vec3 p = u.x * mesh->normals[mesh->indices[TriIndex*3+1]] + u.y * mesh->normals[mesh->indices[TriIndex*3+2]] + w * mesh->normals[mesh->indices[TriIndex*3+0]];
-    return GeometricInteraction{p,n};
+    if(n.x != n.x){
+        n = {0,0,0};
+    }
+    
+
+
+    //glm::vec3 p = u.x * mesh->normals[mesh->indices[index1]] + u.y * mesh->normals[mesh->indices[index2]] + w * mesh->normals[mesh->indices[index0]];
+    
+    glm::vec3 p = u.x * mesh->vertices[index1] + u.y * mesh->vertices[index2] + w * mesh->vertices[index0];
+    glm::vec2 uv =  u.x * mesh->texCoords[index1] +
+                    u.y * mesh->texCoords[index2]+
+                    w * mesh->texCoords[index0];
+    return SurfaceInteraction{p,n,uv};
 }
 float TriangleShape::Area() const {   
     Mesh* mesh = meshList[MeshIndex];                                                   
@@ -287,14 +302,17 @@ float TriangleShape::Area() const {
 }
 
 float TriangleShape::PDF(const GeometricInteraction& interaction) const {
-    return 1.0f/Area(); //need to sample only visible part! -> put into another function for eg sampleCone, PDFCone ?
+    float area = Area();
+    if(area == 0 || interaction.n.x != interaction.n.x)return 0;
+    return 1.0f/area; //need to sample only visible part! -> put into another function for eg sampleCone, PDFCone ?
 }
 float TriangleShape::PDF(const GeometricInteraction& interaction,const Ray& ray) const {
+    
     glm::vec3 to_shape = interaction.p - ray.origin;
     float dist_squared = glm::dot(to_shape,to_shape);
     float light_cosine = std::abs(glm::dot(-ray.dir,interaction.n));
     float area = Area();
-    if(area == 0 || light_cosine == 0)return 0;
+    if(area == 0 || light_cosine == 0 || interaction.n.x != interaction.n.x)return 0;
     return (dist_squared) / (light_cosine * area);
 }
 

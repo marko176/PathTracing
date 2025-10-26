@@ -444,7 +444,7 @@ void NoModel(){
 
    
 
-    int samples = 100;
+    int samples = 36;
 
 
 
@@ -626,6 +626,86 @@ void temp(){
     ResourceManager::get_instance().releaseTextures();
 }
 
+
+
+void helmet(){
+    auto scene = std::make_shared<Scene>();
+    auto white = ResourceManager::get_instance().GetTexture<SolidColor>("whiteTexture",glm::vec3(.9));
+    auto green = ResourceManager::get_instance().GetTexture<SolidColor>("greenTexture",glm::vec3(.2,.3,.1));
+    auto light = std::make_shared<lambertian>(glm::vec3(0));
+    auto ch =  std::make_shared<lambertian>(glm::vec3{.2,.3,.1});
+    auto glass = std::make_shared<MicrofacetDielectric>(1.5,0.0,glm::vec3(1));
+    auto checker = std::make_shared<lambertian>(ResourceManager::get_instance().GetTexture<CheckerTexture>("greenTexture",white,green,glm::vec2{0.02}));
+    ch =  std::make_shared<lambertian>(std::make_shared<CheckerTexture>(white,green,glm::vec2{0.001,0.001}));
+    std::shared_ptr<AreaLight> area = std::make_shared<AreaLight>(std::make_shared<QuadShape>(glm::vec3(0.3,6,0), glm::vec3(-1,0,0), glm::vec3(0,0,-1)),glm::vec3(500),false);
+    auto outsideMedium = std::make_shared<HomogeneusMedium>(glm::vec3{0.01f, 0.9f, 0.9f},glm::vec3{1.0f, 0.1f, 0.1f},std::make_shared<HenyeyGreenstein>(0.9),0.5f);
+
+
+    scene->Add(std::make_shared<GeometricPrimitive>(area->getShape(), light, area, nullptr));//-0.3, -1
+    scene->Add(std::make_shared<GeometricPrimitive>(std::make_shared<QuadShape>(glm::vec3(-100,-0.3,-100), glm::vec3(1000,0,0), glm::vec3(0,0,1000)), ch, nullptr, nullptr));
+    //scene->Add(new Model("/home/markov/Documents/Coding/CPP/raytracing_in_one_weekend/temp_other.assbin"));
+    glm::mat4 pos = glm::mat4(1);
+    pos = glm::translate(pos,{0,2,0});
+    pos = glm::rotate(pos,glm::radians(90.0f),glm::normalize(glm::vec3(1,0,0)));
+    pos = glm::scale(pos,glm::vec3(2,2,2));
+    std::shared_ptr<Primitive> transformedModel = std::make_shared<TransformedPrimitive>(ResourceManager::get_instance().GetModel("Helmet","/home/markov/Downloads/DamagedHelmet.assbin"),pos);
+  
+    scene->Add(transformedModel);
+
+    //scene->Add(ResourceManager::get_instance().GetModel("Medium Dragon","/home/markov/Downloads/DamagedHelmet.gltf"));//was1.2
+
+    //scene->Add(new GeometricPrimitive(new SphereShape(glm::vec3(0,0.1,-1.2),0.5),std::make_shared<lambertian>(glm::vec3(0.1, 0.2, 0.5)),nullptr));
+    //scene->Add(new GeometricPrimitive(new SphereShape(glm::vec3(-1,0,-1),0.5),std::make_shared<dielectric>(1.5),nullptr));
+    //scene->Add(new GeometricPrimitive(new SphereShape(glm::vec3(-1,0,-1),0.4),std::make_shared<dielectric>(1/1.5),nullptr));
+    //scene->Add(new GeometricPrimitive(new SphereShape(glm::vec3(1,0,-1),0.5),std::make_shared<metal>(glm::vec3(0.8, 0.6, 0.2)),nullptr));
+    
+    //scene->Add(std::make_shared<GeometricPrimitive>(std::make_shared<SphereShape>(glm::vec3(1,0,-1),0.5),nullptr,nullptr,std::make_shared<HomogeneusMedium>(glm::vec3{0.01f, 0.9f, 0.9f},glm::vec3{1.0f, 0.1f, 0.1f},std::make_shared<HenyeyGreenstein>(0.8),25.0f,glm::vec3{1,1,1},1)));//Was 1 
+        //d_list[1] = new Sphere{glm::vec3(-0.8,1,-0.5), 0.5,
+        //                        new Light(glm::vec3(8, 8, 8))};
+    //scene->Add(std::make_shared<GeometricPrimitive>(std::make_shared<SphereShape>(glm::vec3(0,0,0),20),nullptr,nullptr,outsideMedium));
+    
+    auto lightFunc = [](const Ray& ray){
+        float a = 0.5f*(ray.dir.y+1.0f);
+        return 1.5f * ((1.0f-a)*glm::vec3(1,0.85,0.55) + a*glm::vec3(0.45,0.65,1));
+    };
+
+    //scene->infiniteLights.push_back(std::make_shared<UniformInfiniteLight>(glm::vec3{0,0,1}));
+    //scene->infiniteLights.push_back(std::make_shared<FunctionInfiniteLight>(lightFunc));
+    //scene->infiniteLights.push_back(std::make_shared<TextureInfiniteLight>(std::make_shared<ImageTexture>("/home/markov/Documents/Coding/CPP/raytracing_in_one_weekend/kloofendal_48d_partly_cloudy_puresky.jpg",true),5));
+    scene->infiniteLights.push_back(std::make_shared<TextureInfiniteLight>(std::make_shared<FloatImageTexture>("/home/markov/Downloads/kloofendal_48d_partly_cloudy_puresky_8k.hdr"),600/255.f,[](float r){return 40 * std::sqrt(r);}));
+
+    std::shared_ptr<LightSampler> ls = std::make_shared<PowerLightSampler>();
+    scene->PreProcess();
+    ls->Add(scene->GetLights());
+    //ls->Add(std::make_shared<PointLight>(glm::vec3(0.3,1.5,0),glm::vec3(6)));
+    ls->PreProcess(scene->BoundingBox());
+    
+    double fov = 1.5;
+
+
+    glm::dvec3 lookfrom = {4,4,7};
+
+
+    glm::dvec3 lookat = {0,2,0};
+
+    //64*4
+    int samples = 100*4;//64*16*4 -> 4 hours
+    int sqrts = std::sqrt(samples);
+
+    std::shared_ptr<Film> film = std::make_shared<Film>(glm::ivec2{2560,1440},std::make_shared<MitchellFilter>());
+
+    
+    auto camera = std::make_shared<Camera>(lookfrom,lookat,fov,film);
+    auto sampler = std::make_shared<StratifiedSampler>(sqrts,sqrts);
+    auto integrator = std::make_shared<VolPathIntegrator>(scene,camera,sampler,ls,128);
+
+
+    integrator->Render();
+    camera->GetFilm()->WritePNG("RenderedScene");
+    camera->GetFilm()->WritePPM("RenderedScene");
+    camera->GetFilm()->WriteJPG("RenderedScene",100);
+    ResourceManager::get_instance().releaseTextures();
+}
 //how to deal when we spawn ray inside objects with medium?
 //interaction spawnRay() -> this spawns ray but gives us 
 // ### />   <- .
@@ -638,7 +718,7 @@ void temp(){
 int main(){
     //stbi_set_flip_vertically_on_load(true);
     //"/home/markov/Documents/Coding/CPP/testing/stanford/common-3d-test-models-master/data/lucy.obj"
-    switch(1){
+    switch(4){
         case 0:
             temp();
             break;
@@ -650,6 +730,9 @@ int main(){
             break;
         case 3:
             MatTest();
+            break;
+        case 4:
+            helmet();
             break;
     }
     ResourceManager::get_instance().releaseTextures();

@@ -7,7 +7,7 @@
 struct aiScene;
 struct aiNode;
 struct aiMesh;
-
+class aiMaterial;
 
 class Material;
 class Model : public Primitive{
@@ -42,11 +42,18 @@ private:
         OBJ,
         GLTF,
         ASSBIN,
+        GLB,
         NONE
     };
 
+    std::vector<std::shared_ptr<Texture>> GetTextures(aiMaterial* material) const;
+
+    std::shared_ptr<Material> SetupMaterial(aiMaterial* material) const;
+
+    std::shared_ptr<Material> SetupOBJMaterial(const std::vector<std::shared_ptr<Texture>>& textures,aiMaterial* material) const;
+
     static Format GetFormat(const std::string& filepath){
-        static std::unordered_map<std::string,Format> map = {{"obj",OBJ},{"gltf",GLTF},{"assbin",ASSBIN}};
+        static std::unordered_map<std::string,Format> map = {{"obj",OBJ},{"gltf",GLTF},{"assbin",ASSBIN},{"glb",GLB}};
         std::size_t index = filepath.find_last_of('.');
         if(index == std::string::npos)return NONE;
         std::string tmp = filepath.substr(index+1);
@@ -68,9 +75,9 @@ private:
         return filepath.substr(0,index);
     }
 
-    auto load_model(const std::string& path) -> bool;
-    auto process_node(aiNode* node, const aiScene* scene) -> void;
-    auto process_mesh(aiMesh* mesh, const aiScene* scene) -> std::shared_ptr<Mesh>;
+    bool load_model(const std::string& path);
+    void process_node(aiNode* node, const aiScene* scene);
+    std::shared_ptr<Mesh> process_mesh(aiMesh* mesh, const aiScene* scene);
 
     std::vector<std::shared_ptr<Mesh>> meshes;
     BLAS model_bvh;
