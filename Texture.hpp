@@ -24,7 +24,7 @@ inline constexpr T sRGB_to_linear(T sRGB){
     return std::pow<T>((sRGB + 0.055) / 1.055, 2.4);
 }
 
-inline std::array<unsigned char,256> sRGBLUT = [](){
+inline const std::array<unsigned char,256> sRGBLUT = [](){
     std::array<unsigned char,256> LUT;
     for(int i = 0;i<256;i++){
         double sRGB = static_cast<unsigned char>(i)/255.0;
@@ -108,23 +108,28 @@ private:
 
 class Texture{
 public:
+    Texture(const glm::vec3& colorScale = glm::vec3(1,1,1), bool invert = false) : colorScale(colorScale), invert(invert) {}
     virtual ~Texture() = default;
     virtual float alpha(float u,float v) const {
         return 1;
     }
-
+    virtual int Channels() const = 0;
     virtual glm::vec3 Evaluate(const SurfaceInteraction& interaction) const = 0;
+protected:
+    glm::vec3 colorScale;
+    bool invert;
 };
 
 class SolidColor : public Texture {
 public:
     virtual ~SolidColor() = default;
-    SolidColor(const glm::vec3& color);
-    SolidColor(float r,float g,float b);
+    SolidColor(const glm::vec3& color, const glm::vec3& colorScale = glm::vec3(1), bool invert = false);
+    SolidColor(float r,float g,float b, const glm::vec3& colorScale = glm::vec3(1), bool invert = false);
 
     glm::vec3 Evaluate(const SurfaceInteraction& interaction) const override {
-        return albedo;
+        return colorScale * albedo;
     }
+    virtual int Channels() const {return 3;}
 private:
     glm::vec3 albedo;
 };
@@ -132,7 +137,7 @@ private:
 class ImageTexture : public Texture {
 public:
     virtual ~ImageTexture() = default;
-    ImageTexture(const std::string& filename,bool gammaCorrection = false) : image(filename,gammaCorrection) {};
+    ImageTexture(const std::string& filename,bool gammaCorrection = false, const glm::vec3& colorScale = glm::vec3(1), bool invert = false) : Texture(colorScale,invert), image(filename,gammaCorrection) {};
 
     float alpha(float u,float v) const override;
     
@@ -149,10 +154,12 @@ public:
         glm::vec3 b = texel(xi+1,yi);
         glm::vec3 c = texel(xi,yi+1);
         glm::vec3 d = texel(xi+1,yi+1);
-        return ((1 - dx) * (1 - dy) * a + dx * (1 - dy) * b +
-        (1 - dx) *      dy  * c + dx *      dy  * d);
+        return colorScale * ((1 - dx) * (1 - dy) * a + dx * (1 - dy) * b +
+                        (1 - dx) *      dy  * c + dx *      dy  * d);
     }
-    
+    virtual int Channels() const {
+        return image.Channels();
+    }
 private: 
     glm::vec3 texel(int x, int y) const;
     Image image;
@@ -161,7 +168,7 @@ private:
 class FloatImageTexture : public Texture {
 public:
     virtual ~FloatImageTexture() = default;
-    FloatImageTexture(const std::string& filename) : image(filename) {}; 
+    FloatImageTexture(const std::string& filename, const glm::vec3& colorScale = glm::vec3(1), bool invert = false) : Texture(colorScale,invert), image(filename) {}; 
 
     float alpha(float u,float v) const override;
     
@@ -178,10 +185,10 @@ public:
         glm::vec3 b = texel(xi+1,yi);
         glm::vec3 c = texel(xi,yi+1);
         glm::vec3 d = texel(xi+1,yi+1);
-        return ((1 - dx) * (1 - dy) * a + dx * (1 - dy) * b +
-        (1 - dx) *      dy  * c + dx *      dy  * d);
+        return colorScale * ((1 - dx) * (1 - dy) * a + dx * (1 - dy) * b +
+                        (1 - dx) *      dy  * c + dx *      dy  * d);
     }
-    
+    virtual int Channels() const {return image.Channels();}
 private: 
     glm::vec3 texel(int x, int y) const;
     FloatImage image;
@@ -190,15 +197,16 @@ private:
 class CheckerTexture : public Texture {
 public:
     virtual ~CheckerTexture() = default;
-    CheckerTexture(const std::shared_ptr<Texture>& textureA, const std::shared_ptr<Texture>& textureB,const glm::vec2& scale) : tex1(textureA), tex2(textureB), invScale(1.0f/scale) {}
+    CheckerTexture(const std::shared_ptr<Texture>& textureA, const std::shared_ptr<Texture>& textureB,const glm::vec2& uvscale, const glm::vec3& colorScale = glm::vec3(1), bool invert = false) : Texture(colorScale,invert), tex1(textureA), tex2(textureB), invScale(1.0f/uvscale) {}
     float alpha(float u,float v) const override;
     
 
     glm::vec3 Evaluate(const SurfaceInteraction& interaction) const override{
         glm::ivec2 uv = glm::floor(interaction.uv * invScale);
-        if((uv.x+uv.y)%2 == 0)return tex1->Evaluate(interaction);
-        return tex2->Evaluate(interaction);
+        if((uv.x+uv.y)%2 == 0)return colorScale * tex1->Evaluate(interaction);
+        return colorScale * tex2->Evaluate(interaction);
     }
+    virtual int Channels() const {return tex1->Channels();}
 private:
     std::shared_ptr<Texture> tex1;
     std::shared_ptr<Texture> tex2;
@@ -209,14 +217,123 @@ class UVTexture : public Texture {
 public:
     virtual ~UVTexture() = default;
     glm::vec3 Evaluate(const SurfaceInteraction& interaction) const override{
-        return {interaction.uv,0};
+        return colorScale * glm::vec3{interaction.uv,0};
     }
+    virtual int Channels() const {return 3;}
 };
 
 class NormalTexture : public Texture {
 public:
     virtual ~NormalTexture() = default;
     glm::vec3 Evaluate(const SurfaceInteraction& interaction) const override{
-        return interaction.ns;
+        return colorScale * interaction.ns;
     }
+    virtual int Channels() const {return 3;}
 };
+
+
+
+
+
+/*
+template <typename T>
+class Texture2 {
+public:
+    virtual T Evaluate(const SurfaceInteraction& interaction) const = 0;
+    virtual ~Texture2() = default;
+};
+
+template <typename T>
+class SolidTexture : public Texture2<T>{
+public:
+    SolidTexture(const T& val) : value{val} {}
+    T Evaluate(const SurfaceInteraction& interaction) const{
+        return value;
+    }
+protected:
+    T value;
+};
+
+template <typename T, typename U>
+class ConvolutedTexture : public Texture2<U>{
+public:
+    ConvolutedTexture(const std::shared_ptr<Texture2<T>>& tex1, const std::shared_ptr<Texture2<U>>& tex2) : texture1{tex1}, texture2{tex2} {}
+    U Evaluate(const SurfaceInteraction& interaction) const{
+        return texture1->Evaluate(interaction) * texture2->Evaluate(interaction);
+    }
+protected:
+    std::shared_ptr<Texture<T>> texture1;
+    std::shared_ptr<Texture<U>> texture2;
+};
+
+template <typename T>
+class ImageTexture2 : public Texture2<T>{
+public:
+    ImageTexture(const std::string& file, bool gammaCorrect = false, bool invert = false, int activeChannelMask = 0b1111) {
+        //mask says what channels to take
+
+        if(invert)
+            stbi_set_flip_vertically_on_load(true);
+        
+        unsigned char* tempData = stbi_load(file.data(),&width,&height,&channels,4);
+        if(tempData == nullptr){
+            std::cerr<<"Failed to load image: "<<file<<std::endl;
+            std::abort();
+        }
+        if(gammaCorrect){
+            for(int y = 0;y<height;y++){
+                for(int x = 0;x<width;x++){
+                    for(int i = 0;i<3;i++){//3 becouse never do gammaCorrection on alpha
+                        tempData[(y*width + x)*channels + i] = sRGBLUT[tempData[(y*width + x)*channels + i]];
+                    }
+                }
+            }
+        }
+        int activeChannels =    ((activeChannelMask & 0b1000) >> 3) + 
+                                ((activeChannelMask & 0b0100) >> 2) + 
+                                ((activeChannelMask & 0b0010) >> 1) + 
+                                ((activeChannelMask & 0b0001) >> 0);
+        data = new unsigned char[width*height*activeChannels];
+        for(int y = 0;y<height;y++){
+            for(int x = 0;x<width;x++){
+                for(int i = 0;i<activeChannels;i++){//3 becouse never do gammaCorrection on alpha
+                    data[(y*width + x)*activeChannels + i];
+                }
+            }
+        }
+        channels = activeChannels;
+        if(invert)
+            stbi_set_flip_vertically_on_load(false);
+        stbi_image_free((void*)tempData);
+    }
+
+    ~ImageTexture() {
+        stbi_image_free((void*)data);
+    }
+
+    T Evaluate(const SurfaceInteraction& interaction) const{
+        return value;
+    }
+protected:
+    
+    unsigned char* data;
+    int width;
+    int height;
+    int channels;
+};
+
+template <typename T>
+class HDRImageTexture : public Texture2<T>{
+public:
+    ~HDRImageTexture() {
+        stbi_image_free((void*)data);
+    }
+protected:
+    float* data;
+    int width;
+    int height;
+    int channels;
+};
+
+
+*/

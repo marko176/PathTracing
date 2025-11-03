@@ -43,7 +43,7 @@ void UniformLightSampler::PreProcess(const AABB& bbox){
     std::vector<std::shared_ptr<Light>> culledLights; 
     for(const std::shared_ptr<Light>& light : lights){
         light->PreProcess(bbox);
-        if(light->Power()<0.001f)continue;
+        if(light->Power()<0.01f)continue;
         culledLights.push_back(light);
     }
     lights = culledLights;
@@ -129,7 +129,7 @@ void PowerLightSampler::PreProcess(const AABB& bbox){
     std::vector<std::shared_ptr<Light>> culledLights; //we cull lights with very small power
     for(const std::shared_ptr<Light>& light : lights){
         light->PreProcess(bbox);
-        if(light->Power()<0.001f)continue;
+        if(light->Power()<0.01f)continue;
         lightPowers.push_back(light->Power());
         culledLights.push_back(light);
         totalPower += lightPowers.back();

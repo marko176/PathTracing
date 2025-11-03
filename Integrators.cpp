@@ -64,10 +64,10 @@ void TileIntegrator::Render() const {
                                 estimator[k].Add(color[k]);
                             
                         }
-                        float k = 1.5;//1.5
+                        float k = 1.5;
                         if( estimator[0].RelativeVariance() <= k &&
                             estimator[1].RelativeVariance() <= k &&
-                            estimator[2].RelativeVariance() <= k)break;
+                            estimator[2].RelativeVariance() <= k )break;
                     }
             
                 }
@@ -145,7 +145,7 @@ glm::vec3 PathIntegrator::Li(Ray ray) const {
     while(depth++<maxDepth && (attenuation.x + attenuation.y + attenuation.z) != 0.0f){
         SurfaceInteraction interaction;
         
-        if(!Intersect(ray,interaction,1e30f)){
+        if(!Intersect(ray,interaction,std::numeric_limits<float>::infinity())){
             for(auto&& light : scene->infiniteLights){
                 glm::vec3 L = light->Le(ray);
                 if(spec){
@@ -177,6 +177,7 @@ glm::vec3 PathIntegrator::Li(Ray ray) const {
         }
         
         if(!interaction.mat){
+            spec = true;
             ray.origin = ray.at(interaction.t);
             continue;
         }
@@ -207,10 +208,10 @@ glm::vec3 PathIntegrator::Li(Ray ray) const {
             continue;
         }
     
-        spec = bxdf->isSpecular();
+        spec = bxdf->isSpecular();//is diffuse or is glossy !
         if(!spec){
-            prevPDF = interaction.mat->PDF(ray,interaction,new_ray);
             output += attenuation * SampleLd(ray,interaction,light_selection_random_variable,light_random_variables);
+            prevPDF = interaction.mat->PDF(ray,interaction,new_ray);
         }
         attenuation *= bxdf->f * std::abs(glm::dot(interaction.ns,new_ray.dir)) / bxdf->pdf;
         
@@ -231,7 +232,7 @@ glm::vec3 PathIntegrator::SampleLd(const Ray& ray,const SurfaceInteraction& inte
     if(sampled_light == nullptr)return {0,0,0};
     LightSample lightSample = sampled_light->sample(UV, ray.time);
     glm::vec3 lightDir;
-    float t = 0;
+    float t;
     if(lightSample.isDeltaInteraction()){
         lightDir = lightSample.dir;
         t = std::numeric_limits<float>::infinity();
@@ -371,9 +372,6 @@ glm::vec3 VolPathIntegrator::Li(Ray ray) const {
                 continue;
             }
    
-            
-
-            
 
             //this helps when medium intersect another object
             //when we bounce we will be in same medium as before
@@ -384,16 +382,16 @@ glm::vec3 VolPathIntegrator::Li(Ray ray) const {
             
             spec = bxdf->isSpecular();
             if(!spec){
-                prevPDF = interaction.mat->PDF(ray,interaction,new_ray);
                 output += attenuation * SampleLd(ray,interaction,light_selection_random_variable,light_random_variables);
+                prevPDF = interaction.mat->PDF(ray,interaction,new_ray);
             }
 
 
             attenuation *= bxdf->f * std::abs(glm::dot(interaction.ns,new_ray.dir)) / bxdf->pdf;
             
-            
             ray = new_ray;
         }
+
         if(rr_depth++>3){
             float rr_prob = std::fmin(0.95f,std::fmaxf(std::fmaxf(attenuation.x, attenuation.y), attenuation.z));
 

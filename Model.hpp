@@ -38,31 +38,22 @@ public:
 
     
 private:
-    enum Format {
-        OBJ,
-        GLTF,
-        ASSBIN,
-        GLB,
-        NONE
-    };
+
 
     std::vector<std::shared_ptr<Texture>> GetTextures(aiMaterial* material) const;
 
-    std::shared_ptr<Material> SetupMaterial(aiMaterial* material) const;
+    //std::shared_ptr<Material> SetupMaterial(aiMaterial* material) const;
 
     std::shared_ptr<Material> SetupOBJMaterial(const std::vector<std::shared_ptr<Texture>>& textures,aiMaterial* material) const;
 
-    static Format GetFormat(const std::string& filepath){
-        static std::unordered_map<std::string,Format> map = {{"obj",OBJ},{"gltf",GLTF},{"assbin",ASSBIN},{"glb",GLB}};
+    static std::string GetFormat(const std::string& filepath){
         std::size_t index = filepath.find_last_of('.');
-        if(index == std::string::npos)return NONE;
+        if(index == std::string::npos)return "";
         std::string tmp = filepath.substr(index+1);
         std::transform(tmp.begin(),tmp.end(),tmp.begin(),[](unsigned char c){
             return std::tolower(c);
         });
-        auto it = map.find(tmp);
-        if(it == map.end())return NONE;
-        return it->second;
+        return tmp;
     }
 
     static std::string GetModelDirectory(const std::string& filepath){

@@ -28,6 +28,9 @@ private:
     std::shared_ptr<Material> material;
     std::shared_ptr<AreaLight> areaLight;
     std::shared_ptr<Medium> medium;
+    //maybe still have alpha texture inside material ... and do material->alpha()
+    //alphaTexture -> should get a from rgba or alpha texture
+    //we must have it here so quad,sphere can use it
 };
 
 

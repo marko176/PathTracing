@@ -16,7 +16,7 @@ public:
     ResourceManager(const ResourceManager&) = delete;
 	ResourceManager& operator=(const ResourceManager&) = delete;
     
-    [[nodiscard]] std::shared_ptr<Texture> GetImageTexture(const std::string& path, bool gammaCorrection = false);//maybe get image?
+    [[nodiscard]] std::shared_ptr<Texture> GetImageTexture(const std::string& path, bool gammaCorrection = false,const glm::vec3& colorScale = glm::vec3(1), bool invert = false);//maybe get image?
 
 
     template <typename T, typename... Args>

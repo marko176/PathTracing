@@ -16,13 +16,8 @@ public:
             axis[1] = glm::normalize(glm::cross(axis[2], a));
             axis[0] = glm::cross(axis[2],axis[1]);
         }else{    
-            axis[0] = glm::normalize(interaction.tangent - axis[2] * glm::dot(axis[2],interaction.tangent));     // T 
+            axis[0] = glm::normalize(interaction.tangent - axis[2] * glm::dot(axis[2],interaction.tangent));      
             axis[1] = glm::cross(axis[2],axis[0]);
-            if(glm::dot(axis[1],interaction.bitangent)<0){
-                axis[0]=-axis[0];
-                axis[1]=-axis[1];
-            }
-
         }
     }
 

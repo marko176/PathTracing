@@ -196,10 +196,10 @@ bool TriangleShape::Intersect(const Ray& ray, SurfaceInteraction& interaction,fl
     float w = 1.0f - u - v;
     
     glm::vec2 uv =  u * mesh->texCoords[index1] +
-                    v * mesh->texCoords[index2]+
+                    v * mesh->texCoords[index2] +
                     w * mesh->texCoords[index0];
 
-    if(random_float()>mesh->material->Alpha(uv.x,uv.y))return 0;
+    //if(!mesh->material->Alpha(uv.x,uv.y))return false;//alpha = true when opaque
     glm::vec3 norm_normal = glm::normalize( u * mesh->normals[index1] +
                                             v * mesh->normals[index2] +
                                             w * mesh->normals[index0]);
@@ -220,18 +220,15 @@ bool TriangleShape::Intersect(const Ray& ray, SurfaceInteraction& interaction,fl
     interaction.uv = uv;
     interaction.p = ray.at(t) + shadowEpsilon * N;
     interaction.AreaLight = nullptr;
-    interaction.mat = mesh->material;
     if(!mesh->tangents.empty()){
         glm::vec3 tangent =  u * mesh->tangents[index1] +
                             v * mesh->tangents[index2]+
                             w * mesh->tangents[index0];
-        interaction.tangent = glm::normalize(tangent);
-        glm::vec3 bitangent =  u * mesh->bitangents[index1] +
-                                v * mesh->bitangents[index2]+
-                                w * mesh->bitangents[index0];
-        interaction.bitangent = glm::normalize(bitangent);
-        //we should jsut get pointer to texture then not store tangent and bitangent in interaction!!! pbrt does that -> same for albedo?
-        interaction.ns = interaction.mat->sample_normalMap(interaction);
+        interaction.tangent = glm::normalize(tangent - interaction.ns * glm::dot(interaction.ns, tangent));
+        //glm::vec3 bitangent = glm::cross(interaction.ns, tangent);
+        //interaction.bitangent = glm::normalize(bitangent);
+
+        interaction.ns = mesh->material->sample_normalMap(interaction);
     }else{
         interaction.tangent = glm::vec3(0,0,0);
     }
@@ -250,7 +247,8 @@ bool TriangleShape::IntersectPred(const Ray& ray, float max) const {
                                                                     ,mesh->vertices[index1]
                                                                     ,mesh->vertices[index2],baryPos,t);
     if(!hit_triangle || t > max || t < shadowEpsilon)return false;
-        
+       
+    /* 
     float u = baryPos.x;
     float v = baryPos.y;
     float w = 1.0f - u - v;
@@ -259,9 +257,9 @@ bool TriangleShape::IntersectPred(const Ray& ray, float max) const {
     glm::vec2 uv =  u * mesh->texCoords[index1] +
                     v * mesh->texCoords[index2]+
                     w * mesh->texCoords[index0];
-
+    */
    
-    return random_float()<=mesh->material->Alpha(uv.x,uv.y);
+    return true;//mesh->material->Alpha(uv.x,uv.y);
 }
 
 AABB TriangleShape::BoundingBox() const {
@@ -285,11 +283,7 @@ SurfaceInteraction TriangleShape::Sample(const glm::vec2& u) const {
     if(n.x != n.x){
         n = {0,0,0};
     }
-    
 
-
-    //glm::vec3 p = u.x * mesh->normals[mesh->indices[index1]] + u.y * mesh->normals[mesh->indices[index2]] + w * mesh->normals[mesh->indices[index0]];
-    
     glm::vec3 p = u.x * mesh->vertices[index1] + u.y * mesh->vertices[index2] + w * mesh->vertices[index0];
     glm::vec2 uv =  u.x * mesh->texCoords[index1] +
                     u.y * mesh->texCoords[index2]+
@@ -307,7 +301,6 @@ float TriangleShape::PDF(const GeometricInteraction& interaction) const {
     return 1.0f/area; //need to sample only visible part! -> put into another function for eg sampleCone, PDFCone ?
 }
 float TriangleShape::PDF(const GeometricInteraction& interaction,const Ray& ray) const {
-    
     glm::vec3 to_shape = interaction.p - ray.origin;
     float dist_squared = glm::dot(to_shape,to_shape);
     float light_cosine = std::abs(glm::dot(-ray.dir,interaction.n));

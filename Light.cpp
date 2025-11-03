@@ -276,16 +276,15 @@ float AreaLight::Power() const  {
 }
 
 void AreaLight::PreProcess(const AABB& bbox) {
-    glm::vec3 acc = {0,0,0};
+    glm::dvec3 acc = {0,0,0};
     //have stratified sampler
-    //do multi threading?
-    for(int i = 0;i<512;i++){
-        
-        glm::vec2 uv = {random_float(),random_float()};
-        acc+=emissiveTexture->Evaluate(shape->Sample(uv));
+    int samples = 16*16;
+    StratifiedSampler sampler(std::sqrt(samples),std::sqrt(samples));
+    for(int i = 0;i<samples;i++){
+        acc+=emissiveTexture->Evaluate(shape->Sample(sampler.get2D()));
     }
-    acc/=512;
-    cachedPower = (oneSided ? 1 : 2) * shape->Area() * (acc.x + acc.y + acc.z);
+    acc/=samples;
+    cachedPower = (oneSided ? 1 : 2) * shape->Area() * luminance(acc);
 }
 
 std::shared_ptr<Shape> AreaLight::getShape() const {

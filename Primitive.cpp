@@ -4,17 +4,23 @@ AABB GeometricPrimitive::BoundingBox() const {
     return shape->BoundingBox();
 }
 bool GeometricPrimitive::IntersectPred(const Ray& ray, float max) const {
-    bool hit = shape->IntersectPred(ray,max);
-    //if(material->Alpha()) we need UV coords from intersecpt pred!!
-    return hit;
+    if(material->HasAlpha()){
+        SurfaceInteraction intr;
+        return Intersect(ray,intr,max);
+    }else{
+        return shape->IntersectPred(ray,max);
+    }
 }
 bool GeometricPrimitive::Intersect(const Ray& ray, SurfaceInteraction& interaction, float max) const {
-    bool hit = shape->Intersect(ray,interaction,max);
-    if(hit){
-        interaction.AreaLight = areaLight;
-        interaction.mat = material;
-        interaction.medium = medium;
-    }
+    SurfaceInteraction intr;
+    bool hit = shape->Intersect(ray,intr,max);
+    if(!hit || !material->Alpha(intr.uv.x,intr.uv.y))return false;
+
+    interaction = std::move(intr);
+    interaction.AreaLight = areaLight;
+    interaction.mat = material;
+    interaction.medium = medium;
+    
     return hit;
 }
 
@@ -48,8 +54,6 @@ bool TransformedPrimitive::Intersect(const Ray& ray, SurfaceInteraction& interac
     glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(transform)));
     interaction.p = transform * glm::vec4(temp.p,1);
     interaction.AreaLight = temp.AreaLight;
-    interaction.bitangent = transform * glm::vec4(temp.bitangent,0);
-    if(interaction.bitangent != glm::vec3(0,0,0))interaction.bitangent = glm::normalize(interaction.bitangent);
     interaction.mat = temp.mat;
     interaction.n = glm::normalize(normalMatrix * temp.n);
     interaction.ns = glm::normalize(normalMatrix * temp.ns);

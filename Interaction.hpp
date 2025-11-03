@@ -47,7 +47,6 @@ struct SurfaceInteraction : public GeometricInteraction{
     glm::vec3 ns;
     std::shared_ptr<Material> mat;
     glm::vec3 tangent;
-    glm::vec3 bitangent;
     std::shared_ptr<Light> AreaLight;
 };
 

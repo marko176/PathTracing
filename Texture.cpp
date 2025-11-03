@@ -35,15 +35,13 @@ FloatImage::~FloatImage() {
     stbi_image_free((void*)data);
 }
 
-SolidColor::SolidColor(const glm::vec3& color) : albedo(color) {}
-SolidColor::SolidColor(float r,float g,float b) : albedo(r,g,b) {}
+SolidColor::SolidColor(const glm::vec3& color, const glm::vec3& colorScale, bool invert) : Texture(colorScale,invert),albedo(color) {}
+SolidColor::SolidColor(float r,float g,float b, const glm::vec3& colorScale, bool invert) : Texture(colorScale,invert),albedo(r,g,b) {}
 
 glm::vec3 ImageTexture::texel(int x, int y) const {
     glm::ivec2 p = {x,y};
     return {image.GetChannelAt(p,1),image.GetChannelAt(p,2),image.GetChannelAt(p,3)};
 }
-
-
 
 float ImageTexture::alpha(float u,float v) const {
     if(image.Channels() != 4)return 1;
@@ -55,7 +53,7 @@ float ImageTexture::alpha(float u,float v) const {
     float dx = x - xi;
     float dy = y - yi;
     
-    float a = image.GetChannelAt({xi,yi},4);//image.image.GetChannelAt
+    float a = image.GetChannelAt({xi,yi},4);
     float b = image.GetChannelAt({xi+1,yi},4);
     float c = image.GetChannelAt({xi,yi+1},4);
     float d = image.GetChannelAt({xi+1,yi+1},4);

@@ -8,8 +8,6 @@
 #include <numbers>
 #include <optional>
 
-
-
 template <std::floating_point T>
 inline T FresnelDielectric(T cosTheta_i, T eta) {
     cosTheta_i = glm::clamp<T>(cosTheta_i, -1., 1.);
@@ -70,7 +68,19 @@ public:
     }
 
     float D(const glm::vec3 &wh) const {
+        float cos2Theta = wh.z*wh.z;
+        if(cos2Theta == 0)return 0;
+        float cos4Theta = cos2Theta*cos2Theta;
+        float sin2Theta = std::max<float>(0, 1 - cos2Theta);
+        float sinTheta = std::sqrt(sin2Theta);
+        float cosPhi = sinTheta == 0 ? 1 : glm::clamp(wh.x / sinTheta, -1.0f , 1.0f);
+        float sinPhi = sinTheta == 0 ? 0 : glm::clamp(wh.y / sinTheta, -1.0f , 1.0f);
+        float e = sin2Theta / cos2Theta * ((cosPhi / alphaX)*(cosPhi / alphaX) + (sinPhi / alphaY)*(sinPhi / alphaY));
+        float denom = std::numbers::pi_v<float> * alphaX * alphaY * cos4Theta * (1 + e) * (1 + e);
+        if(denom <= 0)return std::numeric_limits<float>::infinity();
 
+        return 1 / denom;
+        /*
         if (wh.z <= 0.0) return 0.0;
 
         float nx = wh.x;
@@ -91,6 +101,7 @@ public:
         if (denom <= 0.0) return 0.0;
 
         return 1.0 / denom;
+        */
     }
 
     float G1(const glm::vec3& w) const {
@@ -182,18 +193,41 @@ struct Material {
         return interaction.ns;
     }
 
-    virtual std::shared_ptr<Texture> getAlphaMask() const{
-        return nullptr;
+    virtual bool HasAlpha() const {
+        return false;
     }
 
     //glm::vec2 uv or interaction
-    virtual float Alpha(float u,float v) const{
-        return 1;
+    virtual bool Alpha(float u,float v) const{
+        return true;
     }
 };
 
 
-
+enum class AlphaMode{
+    Opaque,
+    Blend,
+    Mask
+};
+struct AlphaTester{
+    AlphaTester(AlphaMode mode, float cutoff = 0.5) : mode(mode), cutoff(cutoff) {}
+    AlphaTester() = default;
+    bool operator()(float alpha) const {
+        switch (mode)
+        {
+        case AlphaMode::Opaque:
+            return true;
+        case AlphaMode::Blend:
+            return random_float()<alpha;
+        case AlphaMode::Mask:
+            return alpha>cutoff;
+        default:
+            return true;
+        }
+    }
+    AlphaMode mode = AlphaMode::Blend;
+    float cutoff = 0.5;
+};
 
 class lambertian : public Material {
 public:
@@ -204,17 +238,16 @@ public:
     std::optional<BxDFSample> scatter(const Ray& incoming, const SurfaceInteraction& interaction, Ray& scattered,float u,const glm::vec2& UV) const final {
         //doesnt support smooth material!
         float roughness = GetRoughness(interaction);
-        float metallic = metallicTexture->Evaluate(interaction).b;//metallic is in b in gltf
+        float metallic = GetMetallic(interaction);//metallic is in b in gltf
 
-
-        onb TBN(glm::dot(incoming.dir,interaction.ns)>0 ? -interaction.ns : interaction.ns); //should be interaction.ns 
+        onb TBN(glm::dot(incoming.dir,interaction.ns)>0 ? -interaction.ns : interaction.ns);
         MicrofacetDistribution dist{roughness,roughness};
         float prob = SampleProb(roughness,metallic);
         glm::vec3 wo = TBN.toLocal(-incoming.dir);
-
         glm::vec3 wi;
+        glm::vec3 wh;
         if(u >= prob){
-            glm::vec3 wh = dist.sampleWh(wo,UV);
+            wh = dist.sampleWh(wo,UV);
             wi = glm::reflect(-wo,wh);
            
         }else{
@@ -228,25 +261,14 @@ public:
             float y = std::sin(phi) * sqrt2;
             
             wi = {x, y, z};
-
+            wh = glm::normalize(wo + wi);
         }
         if(wi.z<=0){
-            //std::cout<<"Not Needed in reflection"<<std::endl;
-            //rare case due to rounding off error
             return std::nullopt;
         }
         scattered = Ray(interaction.p, TBN.toWorld(wi),incoming.time);
         
-        
-        glm::vec3 l = scattered.dir;
-        glm::vec3 h = glm::normalize(l - incoming.dir);
-        
-        float diffuse_pdf = prob * wi.z * std::numbers::inv_pi_v<float>;// max(,0)
-        
-        glm::vec3 wh = TBN.toLocal(h);
-        
-        //float D = DD(wh,alpha,alpha);
-        
+        float diffuse_pdf = prob * wi.z * std::numbers::inv_pi_v<float>;
         
         float specular_pdf = (1.0f - prob) * dist.PDF(wo,wh) / (4 * std::abs(glm::dot(wo,wh)));
         float pdf = diffuse_pdf + specular_pdf;
@@ -257,24 +279,13 @@ public:
         
         glm::vec3 F0 = glm::mix(glm::vec3(0.04f),textureColor,metallic);
         
-        
-        float NdotV = glm::clamp(wo.z,0.00001f,1.0f);//wo.z
-        
-        
-        float VdotH = glm::clamp(glm::dot(-incoming.dir, h), 0.0f, 1.0f);
+        glm::vec3 F = FresnelSchlick(glm::dot(wi,wh), F0);
         
         
-        
-        
-        //float G = geometrySmith(NdotV, NdotL, roughness);
-        //float G = GG(wo,wi,roughness);
-        glm::vec3 F = FresnelSchlick(VdotH, F0);
-        
-        
-        
-        glm::vec3 numerator    = dist.D(wh) * dist.G(wo,wi) * F;
-        float denominator = 4.0f * NdotV * wi.z;
-        
+        glm::vec3 numerator = dist.D(wh) * dist.G(wo,wi) * F;
+        float denominator = std::abs(4.0f * wo.z * wi.z);
+        if(denominator == 0)return std::nullopt;
+
         glm::vec3  specular    = numerator  / denominator;
         
         glm::vec3 kD = (glm::vec3(1.0f) - F) * (1.0f - metallic);
@@ -298,7 +309,11 @@ public:
     }
 
     float GetRoughness(const SurfaceInteraction& interaction) const {
-        return std::max(roughnessTexture->Evaluate(interaction).g, 0.0005f);//roughness is in g slor
+        return std::max(roughnessTexture->Evaluate(interaction).g, 0.0005f);//roughness is in g slot
+    }
+
+    float GetMetallic(const SurfaceInteraction& interaction) const {
+        return metallicTexture->Evaluate(interaction).b;//metallic in b slot
     }
 
     float PDF(const Ray& incoming, const SurfaceInteraction& interaction,const Ray& scattered) const final{
@@ -309,7 +324,7 @@ public:
         glm::vec3 wo = TBN.toLocal(-incoming.dir);
         glm::vec3 wh = TBN.toLocal(glm::normalize(scattered.dir-incoming.dir));
 
-        float prob = SampleProb(roughness,metallicTexture->Evaluate(interaction).b);//metallic is in b in gltf
+        float prob = SampleProb(roughness,GetMetallic(interaction));//metallic is in b in gltf
         
         float diffuse = prob * std::abs(glm::dot(interaction.ns,scattered.dir)) * std::numbers::inv_pi_v<float>;
      
@@ -320,51 +335,26 @@ public:
 
 
     glm::vec3 calc_attenuation(const Ray& incoming, const SurfaceInteraction& interaction, const Ray& scattered) const final {
-
-        glm::vec3 N;
-        //<0 == front face
-        if(glm::dot(incoming.dir,interaction.ns)>0){
-            N = glm::normalize(-interaction.ns);
-        }else {
-            N = glm::normalize(interaction.ns);
-        }
         onb TBN(glm::dot(incoming.dir,interaction.ns)>0 ? -interaction.ns : interaction.ns);  
         glm::vec3 wo = TBN.toLocal(-incoming.dir);
         glm::vec3 wi = TBN.toLocal(scattered.dir);
+        glm::vec3 wh = glm::normalize(wo + wi);
         float roughness = GetRoughness(interaction);
         MicrofacetDistribution dist{roughness,roughness};                   
-        glm::vec3 V = glm::normalize(-incoming.dir);         
-        glm::vec3 L = glm::normalize(scattered.dir); 
+   
 
         
 
-        float metallic = metallicTexture->Evaluate(interaction).b;//metallic is in b in gltf
+        float metallic = GetMetallic(interaction);//metallic is in b in gltf
         glm::vec3 textureColor = tex->Evaluate(interaction);
 
         glm::vec3 F0 = glm::mix(glm::vec3(0.04f),textureColor,metallic);
-        glm::vec3 H = glm::normalize(V + L);
 
-
-        float NdotL = glm::dot(N, L);
-        float NdotV = glm::clamp(glm::dot(N, V),0.00001f,1.0f);//what if abs?
-        //if(NdotL <= 0 )return glm::vec3{0,0,0};
-
-        //float NdotH = glm::clamp(glm::dot(N, H), 0.0f, 1.0f);
-        float VdotH = glm::clamp(glm::dot(V, H), 0.0f, 1.0f);
-
-        glm::vec3 F = FresnelSchlick(VdotH, F0);
-
-       
-
-
-        //onb TBN(interaction);//switch to interaction for multimesh models -> need to put tangent and bitangent on quad intersection!!!!
-
-
-        glm::vec3 wh = TBN.toLocal(H);
+        glm::vec3 F = FresnelSchlick(glm::dot(wi,wh), F0);
 
         glm::vec3 numerator = dist.D(wh) * dist.G(wo,wi) * F;
-        float denominator = 4.0f * NdotV * NdotL;
-
+        float denominator = std::abs(4.0f * wo.z * wi.z);
+        if(denominator == 0)return {0,0,0};
         glm::vec3  specular    = numerator  / denominator;
         
         glm::vec3 kD = (glm::vec3(1.0f) - F) * (1.0f - metallic);
@@ -376,14 +366,19 @@ public:
 
   
     
-    std::shared_ptr<Texture> getAlphaMask() const final {
-        return alpha;
+    bool HasAlpha() const final {
+        return alphaTester.mode != AlphaMode::Opaque && (alpha != nullptr || tex->Channels() == 4);//must test 
     }
-    float Alpha(float u,float v) const final {
+
+    //tex always has just RGB
+    //alpha is handled in geometric primitive?
+    bool Alpha(float u,float v) const final {
+        if(!HasAlpha())return true;
+        float a = 0;
         if(alpha){
-            return alpha->Evaluate(SurfaceInteraction({0,0,0},{0,0,0},{u,v})).x;//alpha->color_value(u,v).x
-        }
-        return tex->alpha(u,v);//should just give 1 channel tex->getChannel( 3 );
+            a = alpha->Evaluate(SurfaceInteraction({0,0,0},{0,0,0},{u,v})).x;//alpha->color_value(u,v).x
+        }else a = tex->alpha(u,v);//should just give 1 channel tex->getChannel( 3 );
+        return alphaTester(a);
     }
     
     glm::vec3 sample_normalMap(const SurfaceInteraction& interaction) const final {
@@ -392,12 +387,16 @@ public:
         return onb(interaction).toWorld(n_norm);
     }
 
+    void setAlphaTester(AlphaTester tester){
+        alphaTester = tester;
+    }
 private:
     std::shared_ptr<Texture> tex;
     std::shared_ptr<Texture> norm;
     std::shared_ptr<Texture> roughnessTexture;
     std::shared_ptr<Texture> metallicTexture;
     std::shared_ptr<Texture> alpha;
+    AlphaTester alphaTester;
 };
 
 class MicrofacetDielectric : public Material {
@@ -405,114 +404,115 @@ public:
     virtual ~MicrofacetDielectric() = default;
     MicrofacetDielectric(float refIndex,const glm::vec3& albedo) : MicrofacetDielectric(refIndex,std::make_shared<SolidColor>(albedo)) {}
     MicrofacetDielectric(float refIndex,float roughness, const glm::vec3& albedo) : MicrofacetDielectric(refIndex,std::make_shared<SolidColor>(albedo),nullptr,std::make_shared<SolidColor>(glm::vec3(roughness))) {}
-    MicrofacetDielectric(float refIndex,const std::shared_ptr<Texture>& tex,const std::shared_ptr<Texture>& norm = nullptr,const std::shared_ptr<Texture>& roughnessTexture = std::make_shared<SolidColor>(glm::vec3(0.0)),const std::shared_ptr<Texture>& alpha_mask = nullptr) : ri(refIndex), tex(tex), norm(norm), roughnessTexture(roughnessTexture),alpha(alpha_mask) {}
+    MicrofacetDielectric(float refIndex,const std::shared_ptr<Texture>& tex,const std::shared_ptr<Texture>& norm = nullptr,const std::shared_ptr<Texture>& roughnessTexture = std::make_shared<SolidColor>(glm::vec3(0.0)),const std::shared_ptr<Texture>& alpha_mask = nullptr) : ri(refIndex), tex(tex), norm(norm), roughnessTexture(roughnessTexture != nullptr ? roughnessTexture : std::make_shared<SolidColor>(glm::vec3(0))),alpha(alpha_mask) {}
+
+    bool Refract(const glm::vec3& wi, glm::vec3 n, float eta, float *etap, glm::vec3 *wt) const{
+        float cosTheta_i = glm::dot(n, wi);
+
+        if (cosTheta_i < 0) {
+            eta = 1 / eta;
+            cosTheta_i = -cosTheta_i;
+            n = -n;
+        }
+
+        float sin2Theta_i = std::max<float>(0, 1 - cosTheta_i*cosTheta_i);
+        float sin2Theta_t = sin2Theta_i / (eta*eta);
+
+        float cosTheta_t = std::sqrt(std::max<float>(0,1 - sin2Theta_t));
+
+        *wt = -wi / eta + (cosTheta_i / eta - cosTheta_t) * glm::vec3(n);
+
+        if (etap)
+            *etap = eta;
+
+        return true;
+    }
 
     std::optional<BxDFSample> scatter(const Ray& incoming, const SurfaceInteraction& interaction, Ray& scattered,float u,const glm::vec2& UV) const final {
         float roughness = GetRoughness(interaction);
         MicrofacetDistribution dist{roughness,roughness};
         onb TBN(interaction);
+        //eta should be just 1.5
+        //onb TBN(glm::dot(incoming.dir,interaction.ns)>0 ? -interaction.ns : interaction.ns);  
+        //front_face = glm::dot(incoming.dir,interaction.ns)<0
         glm::vec3 wo = TBN.toLocal(-incoming.dir);
         //this is wrong whould be dot(wo,wh) but it is always > 0
         float eta = glm::dot(-incoming.dir,interaction.ns) > 0 ? 1/ri : ri;//was interaction.ns
-        if(dist.isSmooth()){
-            glm::vec3 N;
+        if(ri == 1 || dist.isSmooth()){
+            glm::vec3 N = glm::dot(incoming.dir,interaction.ns)>0 ? -interaction.ns : interaction.ns;
             
             glm::vec3 Ng = glm::dot(incoming.dir,interaction.n)>0 ? -interaction.n : interaction.n;
-
-            //<0 == front face
-            if(glm::dot(incoming.dir,interaction.ns)>0){
-                N = -interaction.ns;
-            }else {
-                N = interaction.ns;
-            }
-            
-            float F = FresnelDielectric(glm::dot(-incoming.dir,interaction.ns),ri);//should be r?
+      
+            float F = FresnelDielectric(wo.z,ri);//should be r?
     
             float R = F;
             float T = 1.0f - R;
             
             glm::vec3 dir;
+            glm::vec3 f;
+            float pdf;
             if(u < (R / (R + T))){
                 
                 dir = TBN.toWorld({-wo.x,-wo.y,wo.z});
                
                 glm::vec3 point = incoming.at(interaction.t) + shadowEpsilon * Ng;
                 scattered = Ray{point ,dir,incoming.time};
+                f = tex->Evaluate(interaction) * R / std::abs(glm::dot(interaction.ns,dir));
+                pdf = R / (R + T);
             }else{
+                
                 dir = glm::refract(incoming.dir,N,eta);
                 
                 if(dir == glm::vec3(0,0,0))return std::nullopt;
                 glm::vec3 point = incoming.at(interaction.t) - shadowEpsilon * Ng;
                 scattered = Ray{point,dir,incoming.time};
+                f = tex->Evaluate(interaction) * T / std::abs(glm::dot(interaction.ns,dir));
+                pdf = T / (R + T);
             }
 
             
-            return BxDFSample{tex->Evaluate(interaction) / std::abs(glm::dot(interaction.ns,dir)),1,BxDFFlags::Transmissive | BxDFFlags::Specular};
-        }
-
-        
-        
-
-
-        glm::vec3 wh = dist.sampleWh(wo,UV);
-
-        glm::vec3 Ng = glm::dot(incoming.dir,interaction.n)>0 ? -interaction.n : interaction.n;
-
-        
-        float F = FresnelDielectric<float>(glm::dot(wo,wh),1/eta);//glm::dot(wo,wh) , wrong becouse it is always > 0
-        float R = F;
-        float T = 1 - R;
-        glm::vec3 wi;
-
-        bool reflect = false;
-        if(u < (R / (R + T))){
-            reflect = true;
-            wi = glm::reflect(-wo, wh);
-            if(wo.z * wi.z < 0)return std::nullopt;
-
-            glm::vec3 point = incoming.at(interaction.t) + shadowEpsilon * Ng;
-            scattered = Ray{point,TBN.toWorld(wi),incoming.time};
+            return BxDFSample{f,pdf,BxDFFlags::Transmissive | BxDFFlags::Specular};
         }else{
-            wi = glm::refract(-wo,wh,eta);
-            
-            if(wo.z * wi.z > 0 || wi.z == 0)return std::nullopt;
-            glm::vec3 point = incoming.at(interaction.t) - shadowEpsilon * Ng;
-            scattered = Ray{point,TBN.toWorld(wi),incoming.time};
-        }  
-
-
-        float cosTheta_o = wo.z;
-        float cosTheta_i = wi.z;
-        if (cosTheta_i == 0 || cosTheta_o == 0 ) return std::nullopt;
-
-        if(wh.z<0)wh = -wh;
-        
-        if (glm::dot(wh, wi) * cosTheta_i < 0.0 || glm::dot(wh, wo) * cosTheta_o < 0.0)
-            return std::nullopt;
-        
-        glm::vec3 textureColor = tex->Evaluate(interaction);
-
-        glm::vec3 f;
-        float pdf;
-        
-        if (reflect) {
-        
-            pdf = dist.PDF(wo,wh) / (4 * std::abs(glm::dot(wo, wh))) * R / (R + T);
-            f = textureColor * dist.D(wh) * dist.G(wo,wi) * F / std::abs(4 * cosTheta_i * cosTheta_o);
-        } else {    
-
-            
-
-            float denom = (glm::dot(wi, wh) + glm::dot(wo, wh) * eta)*(glm::dot(wi, wh) + glm::dot(wo, wh) * eta);
-            float dwh_dwi = std::abs(glm::dot(wi, wh)) / denom;
-
-            pdf = dist.PDF(wo,wh) * dwh_dwi /* *T*/ / (R + T);
-            float ft =  /*(glm::vec3(1) - F) * */ dist.G(wo,wi) *
-                        std::abs(glm::dot(wi, wh) * glm::dot(wo, wh) / (denom * cosTheta_i * cosTheta_o));
-            f = textureColor * dist.D(wh) * ft;
+            glm::vec3 wh = dist.sampleWh(wo,UV);
+    
+            glm::vec3 Ng = glm::dot(incoming.dir,interaction.n)>0 ? -interaction.n : interaction.n;
+    
+            //this here causes energy loss? 1/eta 
+            //wh.z > 0 always?
+            float F = FresnelDielectric<float>(glm::dot(wo,wh),1/eta);//glm::dot(wo,wh) , wrong becouse it is always > 0
+            float R = F;
+            float T = 1 - R;
+            glm::vec3 wi;
+    
+            if(u < (R / (R + T))){
+                wi = glm::reflect(-wo, wh);
+                if(wo.z * wi.z < 0)return std::nullopt;
+    
+                glm::vec3 point = incoming.at(interaction.t) + shadowEpsilon * Ng;
+                scattered = Ray{point,TBN.toWorld(wi),incoming.time};
+    
+                float pdf = dist.PDF(wo,wh) / (4 * std::abs(glm::dot(wo, wh))) * R / (R + T);
+                glm::vec3 f = tex->Evaluate(interaction) * dist.D(wh) * dist.G(wo,wi) * R / std::abs(4 * wi.z * wo.z);
+                
+                return BxDFSample{f,pdf,BxDFFlags::Transmissive | (roughness < 0.001f ? BxDFFlags::Specular : BxDFFlags::None)};
+            }else{
+                wi = glm::refract(-wo,wh,eta);//wrong eta?
+                //bool tir = !Refract(wo,wh,ri,&eta,&wi);
+                if(wo.z * wi.z > 0 || wi.z == 0)return std::nullopt;
+                glm::vec3 point = incoming.at(interaction.t) - shadowEpsilon * Ng;
+                scattered = Ray{point,TBN.toWorld(wi),incoming.time};
+    
+                float denom = (glm::dot(wi, wh) + glm::dot(wo, wh) * eta)*(glm::dot(wi, wh) + glm::dot(wo, wh) * eta);
+                float dwh_dwi = std::abs(glm::dot(wi, wh)) / denom;
+    
+                float pdf = dist.PDF(wo,wh) * dwh_dwi * T / (R + T);
+                
+                float ft =  T * dist.D(wh) * dist.G(wo,wi) * std::abs(glm::dot(wi, wh) * glm::dot(wo, wh) / (denom * wi.z * wo.z));
+                glm::vec3 f = tex->Evaluate(interaction) * ft;
+                
+                return BxDFSample{f,pdf,BxDFFlags::Transmissive | (roughness < 0.001f ? BxDFFlags::Specular : BxDFFlags::None)};
+            }  
         }
-
-        return BxDFSample{f,pdf,BxDFFlags::Transmissive | (roughness < 0.001f ? BxDFFlags::Specular : BxDFFlags::None)};
     }
 
     float GetRoughness(const SurfaceInteraction& interaction) const {
@@ -523,7 +523,7 @@ public:
     float PDF(const Ray& incoming, const SurfaceInteraction& interaction,const Ray& scattered) const final{
         float roughness = GetRoughness(interaction);
         MicrofacetDistribution dist{roughness,roughness};
-        if(dist.isSmooth())return 0;
+        if(ri == 1 || dist.isSmooth())return 0;
 
         onb TBN(interaction);
 
@@ -542,12 +542,12 @@ public:
         if (cosTheta_i == 0 || cosTheta_o == 0 || glm::dot(wh,wh) == 0) return 0;
         wh = glm::normalize(wh);
         if(wh.z<0)wh = -wh;
-        //this causes problems
+
         if (glm::dot(wh, wi) * cosTheta_i < 0.0 || glm::dot(wh, wo) * cosTheta_o < 0.0)
             return 0;
         
-        //float F = FresnelSchlick(std::abs(glm::dot(wo,wh)),glm::vec3(0.04)).x;
-        float F = FresnelDielectric<float>(glm::dot(wo,wh),glm::dot(-incoming.dir,interaction.ns) > 0 ? ri : 1/ri);
+       
+        float F = FresnelDielectric<float>(glm::dot(wo,wh),ri);
         float R = F;
         float T = 1 - R;
 
@@ -572,7 +572,7 @@ public:
         
         float roughness = GetRoughness(interaction);
         MicrofacetDistribution dist{roughness,roughness};
-        if(dist.isSmooth())return {0,0,0};
+        if(ri == 1 || dist.isSmooth())return {0,0,0};
 
         onb TBN(interaction);
         glm::vec3 wo = TBN.toLocal(-incoming.dir);
@@ -591,11 +591,11 @@ public:
         wh = glm::normalize(wh);
         if(wh.z<0)wh = -wh;
 
-        //this causes problems
         if (glm::dot(wh, wi) * cosTheta_i < 0.0 || glm::dot(wh, wo) * cosTheta_o < 0.0)
             return {0,0,0};
        
-        float F = FresnelDielectric<float>(glm::dot(wo,wh),glm::dot(-incoming.dir,interaction.ns) > 0 ? ri : 1/ri);
+
+        float F = FresnelDielectric<float>(glm::dot(wo,wh),ri);
         glm::vec3 textureColor = tex->Evaluate(interaction);
         if (reflect) {
             return textureColor * dist.D(wh) * dist.G(wo,wi) * F / std::abs(4 * cosTheta_i * cosTheta_o);
@@ -608,20 +608,27 @@ public:
 
   
     
-    std::shared_ptr<Texture> getAlphaMask() const final {
-        return alpha;
+    bool HasAlpha() const final {
+        return alphaTester.mode != AlphaMode::Opaque && (alpha != nullptr || tex->Channels() == 4);//must test 
     }
-    float Alpha(float u,float v) const final {
+
+    bool Alpha(float u,float v) const final {
+        if(!HasAlpha())return true;
+        float a = 0;
         if(alpha){
-            return alpha->Evaluate(SurfaceInteraction({0,0,0},{0,0,0},{u,v})).x;//alpha->color_value(u,v).x
-        }
-        return tex->alpha(u,v);//should just give 1 channel tex->getChannel( 3 );
+            a = alpha->Evaluate(SurfaceInteraction({0,0,0},{0,0,0},{u,v})).x;//alpha->color_value(u,v).x
+        }else a = tex->alpha(u,v);//should just give 1 channel tex->getChannel( 3 );
+        return alphaTester(a);
     }
     
     glm::vec3 sample_normalMap(const SurfaceInteraction& interaction) const final {
         if(norm == nullptr)return interaction.ns;
         glm::vec3 n_norm = glm::normalize(2.0f * norm->Evaluate(interaction) - glm::vec3(1,1,1));
         return onb(interaction).toWorld(n_norm);
+    }
+
+    void setAlphaTester(AlphaTester tester){
+        alphaTester = tester;
     }
     
 private:
@@ -630,8 +637,73 @@ private:
     std::shared_ptr<Texture> norm;
     std::shared_ptr<Texture> roughnessTexture;
     std::shared_ptr<Texture> alpha;
+    AlphaTester alphaTester;
 };
 
+
+class ThinDielectric : public Material {
+public:
+    ThinDielectric(float eta,const std::shared_ptr<Texture>& tex) : ri(eta) , albedo(tex != nullptr ? tex : std::make_shared<SolidColor>(glm::vec3(1))){}
+
+    std::optional<BxDFSample> scatter(const Ray& incoming, const SurfaceInteraction& interaction, Ray& scattered,float u,const glm::vec2& UV) const final {
+        onb TBN(interaction);
+        glm::vec3 wo = TBN.toLocal(-incoming.dir);
+        
+        glm::vec3 N = glm::dot(incoming.dir,interaction.ns)>0 ? -interaction.ns : interaction.ns;
+        glm::vec3 Ng = glm::dot(incoming.dir,interaction.n)>0 ? -interaction.n : interaction.n;
+        float F = FresnelDielectric(wo.z,ri);
+
+        float R = F;
+        float T = 1.0f - R;
+        if(R < 1.0f){
+            R += T*T*R / (1.0f - R*R);
+            T = 1.0f-R;
+        }
+        
+        glm::vec3 dir;
+        glm::vec3 f;
+        float pdf;
+        if(u < (R / (R + T))){
+            
+            dir = TBN.toWorld({-wo.x,-wo.y,wo.z});
+           
+            glm::vec3 point = incoming.at(interaction.t) + shadowEpsilon * Ng;
+            scattered = Ray{point ,dir,incoming.time};
+            f = glm::vec3(1,1,1) * R / std::abs(glm::dot(interaction.ns,dir));
+            pdf = R / (R + T);
+        }else{
+            
+            dir = incoming.dir;
+
+            glm::vec3 point = incoming.at(interaction.t) - shadowEpsilon * Ng;
+            scattered = Ray{point,dir,incoming.time};
+            f = glm::vec3(1,1,1) * T / std::abs(glm::dot(interaction.ns,dir));
+            pdf = T / (R + T);
+        }
+        
+        f *= albedo->Evaluate(interaction);//we need alpha
+
+
+        return BxDFSample{f,pdf,BxDFFlags::Transmissive | BxDFFlags::Specular}; 
+    }
+
+    glm::vec3 calc_attenuation(const Ray& incoming, const SurfaceInteraction& interaction, const Ray& scattered) const final {
+        return {0,0,0};
+    }
+
+    float PDF(const Ray& incoming, const SurfaceInteraction& interaction,const Ray& scattered) const final {
+        return 0;
+    }
+
+    bool is_specular(const SurfaceInteraction& interaction) const final{
+        return true;
+    }
+private:
+    //std::shared_ptr<Texture> reflectionTex;//specularColorFactor and tex -> gltf
+    //std::shared_ptr<Texture> transmittanceTex;//transmissionFactor and tex -> gltf 
+    float ri;
+    std::shared_ptr<Texture> albedo;
+};
 //thindielectric
 
 class SpecularConductor : public Material {
