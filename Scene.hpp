@@ -1,6 +1,7 @@
 #pragma once
 #include "AABB.hpp"
 #include "Primitive.hpp"
+#include "BVH.hpp"
 class Medium;
 class Scene {
 public:

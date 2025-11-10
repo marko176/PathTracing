@@ -333,10 +333,8 @@ void TransformedLight::PreProcess(const AABB& bbox) {
 }
 
 float TransformedLight::Power() const  {
-    return light->Power();// * scale of transform;
+    return light->Power() * glm::determinant(transform);
 }
-
-
 
 bool AnimatedLight::isDelta() const  {
     return light->isDelta();

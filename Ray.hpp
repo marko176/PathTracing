@@ -26,10 +26,10 @@ struct Ray{
     std::shared_ptr<Medium> medium = nullptr;
     float time = 0;
     Ray() = default;
-    Ray(const glm::vec3& rayOrigin, const glm::vec3& rayDir,const std::shared_ptr<Medium>& rayMedium = nullptr) : origin(rayOrigin), inv_dir(1.0f/rayDir), dir(rayDir), medium(rayMedium), time(0) {
+    Ray(const glm::vec3& rayOrigin, const glm::vec3& rayDir,const std::shared_ptr<Medium>& rayMedium = nullptr) : origin(rayOrigin), inv_dir{rayDir.x == 0 ? 1e32f : 1.0f/rayDir.x, rayDir.y == 0 ? 1e32f : 1.0f/rayDir.y,rayDir.z == 0 ? 1e32f : 1.0f/rayDir.z}, dir(rayDir), medium(rayMedium), time(0) {
 
     }
-    Ray(const glm::vec3& rayOrigin, const glm::vec3& rayDir,float rayTime, const std::shared_ptr<Medium>& rayMedium = nullptr) : origin(rayOrigin), inv_dir(1.0f/rayDir),dir(rayDir), medium(rayMedium), time(rayTime) {
+    Ray(const glm::vec3& rayOrigin, const glm::vec3& rayDir,float rayTime, const std::shared_ptr<Medium>& rayMedium = nullptr) : origin(rayOrigin), inv_dir{rayDir.x == 0 ? 1e32f : 1.0f/rayDir.x, rayDir.y == 0 ? 1e32f : 1.0f/rayDir.y,rayDir.z == 0 ? 1e32f : 1.0f/rayDir.z},dir(rayDir), medium(rayMedium), time(rayTime) {
 
     }
 

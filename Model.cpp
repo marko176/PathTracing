@@ -35,7 +35,7 @@ Model::Model(const std::string& path){
                 primitives.emplace_back(shape,m->material,area,m->GetMedium());
             }
         }
-        model_bvh = BLAS(std::move(primitives));
+        model_bvh = BLAS4(std::move(primitives));
     }
 }
 
@@ -58,7 +58,7 @@ Model::Model(const std::string& path,const std::shared_ptr<Material>& material, 
                 primitives.emplace_back(shape,material,area,medium);
             }
         }
-        model_bvh = BLAS(std::move(primitives));
+        model_bvh = BLAS4(std::move(primitives));
     }
 }
 
@@ -207,6 +207,8 @@ std::shared_ptr<Material> Model::SetupOBJMaterial(const std::vector<std::shared_
         }
     }
 
+    //we should just add the alpha texture values to the rgb tex values
+
     std::shared_ptr<Texture> albedo = textures[aiTextureType_BASE_COLOR] != nullptr ? textures[aiTextureType_BASE_COLOR] : textures[aiTextureType_DIFFUSE];
     if(albedo == nullptr)albedo = std::make_shared<SolidColor>(glm::vec3{baseColor.r,baseColor.g,baseColor.b});
     std::shared_ptr<Texture> normal = textures[aiTextureType_NORMALS] != nullptr ? textures[aiTextureType_NORMALS] : textures[aiTextureType_HEIGHT];
@@ -216,7 +218,7 @@ std::shared_ptr<Material> Model::SetupOBJMaterial(const std::vector<std::shared_
  
     //alpha texture max 0b1000
     //if we have 4 channels ? stbi_info to get channel count
-
+  
     if(hasTransmission){//hasIor doesnt work for obj
         //dielectric ?
         if(IsThinDielectric){
@@ -229,7 +231,7 @@ std::shared_ptr<Material> Model::SetupOBJMaterial(const std::vector<std::shared_
             return tmp;
         }
     }else if(hasMetallicFactor){
-        auto tmp = std::make_shared<lambertian>(albedo,normal,roughness,metallic,textures[aiTextureType_OPACITY]);
+        auto tmp = std::make_shared<MicrofacetDiffuse>(albedo,normal,roughness,metallic,textures[aiTextureType_OPACITY]);
         tmp->setAlphaTester(alphaTester);//do this with other materials
         return tmp;
     }
@@ -242,11 +244,11 @@ std::shared_ptr<Material> Model::SetupOBJMaterial(const std::vector<std::shared_
         //convolute between base color * diffuse texture
         //aiTextureType_DIFFUSE_ROUGHNESS
         //aiTextureType_DIFFUSE_ROUGHNESS
-        auto tmp = std::make_shared<lambertian>(albedo,normal,roughness,metallic,textures[aiTextureType_OPACITY]);
+        auto tmp = std::make_shared<MicrofacetDiffuse>(albedo,normal,roughness,metallic,textures[aiTextureType_OPACITY]);
         tmp->setAlphaTester(alphaTester);//do this with other materials
         return tmp;
     }else{
-        mat = std::make_shared<lambertian>(glm::vec3(.65, .05, .05));
+        mat = std::make_shared<MicrofacetDiffuse>(glm::vec3(.65, .05, .05));
 
         //should be for eg galss get index of refraction
         
@@ -278,6 +280,7 @@ std::shared_ptr<Material> Model::SetupOBJMaterial(const std::vector<std::shared_
             
             mat = std::make_shared<MicrofacetDielectric>(1.5,0,glm::vec3(1));//maybe set as color kdlum ?? not the same
         }
+
         if(material->Get(AI_MATKEY_REFRACTI,ior) == AI_SUCCESS){
             aiColor3D Kd(1,1,1), Ks(0,0,0);
             material->Get(AI_MATKEY_COLOR_DIFFUSE,  Kd);
@@ -313,7 +316,7 @@ std::shared_ptr<Material> Model::SetupOBJMaterial(const std::vector<std::shared_
                 float g = Kd.g;
                 float b = Kd.b;
                 auto color = std::make_shared<SolidColor>(glm::vec3(r,g,b));
-                mat = std::make_shared<lambertian>(color);
+                mat = std::make_shared<MicrofacetDiffuse>(color);
     
                 //std::cout<<Kd.r << " " <<Kd.g << " "<<Kd.b << " "<< " "<<ksLum<<"\n";
             }
@@ -343,7 +346,6 @@ std::shared_ptr<Mesh> Model::process_mesh(aiMesh* mesh, const aiScene* scene) {
     texCoords.reserve(n*3/2);
     indices.reserve(n*3/2);
     for(unsigned int i = 0;i<n;i++){
-    
         if(mesh->HasPositions()){
             glm::vec3 pos = {mesh->mVertices[i].x,mesh->mVertices[i].y,mesh->mVertices[i].z};
             vertices.push_back(pos);
@@ -391,16 +393,12 @@ std::shared_ptr<Mesh> Model::process_mesh(aiMesh* mesh, const aiScene* scene) {
         std::cout<<"distance:"<<distance<<"\n";//to use this we need mesh to shape  -> geometric primitive
         if(material->Get(AI_MATKEY_VOLUME_THICKNESS_FACTOR,thickeness)==AI_SUCCESS && thickeness > 0){
             glm::vec3 sigma_a = -glm::log(glm::vec3(volumeColor.r,volumeColor.g,volumeColor.b)) / distance;
-
-            //was glm::vec3(1) - glm::vec3(volumeColor.r,volumeColor.g,volumeColor.b) and 1/distance
             medium = std::make_shared<HomogeneusMedium>(sigma_a,glm::vec3{0},std::make_shared<HenyeyGreenstein>(0.0),1);
         }
-        //std::shared_ptr<Texture> tmp = std::make_shared<SolidColor>(glm::vec3(.65, .05, .05));
-        //std::shared_ptr<Material> mat = std::make_shared<lambertian>(tmp);
         return ResourceManager::get_instance().getMesh(indices,vertices,tangents,normals,texCoords,mat,textures[aiTextureType_EMISSIVE],medium);
     }
     std::shared_ptr<Texture> tmp = std::make_shared<SolidColor>(glm::vec3(.65, .05, .05));
-    std::shared_ptr<Material> mat = std::make_shared<lambertian>(tmp);
+    std::shared_ptr<Material> mat = std::make_shared<MicrofacetDiffuse>(tmp);
     return ResourceManager::get_instance().getMesh(indices,vertices,tangents,normals,texCoords,mat,nullptr,nullptr);
 }
 

@@ -8,7 +8,6 @@ set(ASSIMP_BUILD_TESTS OFF)
 
 add_subdirectory(assimp)
 
-#set(CMAKE_CXX_COMPILER "/usr/bin/x86_64-linux-gnu-g++-14")
 set(CMAKE_CXX_STANDARD 20) 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -52,11 +51,11 @@ if (MSVC)
 else()
     #add_compile_options(-O3 -march=native -g)
     target_compile_options(PathTracer PRIVATE
-        # Debug: no optimization, include debug info, be very noisy with warnings
+
         $<$<CONFIG:Debug>:-O0;-g;-march=native;-Wall;-Wshadow>
-        # RelWithDebInfo: useful balance (optimized + debug info)
+
         $<$<CONFIG:RelWithDebInfo>:-O2;-g;-march=native;-Wall>
-        # Release: max optimization, strip debug, enable LTO
+
         $<$<CONFIG:Release>:-O3;-g;-march=native>
     )
 endif()

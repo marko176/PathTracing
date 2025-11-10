@@ -4,10 +4,15 @@
 #include <vector>
 #include "AABB.hpp"
 #include "Primitive.hpp"
+#include "BVH.hpp"
 struct aiScene;
 struct aiNode;
 struct aiMesh;
 class aiMaterial;
+
+
+
+
 
 class Material;
 class Model : public Primitive{
@@ -71,6 +76,6 @@ private:
     std::shared_ptr<Mesh> process_mesh(aiMesh* mesh, const aiScene* scene);
 
     std::vector<std::shared_ptr<Mesh>> meshes;
-    BLAS model_bvh;
+    BLAS4 model_bvh;//shared_ptr<bvh_base<T>>
     std::string model_path;
 };

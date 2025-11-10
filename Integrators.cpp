@@ -64,7 +64,7 @@ void TileIntegrator::Render() const {
                                 estimator[k].Add(color[k]);
                             
                         }
-                        float k = 1.5;
+                        float k = 1.5;//lower good for dragon , very low or very high for caustics
                         if( estimator[0].RelativeVariance() <= k &&
                             estimator[1].RelativeVariance() <= k &&
                             estimator[2].RelativeVariance() <= k )break;

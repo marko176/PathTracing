@@ -169,12 +169,8 @@ protected:
 
 struct Material {
     virtual ~Material() = default;
-    virtual std::optional<BxDFSample> scatter(const Ray& incoming, const SurfaceInteraction& interaction, Ray& scattered,float u,const glm::vec2& UV) const {
+    virtual std::optional<BxDFSample> scatter(const Ray& incoming, const SurfaceInteraction& interaction, Ray& scattered,float u,const glm::vec2& uv) const {
         return std::nullopt;
-    }
-
-    virtual glm::vec3 emitted(float u,float v) const {
-        return glm::vec3(0,0,0);
     }
 
     virtual bool is_specular(const SurfaceInteraction& interaction) const {
@@ -229,13 +225,13 @@ struct AlphaTester{
     float cutoff = 0.5;
 };
 
-class lambertian : public Material {
+class MicrofacetDiffuse : public Material {
 public:
-    virtual ~lambertian() = default;
-    lambertian(const glm::vec3& albedo) : lambertian(std::make_shared<SolidColor>(albedo)) {}
-    lambertian(const std::shared_ptr<Texture>& tex,const std::shared_ptr<Texture>& norm = nullptr,const std::shared_ptr<Texture>& roughnessTexture = std::make_shared<SolidColor>(glm::vec3(1)),const std::shared_ptr<Texture>& metallicTexture = std::make_shared<SolidColor>(glm::vec3(0)),const std::shared_ptr<Texture>& alpha_mask = nullptr) : tex(tex), norm(norm), roughnessTexture(roughnessTexture == nullptr ? std::make_shared<SolidColor>(1,1,1) : roughnessTexture), metallicTexture(metallicTexture == nullptr ? std::make_shared<SolidColor>(0,0,0) : metallicTexture),alpha(alpha_mask) {}
+    virtual ~MicrofacetDiffuse() = default;
+    MicrofacetDiffuse(const glm::vec3& albedo) : MicrofacetDiffuse(std::make_shared<SolidColor>(albedo)) {}
+    MicrofacetDiffuse(const std::shared_ptr<Texture>& tex,const std::shared_ptr<Texture>& norm = nullptr,const std::shared_ptr<Texture>& roughnessTexture = std::make_shared<SolidColor>(glm::vec3(1)),const std::shared_ptr<Texture>& metallicTexture = std::make_shared<SolidColor>(glm::vec3(0)),const std::shared_ptr<Texture>& alpha_mask = nullptr) : tex(tex), norm(norm), roughnessTexture(roughnessTexture == nullptr ? std::make_shared<SolidColor>(1,1,1) : roughnessTexture), metallicTexture(metallicTexture == nullptr ? std::make_shared<SolidColor>(0,0,0) : metallicTexture),alpha(alpha_mask) {}
 
-    std::optional<BxDFSample> scatter(const Ray& incoming, const SurfaceInteraction& interaction, Ray& scattered,float u,const glm::vec2& UV) const final {
+    std::optional<BxDFSample> scatter(const Ray& incoming, const SurfaceInteraction& interaction, Ray& scattered,float u,const glm::vec2& uv) const final {
         //doesnt support smooth material!
         float roughness = GetRoughness(interaction);
         float metallic = GetMetallic(interaction);//metallic is in b in gltf
@@ -247,15 +243,15 @@ public:
         glm::vec3 wi;
         glm::vec3 wh;
         if(u >= prob){
-            wh = dist.sampleWh(wo,UV);
+            wh = dist.sampleWh(wo,uv);
             wi = glm::reflect(-wo,wh);
            
         }else{
-            float z = std::sqrt(1.0f - UV.y);
+            float z = std::sqrt(1.0f - uv.y);
 
-            float phi = 2.0f * std::numbers::pi_v<float> * UV.x;
+            float phi = 2.0f * std::numbers::pi_v<float> * uv.x;
 
-            float sqrt2 = std::sqrt(UV.y);
+            float sqrt2 = std::sqrt(uv.y);
             
             float x = std::cos(phi) * sqrt2;
             float y = std::sin(phi) * sqrt2;
@@ -266,7 +262,7 @@ public:
         if(wi.z<=0){
             return std::nullopt;
         }
-        scattered = Ray(interaction.p, TBN.toWorld(wi),incoming.time);
+        
         
         float diffuse_pdf = prob * wi.z * std::numbers::inv_pi_v<float>;
         
@@ -294,6 +290,7 @@ public:
         
         glm::vec3 f = diffuse + specular;
 
+        scattered = Ray(interaction.p, TBN.toWorld(wi),incoming.time);
         return BxDFSample{f,pdf,BxDFFlags::None};
     }
 
@@ -309,7 +306,7 @@ public:
     }
 
     float GetRoughness(const SurfaceInteraction& interaction) const {
-        return std::max(roughnessTexture->Evaluate(interaction).g, 0.0005f);//roughness is in g slot
+        return roughnessTexture->Evaluate(interaction).g;//roughness is in g slot
     }
 
     float GetMetallic(const SurfaceInteraction& interaction) const {
@@ -428,7 +425,7 @@ public:
         return true;
     }
 
-    std::optional<BxDFSample> scatter(const Ray& incoming, const SurfaceInteraction& interaction, Ray& scattered,float u,const glm::vec2& UV) const final {
+    std::optional<BxDFSample> scatter(const Ray& incoming, const SurfaceInteraction& interaction, Ray& scattered,float u,const glm::vec2& uv) const final {
         float roughness = GetRoughness(interaction);
         MicrofacetDistribution dist{roughness,roughness};
         onb TBN(interaction);
@@ -473,7 +470,7 @@ public:
             
             return BxDFSample{f,pdf,BxDFFlags::Transmissive | BxDFFlags::Specular};
         }else{
-            glm::vec3 wh = dist.sampleWh(wo,UV);
+            glm::vec3 wh = dist.sampleWh(wo,uv);
     
             glm::vec3 Ng = glm::dot(incoming.dir,interaction.n)>0 ? -interaction.n : interaction.n;
     
@@ -645,11 +642,10 @@ class ThinDielectric : public Material {
 public:
     ThinDielectric(float eta,const std::shared_ptr<Texture>& tex) : ri(eta) , albedo(tex != nullptr ? tex : std::make_shared<SolidColor>(glm::vec3(1))){}
 
-    std::optional<BxDFSample> scatter(const Ray& incoming, const SurfaceInteraction& interaction, Ray& scattered,float u,const glm::vec2& UV) const final {
+    std::optional<BxDFSample> scatter(const Ray& incoming, const SurfaceInteraction& interaction, Ray& scattered,float u,const glm::vec2& uv) const final {
         onb TBN(interaction);
         glm::vec3 wo = TBN.toLocal(-incoming.dir);
-        
-        glm::vec3 N = glm::dot(incoming.dir,interaction.ns)>0 ? -interaction.ns : interaction.ns;
+    
         glm::vec3 Ng = glm::dot(incoming.dir,interaction.n)>0 ? -interaction.n : interaction.n;
         float F = FresnelDielectric(wo.z,ri);
 
@@ -699,22 +695,19 @@ public:
         return true;
     }
 private:
-    //std::shared_ptr<Texture> reflectionTex;//specularColorFactor and tex -> gltf
-    //std::shared_ptr<Texture> transmittanceTex;//transmissionFactor and tex -> gltf 
     float ri;
     std::shared_ptr<Texture> albedo;
 };
-//thindielectric
+
 
 class SpecularConductor : public Material {
 public:
     SpecularConductor(const glm::vec3& albedo) : albedo(albedo) {}
   
-    std::optional<BxDFSample> scatter(const Ray& incoming, const SurfaceInteraction& interaction, Ray& scattered,float u,const glm::vec2& UV)const final {
+    std::optional<BxDFSample> scatter(const Ray& incoming, const SurfaceInteraction& interaction, Ray& scattered,float u,const glm::vec2& uv)const final {
         scattered = Ray(interaction.p,glm::reflect(incoming.dir,interaction.ns));
         float dot = glm::dot(scattered.dir, interaction.ns);
         if(dot<=0)return std::nullopt;
-
         return BxDFSample{FresnelSchlick(glm::dot(interaction.ns,-incoming.dir), albedo) / dot,1,BxDFFlags::Specular};
     }
 

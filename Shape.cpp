@@ -12,7 +12,8 @@ bool SphereShape::Intersect(const Ray& ray, SurfaceInteraction& interaction, flo
             interaction.t = temp;
             interaction.ns = glm::normalize(ray.at(temp) - center);
             interaction.n = interaction.ns;
-            interaction.tangent = glm::vec3(0,0,0);
+            glm::vec3 up = (std::fabs(interaction.ns.x) > 0.9999f) ? glm::vec3(0, 1, 0) : glm::vec3(1, 0, 0);
+            interaction.tangent = glm::normalize(glm::cross(up,interaction.ns));
             interaction.p = ray.at(temp) + shadowEpsilon * interaction.n;
             interaction.uv = getSphereUV(interaction.n);
             return true;
@@ -22,7 +23,8 @@ bool SphereShape::Intersect(const Ray& ray, SurfaceInteraction& interaction, flo
             interaction.t = temp;
             interaction.ns = glm::normalize(ray.at(temp) - center);
             interaction.n = interaction.ns;
-            interaction.tangent = glm::vec3(0,0,0);
+            glm::vec3 up = (std::fabs(interaction.ns.x) > 0.9999f) ? glm::vec3(0, 1, 0) : glm::vec3(1, 0, 0);
+            interaction.tangent = glm::normalize(glm::cross(up,interaction.ns));
             interaction.p = ray.at(temp) + shadowEpsilon * interaction.n;
             interaction.uv = getSphereUV(interaction.n);
             return true;
@@ -230,7 +232,9 @@ bool TriangleShape::Intersect(const Ray& ray, SurfaceInteraction& interaction,fl
 
         interaction.ns = mesh->material->sample_normalMap(interaction);
     }else{
-        interaction.tangent = glm::vec3(0,0,0);
+        glm::vec3 up = (std::fabs(interaction.ns.x) > 0.9999f) ? glm::vec3(0, 1, 0) : glm::vec3(1, 0, 0);
+        interaction.tangent = glm::normalize(glm::cross(up,interaction.ns));
+        //interaction.ns = mesh->material->sample_normalMap(interaction);
     }
 
     return true;
@@ -329,7 +333,8 @@ bool QuadShape::Intersect(const Ray& ray, SurfaceInteraction& interaction,float 
     interaction.t = t;
     interaction.ns = norm_normal;
     interaction.n = normal;
-    interaction.tangent = glm::vec3(0,0,0);
+    glm::vec3 up = (std::fabs(interaction.ns.x) > 0.9999f) ? glm::vec3(0, 1, 0) : glm::vec3(1, 0, 0);
+    interaction.tangent = glm::normalize(glm::cross(up,interaction.ns));
     interaction.p = ray.at(t) + shadowEpsilon * norm_normal;//was norm_normal
     return true;
 }

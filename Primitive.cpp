@@ -32,7 +32,6 @@ AABB TransformedPrimitive::BoundingBox() const {
     AABB bbox;
     AABB temp = primitive->BoundingBox();
 
-    //maybe simd?
     for(int i = 0;i<8;i++){
         bbox.Expand(transform * glm::vec4(temp.Corner(i),1));
     }
@@ -58,8 +57,7 @@ bool TransformedPrimitive::Intersect(const Ray& ray, SurfaceInteraction& interac
     interaction.n = glm::normalize(normalMatrix * temp.n);
     interaction.ns = glm::normalize(normalMatrix * temp.ns);
     interaction.t = temp.t / length;
-    interaction.tangent = transform * glm::vec4(temp.tangent,0);
-    if(interaction.tangent != glm::vec3(0,0,0))interaction.tangent = glm::normalize(interaction.tangent);
+    interaction.tangent = glm::normalize(transform * glm::vec4(temp.tangent,0));
     interaction.uv = temp.uv;
     interaction.medium = temp.medium;
 
