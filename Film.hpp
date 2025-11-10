@@ -7,7 +7,7 @@
 #include "stb_image_write.h"
 
 
-inline std::filesystem::path findProjectRoot(std::filesystem::path p = std::filesystem::current_path()) {
+inline std::filesystem::path findProjectRoot(std::filesystem::path p = std::filesystem::current_path()){
     while(!p.empty()){
         if(std::filesystem::exists(p / "Release")){
             return p;
@@ -40,7 +40,7 @@ inline glm::dvec3 reinhard_jodie(const glm::dvec3& v){
     return glm::mix(v / (1.0 + l), tv, tv);
 }
 
-inline glm::dvec3 ACESFilm(glm::dvec3 color) {
+inline glm::dvec3 ACESFilm(glm::dvec3 color){
     const double A = 2.51f;
     const double B = 0.03f;
     const double C = 2.43f;
@@ -51,32 +51,32 @@ inline glm::dvec3 ACESFilm(glm::dvec3 color) {
 
 class Film;
 
-struct FilmTilePixel {
-    glm::dvec3 RGB = {0,0,0};
+struct FilmTilePixel{
+    glm::dvec3 RGB = { 0,0,0 };
     double weight = 0;
 };
 
-class FilmTile {
-public: 
+class FilmTile{
+public:
 
-    FilmTile(const Bounds2i& pixelBounds,const Bounds2i& tileBounds, const std::shared_ptr<Filter>& filter) : pixelBounds(pixelBounds), tileBounds(tileBounds) , filter(filter), radius(glm::ceil(filter->Radius() - glm::vec2{0.5,0.5})), oneOverFilterIntegral(1.0 / filter->Integral()){
+    FilmTile(const Bounds2i& pixelBounds, const Bounds2i& tileBounds, const std::shared_ptr<Filter>& filter) : pixelBounds(pixelBounds), tileBounds(tileBounds), filter(filter), radius(glm::ceil(filter->Radius() - glm::vec2 { 0.5,0.5 })), oneOverFilterIntegral(1.0 / filter->Integral()){
         std::size_t tileWidth = tileBounds.max.x - tileBounds.min.x;
         std::size_t tileHeight = tileBounds.max.y - tileBounds.min.y;
         pixels = std::vector<FilmTilePixel>(tileWidth * tileHeight);
     }
 
-    void Add(const glm::dvec2& p, const glm::dvec3& RGB) {
+    void Add(const glm::dvec2& p, const glm::dvec3& RGB){
 
         glm::dvec2 pixelSample = glm::fract(p);
         glm::ivec2 pixel = glm::floor(p);
 
-        for(int y = -radius.y;y<=radius.y;y++){
-            for(int x = -radius.x;x<=radius.x;x++){
-                glm::dvec2 sample_pos = glm::dvec2{x,y} + glm::dvec2{0.5,0.5} - pixelSample;
+        for(int y = -radius.y;y <= radius.y;y++){
+            for(int x = -radius.x;x <= radius.x;x++){
+                glm::dvec2 sample_pos = glm::dvec2 { x,y } + glm::dvec2 { 0.5,0.5 } - pixelSample;
                 double weight = filter->Evaluate(sample_pos) * oneOverFilterIntegral;
-                glm::ivec2 p = glm::ivec2{x,y} + pixel;
-                if(weight<=0 || p.x < tileBounds.min.x || p.y < tileBounds.min.y || p.x >= tileBounds.max.x || p.y >= tileBounds.max.y)continue;
-                FilmTilePixel& tilePixel = At(glm::ivec2{x,y} + pixel);
+                glm::ivec2 p = glm::ivec2 { x,y } + pixel;
+                if(weight <= 0 || p.x < tileBounds.min.x || p.y < tileBounds.min.y || p.x >= tileBounds.max.x || p.y >= tileBounds.max.y)continue;
+                FilmTilePixel& tilePixel = At(glm::ivec2 { x,y } + pixel);
                 tilePixel.RGB += RGB * weight;
                 tilePixel.weight += weight;
 
@@ -84,21 +84,21 @@ public:
         }
     }
 
-    FilmTilePixel& At(const glm::ivec2& p) {
+    FilmTilePixel& At(const glm::ivec2& p){
         std::size_t tileWidth = tileBounds.max.x - tileBounds.min.x;
         return pixels[(p.y - tileBounds.min.y) * tileWidth + (p.x - tileBounds.min.x)];
     }
 
-    const FilmTilePixel& At(const glm::ivec2& p) const {
+    const FilmTilePixel& At(const glm::ivec2& p) const{
         std::size_t tileWidth = tileBounds.max.x - tileBounds.min.x;
         return pixels[(p.y - tileBounds.min.y) * tileWidth + (p.x - tileBounds.min.x)];
     }
 
-    Bounds2i PixelBounds() const {
+    Bounds2i PixelBounds() const{
         return pixelBounds;
     }
 
-    Bounds2i TileBounds() const {
+    Bounds2i TileBounds() const{
         return tileBounds;
     }
 
@@ -112,37 +112,37 @@ private:
     std::vector<FilmTilePixel> pixels;
 };
 
-class Film {
+class Film{
 public:
-    Film(const glm::ivec2& resolution, const std::shared_ptr<Filter>& filter,double maxComponentValue = std::numeric_limits<double>::infinity()) : xResolution(resolution.x), yResolution(resolution.y), screen(resolution.x*resolution.y), filter(filter), maxComponent{maxComponentValue} {
+    Film(const glm::ivec2& resolution, const std::shared_ptr<Filter>& filter, double maxComponentValue = std::numeric_limits<double>::infinity()) : xResolution(resolution.x), yResolution(resolution.y), screen(resolution.x* resolution.y), filter(filter), maxComponent { maxComponentValue }{
 
     }
 
-    FilmTile GetFilmTile(const Bounds2i& bounds) const {
-        glm::ivec2 lowerLeft = glm::clamp(bounds.min - glm::ivec2(glm::ceil(filter->Radius() - glm::vec2{0.5,0.5})),{0,0},{xResolution,yResolution}); 
-        glm::ivec2 upperRight = glm::clamp(bounds.max + glm::ivec2(glm::ceil(filter->Radius() - glm::vec2{0.5,0.5})),{0,0},{xResolution,yResolution}); 
-        Bounds2i tileBounds = {lowerLeft,upperRight};
-        return FilmTile(bounds,tileBounds,filter);
+    FilmTile GetFilmTile(const Bounds2i& bounds) const{
+        glm::ivec2 lowerLeft = glm::clamp(bounds.min - glm::ivec2(glm::ceil(filter->Radius() - glm::vec2 { 0.5,0.5 })), { 0,0 }, { xResolution,yResolution });
+        glm::ivec2 upperRight = glm::clamp(bounds.max + glm::ivec2(glm::ceil(filter->Radius() - glm::vec2 { 0.5,0.5 })), { 0,0 }, { xResolution,yResolution });
+        Bounds2i tileBounds = { lowerLeft,upperRight };
+        return FilmTile(bounds, tileBounds, filter);
     }
 
-    void Merge(const FilmTile& tile) {
-        for(int y = tile.tileBounds.min.y;y<tile.tileBounds.max.y;y++){
-            for(int x = tile.tileBounds.min.x;x<tile.tileBounds.max.x;x++){
-                FilmTilePixel pixel = tile.At({x,y});
-                screen[y*xResolution + x].Add(pixel);
+    void Merge(const FilmTile& tile){
+        for(int y = tile.tileBounds.min.y;y < tile.tileBounds.max.y;y++){
+            for(int x = tile.tileBounds.min.x;x < tile.tileBounds.max.x;x++){
+                FilmTilePixel pixel = tile.At({ x,y });
+                screen[y * xResolution + x].Add(pixel);
             }
         }
     }
 
 
 
-    static std::filesystem::path GetOutputFilePath(const std::string& filename) {
+    static std::filesystem::path GetOutputFilePath(const std::string& filename){
         std::filesystem::path projectRoot = findProjectRoot();
         std::filesystem::path outputDir = projectRoot / "Output";
         std::error_code ec;
         std::filesystem::create_directories(outputDir, ec);
         if(ec){
-            std::cerr << "Failed to create output dir: "<<ec.message()<<"\n";
+            std::cerr << "Failed to create output dir: " << ec.message() << "\n";
             return "";
         }
         return outputDir / (filename);
@@ -154,14 +154,14 @@ public:
         if(filePath.empty())return;
         std::ofstream out(filePath.string() + ".ppm", std::ios::binary);
         out << "P6\n" << xResolution << " " << yResolution << "\n255\n";
-        for(int i = yResolution-1;i>=0;i--){
-            for(int j = 0;j<xResolution;j++){
-                glm::dvec3 color = glm::dvec3{screen[i*xResolution + j].r.load(),screen[i*xResolution + j].g.load(),screen[i*xResolution + j].b.load()} / screen[i*xResolution + j].weight.load();
+        for(int i = yResolution - 1;i >= 0;i--){
+            for(int j = 0;j < xResolution;j++){
+                glm::dvec3 color = glm::dvec3 { screen[i * xResolution + j].r.load(),screen[i * xResolution + j].g.load(),screen[i * xResolution + j].b.load() } / screen[i * xResolution + j].weight.load();
                 color = reinhard_jodie(color);
                 double r = linear_to_sRGB(color.r);
                 double g = linear_to_sRGB(color.g);
                 double b = linear_to_sRGB(color.b);
-                out << (char)(255.999*std::max(0.0,std::min(1.0,r))) << (char)(255.999*std::max(0.,std::min(1.,g))) << (char)(255.999*std::max(0.,std::min(1.,b)));
+                out << (char)(255.999 * std::max(0.0, std::min(1.0, r))) << (char)(255.999 * std::max(0., std::min(1., g))) << (char)(255.999 * std::max(0., std::min(1., b)));
             }
         }
         out.close();
@@ -172,21 +172,21 @@ public:
         if(filePath.empty())return;
         constexpr int channels = 3;
         std::vector<uint8_t> outputImage(screen.size() * channels);
-        for(int i = 0;i<yResolution;i++){
-            for(int j = 0;j<xResolution;j++){
-                glm::dvec3 color = glm::dvec3{screen[i*xResolution + j].r.load(),screen[i*xResolution + j].g.load(),screen[i*xResolution + j].b.load()} / screen[i*xResolution + j].weight.load();
+        for(int i = 0;i < yResolution;i++){
+            for(int j = 0;j < xResolution;j++){
+                glm::dvec3 color = glm::dvec3 { screen[i * xResolution + j].r.load(),screen[i * xResolution + j].g.load(),screen[i * xResolution + j].b.load() } / screen[i * xResolution + j].weight.load();
                 color = reinhard_jodie(color);
                 double r = linear_to_sRGB(color.r);
                 double g = linear_to_sRGB(color.g);
                 double b = linear_to_sRGB(color.b);
-                outputImage[(i*xResolution + j) * 3 + 0] = 255.999*std::max(0.0,std::min(1.0,r));
-                outputImage[(i*xResolution + j) * 3 + 1] = 255.999*std::max(0.0,std::min(1.0,g));
-                outputImage[(i*xResolution + j) * 3 + 2] = 255.999*std::max(0.0,std::min(1.0,b));
+                outputImage[(i * xResolution + j) * 3 + 0] = 255.999 * std::max(0.0, std::min(1.0, r));
+                outputImage[(i * xResolution + j) * 3 + 1] = 255.999 * std::max(0.0, std::min(1.0, g));
+                outputImage[(i * xResolution + j) * 3 + 2] = 255.999 * std::max(0.0, std::min(1.0, b));
             }
         }
         std::string file = filePath.string() + ".png";
         stbi_flip_vertically_on_write(true);
-        stbi_write_png(file.c_str(),xResolution,yResolution,channels,outputImage.data(),xResolution * sizeof(uint8_t) * channels);
+        stbi_write_png(file.c_str(), xResolution, yResolution, channels, outputImage.data(), xResolution * sizeof(uint8_t) * channels);
         stbi_flip_vertically_on_write(false);
     }
 
@@ -196,34 +196,34 @@ public:
         if(filePath.empty())return;
         constexpr int channels = 3;
         std::vector<uint8_t> outputImage(screen.size() * channels);
-        for(int i = 0;i<yResolution;i++){
-            for(int j = 0;j<xResolution;j++){
-                glm::dvec3 color = glm::dvec3{screen[i*xResolution + j].r.load(),screen[i*xResolution + j].g.load(),screen[i*xResolution + j].b.load()} / screen[i*xResolution + j].weight.load();
+        for(int i = 0;i < yResolution;i++){
+            for(int j = 0;j < xResolution;j++){
+                glm::dvec3 color = glm::dvec3 { screen[i * xResolution + j].r.load(),screen[i * xResolution + j].g.load(),screen[i * xResolution + j].b.load() } / screen[i * xResolution + j].weight.load();
                 color = reinhard_jodie(color);
                 double r = linear_to_sRGB(color.r);
                 double g = linear_to_sRGB(color.g);
                 double b = linear_to_sRGB(color.b);
-                outputImage[(i*xResolution + j) * 3 + 0] = 255.999*std::max(0.0,std::min(1.0,r));
-                outputImage[(i*xResolution + j) * 3 + 1] = 255.999*std::max(0.0,std::min(1.0,g));
-                outputImage[(i*xResolution + j) * 3 + 2] = 255.999*std::max(0.0,std::min(1.0,b));
+                outputImage[(i * xResolution + j) * 3 + 0] = 255.999 * std::max(0.0, std::min(1.0, r));
+                outputImage[(i * xResolution + j) * 3 + 1] = 255.999 * std::max(0.0, std::min(1.0, g));
+                outputImage[(i * xResolution + j) * 3 + 2] = 255.999 * std::max(0.0, std::min(1.0, b));
             }
         }
         std::string file = filePath.string() + ".jpg";
         stbi_flip_vertically_on_write(true);
-        stbi_write_jpg(file.c_str(),xResolution,yResolution,channels,outputImage.data(),quality);
+        stbi_write_jpg(file.c_str(), xResolution, yResolution, channels, outputImage.data(), quality);
         stbi_flip_vertically_on_write(false);
     }
 
-    void ReadImage(const std::string& filename) {
+    void ReadImage(const std::string& filename){
         //implement
     }
 
-    glm::ivec2 Resolution() const {
-        return {xResolution,yResolution};
+    glm::ivec2 Resolution() const{
+        return { xResolution,yResolution };
     }
-private:  
+private:
     struct AtomicPixel{
-        AtomicPixel() {
+        AtomicPixel(){
             this->r.store(0);
             this->g.store(0);
             this->b.store(0);
@@ -234,25 +234,25 @@ private:
 
         }
 
-        std::atomic<double> r{0.0};
-        std::atomic<double> g{0.0};
-        std::atomic<double> b{0.0};
-        std::atomic<double> weight{0};
+        std::atomic<double> r { 0.0 };
+        std::atomic<double> g { 0.0 };
+        std::atomic<double> b { 0.0 };
+        std::atomic<double> weight { 0 };
 
-        void Add(const glm::dvec3& RGB , double weight){
-            r.fetch_add(RGB.r,std::memory_order_relaxed);
-            g.fetch_add(RGB.g,std::memory_order_relaxed);
-            b.fetch_add(RGB.b,std::memory_order_relaxed);
-            this->weight.fetch_add(weight,std::memory_order_relaxed);
+        void Add(const glm::dvec3& RGB, double weight){
+            r.fetch_add(RGB.r, std::memory_order_relaxed);
+            g.fetch_add(RGB.g, std::memory_order_relaxed);
+            b.fetch_add(RGB.b, std::memory_order_relaxed);
+            this->weight.fetch_add(weight, std::memory_order_relaxed);
         }
 
         void Add(const FilmTilePixel& pixel){
-            Add(pixel.RGB,pixel.weight);
+            Add(pixel.RGB, pixel.weight);
         }
 
-        AtomicPixel(const AtomicPixel& other) : r(other.r.load()), g(other.g.load()), b(other.b.load()), weight(other.weight.load()) {}
+        AtomicPixel(const AtomicPixel& other) : r(other.r.load()), g(other.g.load()), b(other.b.load()), weight(other.weight.load()){}
 
-        AtomicPixel& operator=(const AtomicPixel& other) {
+        AtomicPixel& operator=(const AtomicPixel& other){
             if(other != *this){
                 r = other.r.load();
                 g = other.g.load();
@@ -262,17 +262,17 @@ private:
             return *this;
         }
 
-        bool operator==(const AtomicPixel& other) const {
+        bool operator==(const AtomicPixel& other) const{
             return r.load() == other.r.load() && g.load() == other.g.load() && b.load() == other.b.load() && weight.load() == other.weight.load();
         }
 
-        bool operator!=(const AtomicPixel& other) const {
+        bool operator!=(const AtomicPixel& other) const{
             return !(other == *this);
         }
     };
     uint16_t xResolution;
     uint16_t yResolution;
-    std::vector<AtomicPixel> screen; 
+    std::vector<AtomicPixel> screen;
     std::shared_ptr<Filter> filter;
     double maxComponent;
 };

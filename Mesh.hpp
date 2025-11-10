@@ -13,67 +13,67 @@
 //should just have medium?
 class Mesh{
 public:
-    Mesh(const std::vector<uint32_t>& indices,const std::vector<glm::vec3>& vertices,const std::vector<glm::vec3>& tangents,const std::vector<glm::vec3>& normals, const std::vector<glm::vec2>& texCoords, const std::shared_ptr<Material>& mat,const std::shared_ptr<Texture>& emissiveTex,const std::shared_ptr<Medium>& meshMedium) : triangle_count(indices.size()/3), vertex_count(vertices.size()), indices(indices), vertices(vertices), tangents(tangents),normals(normals), texCoords(texCoords), material(mat), emissiveTexture(emissiveTex), medium(meshMedium),shapes(std::make_shared<std::vector<TriangleShape>>()) {   
+    Mesh(const std::vector<uint32_t>& indices, const std::vector<glm::vec3>& vertices, const std::vector<glm::vec3>& tangents, const std::vector<glm::vec3>& normals, const std::vector<glm::vec2>& texCoords, const std::shared_ptr<Material>& mat, const std::shared_ptr<Texture>& emissiveTex, const std::shared_ptr<Medium>& meshMedium) : triangle_count(indices.size() / 3), vertex_count(vertices.size()), indices(indices), vertices(vertices), tangents(tangents), normals(normals), texCoords(texCoords), material(mat), emissiveTexture(emissiveTex), medium(meshMedium), shapes(std::make_shared<std::vector<TriangleShape>>()){
         shapes->reserve(triangle_count);
         uint32_t meshIndex = TriangleShape::addMesh(this);
-        for(uint32_t j = 0;j<triangle_count;j++){
-            shapes->emplace_back(meshIndex,j);
+        for(uint32_t j = 0;j < triangle_count;j++){
+            shapes->emplace_back(meshIndex, j);
         }
     }
 
-    uint32_t GetTriangleCount() const {
+    uint32_t GetTriangleCount() const{
         return triangle_count;
     }
 
-    uint32_t GetVertexCount() const {
+    uint32_t GetVertexCount() const{
         return vertex_count;
     }
 
-    std::vector<uint32_t> GetIndices() const {
+    std::vector<uint32_t> GetIndices() const{
         return indices;
     }
 
-    std::vector<glm::vec3> GetVertices() const {
+    std::vector<glm::vec3> GetVertices() const{
         return vertices;
     }
 
-    std::vector<glm::vec3> GetTangents() const {
+    std::vector<glm::vec3> GetTangents() const{
         return tangents;
     }
 
-    std::vector<glm::vec3> GetNormals() const {
+    std::vector<glm::vec3> GetNormals() const{
         return normals;
     }
 
-    std::vector<glm::vec2> GetTexCoords() const {
+    std::vector<glm::vec2> GetTexCoords() const{
         return texCoords;
     }
 
-    std::shared_ptr<Material> GetMaterial() const {
+    std::shared_ptr<Material> GetMaterial() const{
         return material;
     }
 
-    std::shared_ptr<Texture> GetEmissiveTexture() const {
+    std::shared_ptr<Texture> GetEmissiveTexture() const{
         return emissiveTexture;
     }
 
-    std::shared_ptr<Medium> GetMedium() const {
+    std::shared_ptr<Medium> GetMedium() const{
         return medium;
     }
 
-    const std::shared_ptr<std::vector<TriangleShape>>& GetControlPtr() const {
+    const std::shared_ptr<std::vector<TriangleShape>>& GetControlPtr() const{
         return shapes;
     }
-    TriangleShape* GetShape(std::size_t index) const {
+    TriangleShape* GetShape(std::size_t index) const{
         return &(*shapes)[index];
     }
 
     bool operator==(const Mesh& other) const = default;
-    bool operator!=(const Mesh& other) const {
+    bool operator!=(const Mesh& other) const{
         return !(*this == other);
     }
 
-    ~Mesh() {
+    ~Mesh(){
         TriangleShape::removeMesh(this);
     }
 private:

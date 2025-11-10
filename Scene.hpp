@@ -3,10 +3,10 @@
 #include "Primitive.hpp"
 #include "BVH.hpp"
 class Medium;
-class Scene {
+class Scene{
 public:
     Scene() = default;
-    Scene(const std::shared_ptr<Medium>& medium) : sceneMedium(medium) {}
+    Scene(const std::shared_ptr<Medium>& medium) : sceneMedium(medium){}
 
     bool IntersectPred(const Ray& ray, float max = std::numeric_limits<float>::infinity()) const;
 
@@ -15,10 +15,13 @@ public:
     bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max = std::numeric_limits<float>::infinity()) const;
 
     void Add(const std::shared_ptr<Primitive>& ptr);
-    
+
     std::vector<std::shared_ptr<Light>> GetLights() const;
-    
-    void PreProcess();
+
+    template <typename T>
+    void BuildTlas(){
+        scene_bvh = std::make_shared<T>(std::move(primitives));
+    }
 
     std::shared_ptr<Medium> GetMedium() const;
 
@@ -28,7 +31,7 @@ public:
 
     std::vector<std::shared_ptr<InfiniteLight>> infiniteLights;
 private:
-    TLAS scene_bvh;//tlas bvh should take shared ptrs / unique ptrs and own them
+    std::shared_ptr<BVHBase<std::shared_ptr<Primitive>>> scene_bvh;//std::shared_ptr<BvhBase<std::shared_ptr<Primitive>> 
     std::vector<std::shared_ptr<Primitive>> primitives;
     std::shared_ptr<Medium> sceneMedium;
 };

@@ -9,38 +9,38 @@
 
 
 
-inline double random_double() {
+inline double random_double(){
     static thread_local std::uniform_real_distribution<double> distribution(0.0, 1.0);
     //static thread_local std::mt19937 generator(std::random_device{}());
-    static thread_local pcg64 generator(std::random_device{}());
+    static thread_local pcg64 generator(std::random_device {}());
     return distribution(generator);
 }
 
-inline float random_float() {
+inline float random_float(){
     static thread_local std::uniform_real_distribution<float> distribution(0.0f, 1.0f);
     //static thread_local std::mt19937 generator(std::random_device{}());
-    static thread_local pcg32 generator(std::random_device{}());
+    static thread_local pcg32 generator(std::random_device {}());
     return distribution(generator);
 }
 
 
-inline double random_double(double min, double max) {
+inline double random_double(double min, double max){
     // Returns a random real in [min,max).
     //std::uniform_real_distribution(min,max);
-    return min + (max-min)*random_double();
+    return min + (max - min) * random_double();
 }
 
-inline float random_float(float min, float max) {
+inline float random_float(float min, float max){
     // Returns a random real in [min,max).
     //std::uniform_real_distribution(min,max);
-    return min + (max-min)*random_float();
+    return min + (max - min) * random_float();
 }
 
 
-inline glm::vec2 inUnitDisk(const glm::vec2& uv) {
+inline glm::vec2 inUnitDisk(const glm::vec2& uv){
     float r = std::sqrt(uv.x);
-    float theta = 2 * std::numbers::pi_v<float> * uv.y;
-    return r*glm::vec2{std::cos(theta),std::sin(theta)};
+    float theta = 2 * std::numbers::pi_v<float> *uv.y;
+    return r * glm::vec2 { std::cos(theta),std::sin(theta) };
 }
 
 

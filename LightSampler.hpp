@@ -2,51 +2,51 @@
 #include "Light.hpp"
 #include "Primitive.hpp"
 #include "BVH.hpp"
-class LightSampler {
+class LightSampler{
 public:
     virtual ~LightSampler() = default;
     virtual void Add(const std::shared_ptr<Light>& light) = 0;
-    void Add(const std::vector<std::shared_ptr<Light>>& lights) {
+    void Add(const std::vector<std::shared_ptr<Light>>& lights){
         for(const std::shared_ptr<Light>& l : lights){
             Add(l);
         }
     }
     virtual std::shared_ptr<Light> Sample(float u) const = 0;
     virtual float PMF(const std::shared_ptr<Light>& light) const = 0;
-    virtual glm::vec3 SampleLd(const Ray& curr_ray,const SurfaceInteraction& interaction,const TLAS& bvh,float u,glm::vec2& UV) const = 0;
+    virtual glm::vec3 SampleLd(const Ray& curr_ray, const SurfaceInteraction& interaction, const TLAS& bvh, float u, glm::vec2& UV) const = 0;
     virtual void PreProcess(const AABB& bbox) = 0;
 };
 
-class UniformLightSampler : public LightSampler {
+class UniformLightSampler : public LightSampler{
 public:
     virtual ~UniformLightSampler() = default;
-    
-    void Add(const std::shared_ptr<Light>& light) override ;
 
-    std::shared_ptr<Light> Sample(float u) const override ;
+    void Add(const std::shared_ptr<Light>& light) override;
 
-    float PMF(const std::shared_ptr<Light>& light) const override ;
+    std::shared_ptr<Light> Sample(float u) const override;
 
-    glm::vec3 SampleLd(const Ray& curr_ray,const SurfaceInteraction& interaction,const TLAS& bvh,float u,glm::vec2& UV) const override ;
+    float PMF(const std::shared_ptr<Light>& light) const override;
+
+    glm::vec3 SampleLd(const Ray& curr_ray, const SurfaceInteraction& interaction, const TLAS& bvh, float u, glm::vec2& UV) const override;
 
     void PreProcess(const AABB& bbox) override;
 private:
     std::vector<std::shared_ptr<Light>> lights;
 };
 
-class PowerLightSampler : public LightSampler {
-public: 
+class PowerLightSampler : public LightSampler{
+public:
     virtual ~PowerLightSampler() = default;
 
-    void Add(const std::shared_ptr<Light>& light) override ;
-       
-    std::shared_ptr<Light> Sample(float u) const override ;
+    void Add(const std::shared_ptr<Light>& light) override;
 
-    float PMF(const std::shared_ptr<Light>& light) const override ;
+    std::shared_ptr<Light> Sample(float u) const override;
 
-    glm::vec3 SampleLd(const Ray& curr_ray,const SurfaceInteraction& interaction,const TLAS& bvh,float u,glm::vec2& UV) const override ;
+    float PMF(const std::shared_ptr<Light>& light) const override;
 
-    void PreProcess(const AABB& bbox) override ;
+    glm::vec3 SampleLd(const Ray& curr_ray, const SurfaceInteraction& interaction, const TLAS& bvh, float u, glm::vec2& UV) const override;
+
+    void PreProcess(const AABB& bbox) override;
 private:
     std::vector<std::shared_ptr<Light>> lights;
     std::vector<float> lightPowers;

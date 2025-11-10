@@ -3,19 +3,19 @@
 #include "Shape.hpp"
 #include <functional>
 
-struct LightSample {
+struct LightSample{
     //should have light color!
     glm::vec3 L;
     SurfaceInteraction interaction;
     glm::vec3 dir;
 
 
-    bool isDeltaInteraction() const {
-        return interaction.n == glm::vec3{0,0,0};
+    bool isDeltaInteraction() const{
+        return interaction.n == glm::vec3 { 0,0,0 };
     }
 };
 
-class Light  {
+class Light{
 public:
     virtual ~Light() = default;
     virtual bool isDelta() const = 0;
@@ -24,7 +24,7 @@ public:
     virtual float PDF(const GeometricInteraction& interaction, float time) const = 0;
     virtual float PDF(const GeometricInteraction& interaction, const Ray& ray) const = 0;
     virtual float Power() const = 0;
-    virtual void PreProcess(const AABB& bbox) {}
+    virtual void PreProcess(const AABB& bbox){}
 };
 
 //infinite light has Le which doesnt need interaction!
@@ -34,7 +34,7 @@ public:
 
 
 //should remove InfiniteLight!
-class InfiniteLight : public Light {
+class InfiniteLight : public Light{
 public:
     virtual ~InfiniteLight() = default;
 
@@ -47,11 +47,11 @@ protected:
     float sceneRadius;
 };
 
-class UniformInfiniteLight : public InfiniteLight {
+class UniformInfiniteLight : public InfiniteLight{
 public:
     virtual ~UniformInfiniteLight() = default;
 
-    UniformInfiniteLight(const glm::vec3& light_color,const std::function<float(float)>& powerFunc = [](float r) -> float { return std::sqrt(r); }) : color{light_color}, powerFunction{powerFunc} {}
+    UniformInfiniteLight(const glm::vec3& light_color, const std::function<float(float)>& powerFunc = [](float r) -> float{ return std::sqrt(r); }) : color { light_color }, powerFunction { powerFunc }{}
 
     glm::vec3 Le(const Ray& ray) const override;
 
@@ -69,11 +69,11 @@ private:
     std::function<float(float)> powerFunction;
 };
 
-class FunctionInfiniteLight : public InfiniteLight {
+class FunctionInfiniteLight : public InfiniteLight{
 public:
     virtual ~FunctionInfiniteLight() = default;
 
-    FunctionInfiniteLight(const std::function<glm::vec3(const Ray& ray)>& lightFunc,const std::function<float(float)>& powerFunc = [](float r) -> float { return std::sqrt(r); }) : lightFunction(lightFunc), powerFunction{powerFunc} {}
+    FunctionInfiniteLight(const std::function<glm::vec3(const Ray& ray)>& lightFunc, const std::function<float(float)>& powerFunc = [](float r) -> float{ return std::sqrt(r); }) : lightFunction(lightFunc), powerFunction { powerFunc }{}
 
     glm::vec3 Le(const Ray& ray) const override;
 
@@ -93,11 +93,11 @@ private:
     float cachedPower;//need to implement
 };
 
-class TextureInfiniteLight : public InfiniteLight {
+class TextureInfiniteLight : public InfiniteLight{
 public:
     virtual ~TextureInfiniteLight() = default;
 
-    TextureInfiniteLight(const std::shared_ptr<Texture>& tex, float LeScale = 1.0f,const std::function<float(float)>& powerFunc = [](float r) -> float { return std::sqrt(r); }) : tex{tex}, LeScale(LeScale), powerFunction{powerFunc} {}
+    TextureInfiniteLight(const std::shared_ptr<Texture>& tex, float LeScale = 1.0f, const std::function<float(float)>& powerFunc = [](float r) -> float{ return std::sqrt(r); }) : tex { tex }, LeScale(LeScale), powerFunction { powerFunc }{}
 
     glm::vec3 Le(const Ray& ray) const override;
 
@@ -126,11 +126,11 @@ private:
 
 
 //distantLight : InfiniteLIght?
-class DistantLight : public Light {
+class DistantLight : public Light{
 public:
     virtual ~DistantLight() = default;
 
-    DistantLight(const glm::vec3& light_dir, const glm::vec3& light_color,const std::function<float(float)>& powerFunc = [](float r) -> float { return std::sqrt(r); }) : dir{light_dir} , color{light_color}, powerFunction{powerFunc} {}
+    DistantLight(const glm::vec3& light_dir, const glm::vec3& light_color, const std::function<float(float)>& powerFunc = [](float r) -> float{ return std::sqrt(r); }) : dir { light_dir }, color { light_color }, powerFunction { powerFunc }{}
 
     bool isDelta() const final;
 
@@ -152,11 +152,11 @@ private:
     std::function<float(float)> powerFunction;
 };
 
-class PointLight : public Light {
+class PointLight : public Light{
 public:
     virtual ~PointLight() = default;
 
-    PointLight(const glm::vec3& p, const glm::vec3& light_color,const std::function<float(float)>& powerFunc = [](float r) -> float { return 4 * r; }) : p{p} , color{light_color}, powerFunction{powerFunc} {}
+    PointLight(const glm::vec3& p, const glm::vec3& light_color, const std::function<float(float)>& powerFunc = [](float r) -> float{ return 4 * r; }) : p { p }, color { light_color }, powerFunction { powerFunc }{}
 
     bool isDelta() const final;
 
@@ -178,55 +178,55 @@ private:
     std::function<float(float)> powerFunction;
 };
 
-class AreaLight : public Light {
+class AreaLight : public Light{
 public:
     virtual ~AreaLight() = default;
 
-    AreaLight(const std::shared_ptr<Shape>& light_shape, const glm::vec3& light_color, bool oneSided = false) : shape{light_shape} , emissiveTexture{std::make_shared<SolidColor>(light_color)}, cachedPower{0}, oneSided{oneSided} {}
-    AreaLight(const std::shared_ptr<Shape>& light_shape, const std::shared_ptr<Texture>& emissiveTex, bool oneSided = false) : shape{light_shape} , emissiveTexture{emissiveTex},  cachedPower{0}, oneSided{oneSided} {}
+    AreaLight(const std::shared_ptr<Shape>& light_shape, const glm::vec3& light_color, bool oneSided = false) : shape { light_shape }, emissiveTexture { std::make_shared<SolidColor>(light_color) }, cachedPower { 0 }, oneSided { oneSided }{}
+    AreaLight(const std::shared_ptr<Shape>& light_shape, const std::shared_ptr<Texture>& emissiveTex, bool oneSided = false) : shape { light_shape }, emissiveTexture { emissiveTex }, cachedPower { 0 }, oneSided { oneSided }{}
 
     bool isDelta() const final;
 
-    glm::vec3 L(const SurfaceInteraction& interaction, const Ray& ray) const override ;
+    glm::vec3 L(const SurfaceInteraction& interaction, const Ray& ray) const override;
 
-    LightSample sample(const glm::vec2& uv, float time) const override ;
+    LightSample sample(const glm::vec2& uv, float time) const override;
 
-    float PDF(const GeometricInteraction& interaction, float time) const override ;
+    float PDF(const GeometricInteraction& interaction, float time) const override;
 
-    float PDF(const GeometricInteraction& interaction, const Ray& ray) const override ;
+    float PDF(const GeometricInteraction& interaction, const Ray& ray) const override;
 
-    float Power() const override ;
+    float Power() const override;
 
     void PreProcess(const AABB& bbox) override;
 
-    std::shared_ptr<Shape> getShape() const ;
+    std::shared_ptr<Shape> getShape() const;
 private:
     std::shared_ptr<Shape> shape;
     std::shared_ptr<Texture> emissiveTexture; //switch to texture/image
     float cachedPower;
-    bool oneSided; 
+    bool oneSided;
     //add alpha mask
 };
 
-class TransformedLight : public Light {
+class TransformedLight : public Light{
 public:
     virtual ~TransformedLight() = default;
 
-    TransformedLight(const std::shared_ptr<Light>& light,const glm::mat4& transform) : light(light), transform(transform), normalMatrix(glm::transpose(glm::inverse(glm::mat3(transform)))), invTransform(glm::inverse(transform)) {}
+    TransformedLight(const std::shared_ptr<Light>& light, const glm::mat4& transform) : light(light), transform(transform), normalMatrix(glm::transpose(glm::inverse(glm::mat3(transform)))), invTransform(glm::inverse(transform)){}
 
     bool isDelta() const final;
 
-    glm::vec3 L(const SurfaceInteraction& interaction, const Ray& ray) const override ;
+    glm::vec3 L(const SurfaceInteraction& interaction, const Ray& ray) const override;
 
-    LightSample sample(const glm::vec2& uv, float time) const override ;
+    LightSample sample(const glm::vec2& uv, float time) const override;
 
-    float PDF(const GeometricInteraction& interaction, float time) const override ;
+    float PDF(const GeometricInteraction& interaction, float time) const override;
 
-    float PDF(const GeometricInteraction& interaction, const Ray& ray) const override ;
+    float PDF(const GeometricInteraction& interaction, const Ray& ray) const override;
 
     void PreProcess(const AABB& bbox) override;
 
-    float Power() const override ;
+    float Power() const override;
 
 private:
     std::shared_ptr<Light> light;
@@ -235,25 +235,25 @@ private:
     glm::mat4 invTransform;
 };
 
-class AnimatedLight : public Light {
+class AnimatedLight : public Light{
 public:
     virtual ~AnimatedLight() = default;
 
-    AnimatedLight(const std::shared_ptr<Light>& light,const glm::vec3& direction, const glm::vec2& timeBounds) : light(light), dir(direction), timeBounds(timeBounds) {}
+    AnimatedLight(const std::shared_ptr<Light>& light, const glm::vec3& direction, const glm::vec2& timeBounds) : light(light), dir(direction), timeBounds(timeBounds){}
 
     bool isDelta() const final;
 
-    glm::vec3 L(const SurfaceInteraction& interaction, const Ray& ray) const override ;
+    glm::vec3 L(const SurfaceInteraction& interaction, const Ray& ray) const override;
 
-    LightSample sample(const glm::vec2& uv, float time) const override ;
+    LightSample sample(const glm::vec2& uv, float time) const override;
 
-    float PDF(const GeometricInteraction& interaction, float time) const override ;
+    float PDF(const GeometricInteraction& interaction, float time) const override;
 
-    float PDF(const GeometricInteraction& interaction, const Ray& ray) const override ;
+    float PDF(const GeometricInteraction& interaction, const Ray& ray) const override;
 
     void PreProcess(const AABB& bbox) override;
 
-    float Power() const override ;
+    float Power() const override;
 
 private:
     std::shared_ptr<Light> light;
