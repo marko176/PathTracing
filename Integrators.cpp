@@ -29,11 +29,11 @@ void TileIntegrator::Render() const{
     std::mutex consoleMutex;
     uint32_t samples = sampler->SamplesPerPixel();
     auto lamb = [&](){
-        int k;
+        int tile;
         std::shared_ptr<Sampler> clonedSampler = sampler->Clone();
-        while((k = done.fetch_add(1, std::memory_order_relaxed)) < tileCount){
-            int tileX = k % ((resolution.x + tileSize - 1) / tileSize);
-            int tileY = k / ((resolution.x + tileSize - 1) / tileSize);
+        while((tile = done.fetch_add(1, std::memory_order_relaxed)) < tileCount){
+            int tileX = tile % ((resolution.x + tileSize - 1) / tileSize);
+            int tileY = tile / ((resolution.x + tileSize - 1) / tileSize);
             int minX = tileX * tileSize;
             int minY = tileY * tileSize;
             int maxX = std::min((tileX + 1) * tileSize, resolution.x);
@@ -191,22 +191,6 @@ glm::vec3 PathIntegrator::Li(Ray ray) const{
             return output;//absorbed   
         }
         new_ray.time = ray.time;
-        if(false && interaction.mat->is_specular(interaction)){
-
-            //is dielectric
-            attenuation *= bxdf->f * std::abs(glm::dot(interaction.ns, new_ray.dir)) / bxdf->pdf;
-
-            prevPDF = interaction.mat->PDF(ray, interaction, new_ray);
-            spec = false;
-            glm::vec3 acc = attenuation * SampleLd(ray, interaction, light_selection_random_variable, light_random_variables);
-            output += acc;
-            if(acc == glm::vec3(0, 0, 0))spec = true;
-            //maybe do same for general reflection not just dielectrics
-
-
-            ray = new_ray;
-            continue;
-        }
 
         spec = bxdf->isSpecular();//is diffuse or is glossy !
         if(!spec){
@@ -272,7 +256,6 @@ glm::vec3 VolPathIntegrator::Li(Ray ray) const{
     uint32_t rr_depth = 0;
     float prevPDF = 1;
     bool spec = true;
-    bool EnableCaustics = false;
     while(depth++ < maxDepth && (attenuation.x + attenuation.y + attenuation.z) != 0.0f){
         SurfaceInteraction interaction;
         MediumInteraction medInteraction;
@@ -354,24 +337,6 @@ glm::vec3 VolPathIntegrator::Li(Ray ray) const{
 
             new_ray.medium = interaction.getMedium(new_ray.dir);
             new_ray.time = ray.time;
-
-            if(EnableCaustics && interaction.mat->is_specular(interaction)){
-                //&& !bxdf->isSpecular() 
-                //is dielectric
-                attenuation *= bxdf->f * std::abs(glm::dot(interaction.ns, new_ray.dir)) / bxdf->pdf;
-
-                prevPDF = interaction.mat->PDF(ray, interaction, new_ray);
-                spec = false;
-                glm::vec3 acc = attenuation * SampleLd(ray, interaction, light_selection_random_variable, light_random_variables);
-                output += acc;
-                if(acc == glm::vec3(0, 0, 0))spec = true;
-                //maybe do same for general reflection not just dielectrics
-
-
-                ray = new_ray;
-                continue;
-            }
-
 
             //this helps when medium intersect another object
             //when we bounce we will be in same medium as before

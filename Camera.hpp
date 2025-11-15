@@ -3,9 +3,7 @@
 #include "Medium.hpp"
 class Camera{
 public:
-    Camera(const glm::dvec3& lookFrom, const glm::dvec3& lookAt, double fov, const std::shared_ptr<Film>& film) : Camera(lookFrom, lookAt, fov, film, 0, 0){
-
-    };
+    Camera(const glm::dvec3& lookFrom, const glm::dvec3& lookAt, double fov, const std::shared_ptr<Film>& film) : Camera(lookFrom, lookAt, fov, film, 0, 0){};
     Camera(const glm::dvec3& lookFrom, const glm::dvec3& lookAt, double fov, const std::shared_ptr<Film>& film, double FocusAngle, double FocusDistance, const std::shared_ptr<Medium>& medium = nullptr) : lookFrom(lookFrom), lookAt(lookAt), Fov(fov), film(film), FocusAngle(FocusAngle), FocusDistance(FocusDistance), cameraMedium(medium){
         w = glm::normalize(lookFrom - lookAt);
         u = glm::normalize(glm::cross({ 0,1,0 }, w));//up is {0,1,0}
@@ -36,7 +34,7 @@ public:
         return Ray(lookFrom + offset, glm::normalize(direction - offset), t, GetMedium());
     }
 
-    [[nodiscard]] std::shared_ptr<Film> GetFilm() const{
+    std::shared_ptr<Film> GetFilm() const{
         return film;
     }
 

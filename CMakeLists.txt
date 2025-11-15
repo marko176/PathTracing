@@ -45,14 +45,14 @@ if (MSVC)
     #add_compile_options(/FS /O2)
     target_compile_options(PathTracer PRIVATE
         $<$<CONFIG:Debug>:/FS /Zi /Od /W3 /MDd>
-        $<$<CONFIG:RelWithDebInfo>:/FS /Zi /O2 /W4 /MD>
-        $<$<CONFIG:Release>:/FS /O2 /Ox /W4 /MD>
+        $<$<CONFIG:RelWithDebInfo>:/FS /Zi /O2 /W2 /MD>
+        $<$<CONFIG:Release>:/FS /Ox /MD>
     )
 else()
     #add_compile_options(-O3 -march=native -g)
     target_compile_options(PathTracer PRIVATE
 
-        $<$<CONFIG:Debug>:-O0;-g;-march=native;-Wall;-Wshadow>
+        $<$<CONFIG:Debug>:-O0;-g;-march=native;-Wall;-Wunreachable-code;-Wuninitialized;-Winit-self;-Wfloat-equal>
 
         $<$<CONFIG:RelWithDebInfo>:-O2;-g;-march=native;-Wall>
 

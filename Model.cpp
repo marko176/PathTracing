@@ -25,7 +25,6 @@ bool Model::load_model(const std::string& path){
 
     const aiScene* scene = nullptr;
     model_path = GetModelDirectory(path);
-    std::size_t index = path.find_last_of('.');
     std::string format = GetFormat(path);//optional
 
     if(format == "assbin"){
@@ -125,7 +124,7 @@ std::vector<std::shared_ptr<Texture>> Model::GetTextures(aiMaterial* material) c
 std::shared_ptr<Material> Model::SetupOBJMaterial(const std::vector<std::shared_ptr<Texture>>& textures, aiMaterial* material) const{
     std::shared_ptr<Material> mat = nullptr;
     float ior = 1.5;
-    bool hasIor = material->Get(AI_MATKEY_REFRACTI, ior) == AI_SUCCESS;
+    material->Get(AI_MATKEY_REFRACTI, ior);
     std::cout << "ior: " << ior << std::endl;
     float opacity = 1.0f;
     material->Get(AI_MATKEY_OPACITY, opacity);
@@ -358,6 +357,6 @@ std::shared_ptr<Mesh> Model::process_mesh(aiMesh* mesh, const aiScene* scene){
     return ResourceManager::get_instance().getMesh(indices, vertices, tangents, normals, texCoords, mat, nullptr, nullptr);
 }
 
-auto Model::GetMeshes() const -> const std::vector<std::shared_ptr<Mesh>>&{
+std::vector<std::shared_ptr<Mesh>> Model::GetMeshes() const{
     return meshes;
 }

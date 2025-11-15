@@ -78,7 +78,7 @@ public:
     //maybe move this to resource manager?
     static uint32_t addMesh(Mesh* mesh){
         const std::lock_guard<std::mutex> ml(meshListLock);
-        for(std::size_t i = 0;i < meshList.size();i++){
+        for(uint32_t i = 0;i < meshList.size();i++){
             if(meshList[i] == nullptr || meshList[i] == mesh){
                 meshList[i] = mesh;
                 return i;
@@ -90,7 +90,7 @@ public:
 
     static void removeMesh(Mesh* mesh){
         const std::lock_guard<std::mutex> ml(meshListLock);
-        for(std::size_t i = 0;i < meshList.size();i++){
+        for(uint32_t i = 0;i < meshList.size();i++){
             if(meshList[i] == mesh){
                 meshList[i] = nullptr;
             }
@@ -132,7 +132,7 @@ public:
         return glm::length(glm::cross(u, v));
     }
 
-    float PDF(const GeometricInteraction& interaction) const override{
+    float PDF([[maybe_unused]] const GeometricInteraction& interaction) const override{
         return 1.0f / Area();
     }
 

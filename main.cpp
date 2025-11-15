@@ -410,14 +410,16 @@ void NoModel(){
     //                        new Light(glm::vec3(8, 8, 8))};
 //scene->Add(std::make_shared<GeometricPrimitive>(std::make_shared<SphereShape>(glm::vec3(0,0,0),20),nullptr,nullptr,outsideMedium));
 
+    
     auto lightFunc = [](const Ray& ray){
         float a = 0.5f * (ray.dir.y + 1.0f);
-        return 1.5f * ((1.0f - a) * glm::vec3(1, 0.85, 0.55) + a * glm::vec3(0.45, 0.65, 1));
+        return 3.f * ((1.0f - a) * glm::vec3(1, 0.85, 0.55) + a * glm::vec3(0.45, 0.65, 1));
         };
+    
 
     //scene->infiniteLights.push_back(std::make_shared<UniformInfiniteLight>(glm::vec3{0,0,1}));
-    //scene->infiniteLights.push_back(std::make_shared<FunctionInfiniteLight>(lightFunc));
-    scene->infiniteLights.push_back(std::make_shared<TextureInfiniteLight>(std::make_shared<FloatImageTexture>("/home/markov/Downloads/kloofendal_48d_partly_cloudy_puresky_8k.hdr"), 600 / 255.0f, [](float r){return 4 * std::sqrt(r);}));
+    scene->infiniteLights.push_back(std::make_shared<FunctionInfiniteLight>(lightFunc));
+    //scene->infiniteLights.push_back(std::make_shared<TextureInfiniteLight>(std::make_shared<FloatImageTexture>("/home/markov/Downloads/kloofendal_48d_partly_cloudy_puresky_8k.hdr"), 600 / 255.0f, [](float r){return 4 * std::sqrt(r);}));
     //scene->infiniteLights.push_back(std::make_shared<TextureInfiniteLight>(std::make_shared<FloatImageTexture>("/home/markov/Downloads/lilienstein_4k.hdr"),600/255.0f,[](float r){return 4 * std::sqrt(r);}));
     //scene->infiniteLights.push_back(std::make_shared<TextureInfiniteLight>(std::make_shared<FloatImageTexture>("/home/markov/Downloads/shanghai_bund_8k.hdr"),600/255.0f,[](float r){return 4 * std::sqrt(r);}));
 
@@ -514,9 +516,10 @@ void Miguel(){
     //100 -> 550 simd + emissive
     //1024 at 1080p 5027040ms
 
-
+    //567 bvh2
+    //518 simd bvh2
     //388s BVH4 SIMD
-    int samples = 100;
+    int samples = 16;
     int sqrts = std::sqrt(samples);
 
     std::shared_ptr<Film> film = std::make_shared<Film>(glm::ivec2 { 1920,1080 }, std::make_shared<MitchellFilter>());
@@ -582,10 +585,13 @@ void temp(){
 
     //scene->Add(std::make_shared<GeometricPrimitive>(std::make_shared<SphereShape>(glm::vec3(0,0,0),20),nullptr,nullptr,outsideMedium));
 
+
+    /*
     auto lightFunc = [](const Ray& ray){
         float a = 0.5f * (ray.dir.y + 1.0f);
-        return 1.5f * ((1.0f - a) * glm::vec3(1, 0.85, 0.55) + a * glm::vec3(0.45, 0.65, 1));
+        return 3.f * ((1.0f - a) * glm::vec3(1, 0.85, 0.55) + a * glm::vec3(0.45, 0.65, 1));
         };
+    */
 
     scene->infiniteLights.push_back(std::make_shared<UniformInfiniteLight>(glm::vec3(0.45, 0.65, 1)));
     //scene->infiniteLights.push_back(std::make_shared<FunctionInfiniteLight>(lightFunc));
@@ -610,7 +616,7 @@ void temp(){
     lookat = { 0,0,0 };
 
     //64*4
-    int samples = 16;//64*16*4 -> 4 hours
+    int samples = 100;//64*16*4 -> 4 hours
     int sqrts = std::sqrt(samples);
 
     std::shared_ptr<Film> film = std::make_shared<Film>(glm::ivec2 { 1920,1080 }, std::make_shared<MitchellFilter>());
@@ -686,10 +692,13 @@ void helmet(){
         //                        new Light(glm::vec3(8, 8, 8))};
     //scene->Add(std::make_shared<GeometricPrimitive>(std::make_shared<SphereShape>(glm::vec3(0,0,0),20),nullptr,nullptr,outsideMedium));
 
+
+    /*
     auto lightFunc = [](const Ray& ray){
         float a = 0.5f * (ray.dir.y + 1.0f);
-        return 1.5f * ((1.0f - a) * glm::vec3(1, 0.85, 0.55) + a * glm::vec3(0.45, 0.65, 1));
+        return 3.f * ((1.0f - a) * glm::vec3(1, 0.85, 0.55) + a * glm::vec3(0.45, 0.65, 1));
         };
+    */
 
     //scene->infiniteLights.push_back(std::make_shared<UniformInfiniteLight>(glm::vec3{0,0,1}));
     //scene->infiniteLights.push_back(std::make_shared<FunctionInfiniteLight>(lightFunc));
@@ -726,10 +735,10 @@ void helmet(){
     //1600 is big
     //5760
     int sqrts = std::sqrt(samples);
-    int frames = 300;
     //16 is 10 sec * 240 == 2400 sec which is less than our
     //
 #if 0
+    int frames = 300;
     for(int i = 0; i < frames;i++){
         std::shared_ptr<Film> film = std::make_shared<Film>(glm::ivec2 { 1920,1080 }, std::make_shared<MitchellFilter>());
         fov = 1.4;
@@ -827,10 +836,12 @@ void knight(){
         //                        new Light(glm::vec3(8, 8, 8))};
     //scene->Add(std::make_shared<GeometricPrimitive>(std::make_shared<SphereShape>(glm::vec3(0,0,0),20),nullptr,nullptr,outsideMedium));
 
+    /*
     auto lightFunc = [](const Ray& ray){
         float a = 0.5f * (ray.dir.y + 1.0f);
         return 3.f * ((1.0f - a) * glm::vec3(1, 0.85, 0.55) + a * glm::vec3(0.45, 0.65, 1));
         };
+    */
 
     //scene->infiniteLights.push_back(std::make_shared<UniformInfiniteLight>(glm::vec3{0,0,1}));
     //scene->infiniteLights.push_back(std::make_shared<FunctionInfiniteLight>(lightFunc));
@@ -1066,7 +1077,7 @@ void transmission(){
 int main(){
     //stbi_set_flip_vertically_on_load(true);
     //"/home/markov/Documents/Coding/CPP/testing/stanford/common-3d-test-models-master/data/lucy.obj"
-    switch(1){
+    switch(2){
     case 0:
         temp();
         break;

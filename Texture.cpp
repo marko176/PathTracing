@@ -35,19 +35,19 @@ FloatImage::~FloatImage(){
     stbi_image_free((void*)data);
 }
 
-SolidColor::SolidColor(const glm::vec3& color, const glm::vec3& colorScale, bool invert) : Texture(colorScale, invert), albedo(color){}
-SolidColor::SolidColor(float r, float g, float b, const glm::vec3& colorScale, bool invert) : Texture(colorScale, invert), albedo(r, g, b){}
+SolidColor::SolidColor(const glm::vec3& color, const glm::vec3& colorScale, bool invertTex) : Texture(colorScale, invertTex), albedo(color){}
+SolidColor::SolidColor(float r, float g, float b, const glm::vec3& colorScale, bool invertTex) : Texture(colorScale, invertTex), albedo(r, g, b){}
 
 glm::vec3 ImageTexture::texel(int x, int y) const{
     glm::ivec2 p = { x,y };
     return { image.GetChannelAt(p,1),image.GetChannelAt(p,2),image.GetChannelAt(p,3) };
 }
 
-float ImageTexture::alpha(float u, float v) const{
+float ImageTexture::alpha(const glm::vec2& uv) const{
     if(image.Channels() != 4)return 1;
     glm::ivec2 res = image.Resolution();
-    float x = u * res.x - 0.5f;
-    float y = v * res.y - 0.5f;
+    float x = uv.x * res.x - 0.5f;
+    float y = uv.y * res.y - 0.5f;
     int xi = std::floor(x);
     int yi = std::floor(y);
     float dx = x - xi;
@@ -69,11 +69,11 @@ glm::vec3 FloatImageTexture::texel(int x, int y) const{
 
 
 
-float FloatImageTexture::alpha(float u, float v) const{
+float FloatImageTexture::alpha(const glm::vec2& uv) const{
     if(image.Channels() != 4)return 1;
     glm::ivec2 res = image.Resolution();
-    float x = u * res.x - 0.5f;
-    float y = v * res.y - 0.5f;
+    float x = uv.x * res.x - 0.5f;
+    float y = uv.y * res.y - 0.5f;
     int xi = std::floor(x);
     int yi = std::floor(y);
     float dx = x - xi;
@@ -87,8 +87,8 @@ float FloatImageTexture::alpha(float u, float v) const{
         (1 - dx) * dy * c + dx * dy * d);
 }
 
-float CheckerTexture::alpha(float u, float v) const{
-    glm::ivec2 uv = glm::floor(glm::vec2 { u,v } * invScale);
-    if((uv.x + uv.y) % 2 == 0)return tex1->alpha(u, v);
-    return tex2->alpha(u, v);
+float CheckerTexture::alpha(const glm::vec2& uv) const{
+    glm::ivec2 iuv = glm::floor(uv * invScale);
+    if((iuv.x + iuv.y) % 2 == 0)return tex1->alpha(uv);
+    return tex2->alpha(uv);
 }

@@ -34,7 +34,7 @@ struct GeometricInteraction{
 };
 
 struct SurfaceInteraction : public GeometricInteraction{
-    SurfaceInteraction(const glm::vec3& point, const glm::vec3& geometric_normal, const glm::vec2& uv, const std::shared_ptr<Medium>& interactionMedium = nullptr) : GeometricInteraction { point,geometric_normal,interactionMedium }, uv { uv }{
+    SurfaceInteraction(const glm::vec3& point, const glm::vec3& geometric_normal, const glm::vec2& uvCoord, const std::shared_ptr<Medium>& interactionMedium = nullptr) : GeometricInteraction { point,geometric_normal,interactionMedium }, uv { uvCoord }{
 
     }
 
@@ -51,7 +51,7 @@ struct SurfaceInteraction : public GeometricInteraction{
 };
 
 struct MediumInteraction : public GeometricInteraction{
-    MediumInteraction(const glm::vec3& point, const glm::vec3& geometric_normal, const std::shared_ptr<Medium>& interactionMedium, const std::shared_ptr<PhaseFunction>& phaseFunction) : GeometricInteraction { point,geometric_normal,interactionMedium }, phaseFunction { phaseFunction }{
+    MediumInteraction(const glm::vec3& point, const glm::vec3& geometric_normal, const std::shared_ptr<Medium>& interactionMedium, const std::shared_ptr<PhaseFunction>& phaseFunc) : GeometricInteraction { point,geometric_normal,interactionMedium }, phaseFunction { phaseFunc }{
 
     }
 

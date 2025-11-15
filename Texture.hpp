@@ -108,9 +108,9 @@ private:
 
 class Texture{
 public:
-    Texture(const glm::vec3& colorScale = glm::vec3(1, 1, 1), bool invert = false) : colorScale(colorScale), invert(invert){}
+    Texture(const glm::vec3& colorScale = glm::vec3(1, 1, 1), bool invertTex = false) : colorScale(colorScale), invert(invertTex){}
     virtual ~Texture() = default;
-    virtual float alpha(float u, float v) const{
+    virtual float alpha([[maybe_unused]] const glm::vec2& uv) const{
         return 1;
     }
     virtual int Channels() const = 0;
@@ -123,13 +123,13 @@ protected:
 class SolidColor : public Texture{
 public:
     virtual ~SolidColor() = default;
-    SolidColor(const glm::vec3& color, const glm::vec3& colorScale = glm::vec3(1), bool invert = false);
-    SolidColor(float r, float g, float b, const glm::vec3& colorScale = glm::vec3(1), bool invert = false);
+    SolidColor(const glm::vec3& color, const glm::vec3& colorScale = glm::vec3(1), bool invertTex = false);
+    SolidColor(float r, float g, float b, const glm::vec3& colorScale = glm::vec3(1), bool invertTex = false);
 
     glm::vec3 Evaluate(const SurfaceInteraction& interaction) const override{
         return colorScale * albedo;
     }
-    virtual int Channels() const{ return 3; }
+    int Channels() const override{ return 3; }
 private:
     glm::vec3 albedo;
 };
@@ -137,9 +137,9 @@ private:
 class ImageTexture : public Texture{
 public:
     virtual ~ImageTexture() = default;
-    ImageTexture(const std::string& filename, bool gammaCorrection = false, const glm::vec3& colorScale = glm::vec3(1), bool invert = false) : Texture(colorScale, invert), image(filename, gammaCorrection){};
+    ImageTexture(const std::string& filename, bool gammaCorrection = false, const glm::vec3& colorScale = glm::vec3(1), bool invertTex = false) : Texture(colorScale, invertTex), image(filename, gammaCorrection){};
 
-    float alpha(float u, float v) const override;
+    float alpha(const glm::vec2& uv) const override;
 
     glm::vec3 Evaluate(const SurfaceInteraction& interaction) const override{ //take enum? bilerp
         glm::ivec2 res = image.Resolution();
@@ -157,7 +157,7 @@ public:
         return colorScale * ((1 - dx) * (1 - dy) * a + dx * (1 - dy) * b +
             (1 - dx) * dy * c + dx * dy * d);
     }
-    virtual int Channels() const{
+    int Channels() const override{
         return image.Channels();
     }
 private:
@@ -168,9 +168,9 @@ private:
 class FloatImageTexture : public Texture{
 public:
     virtual ~FloatImageTexture() = default;
-    FloatImageTexture(const std::string& filename, const glm::vec3& colorScale = glm::vec3(1), bool invert = false) : Texture(colorScale, invert), image(filename){};
+    FloatImageTexture(const std::string& filename, const glm::vec3& colorScale = glm::vec3(1), bool invertTex = false) : Texture(colorScale, invertTex), image(filename){};
 
-    float alpha(float u, float v) const override;
+    float alpha(const glm::vec2& uv) const override;
 
     glm::vec3 Evaluate(const SurfaceInteraction& interaction) const override{
         glm::ivec2 res = image.Resolution();
@@ -188,7 +188,7 @@ public:
         return colorScale * ((1 - dx) * (1 - dy) * a + dx * (1 - dy) * b +
             (1 - dx) * dy * c + dx * dy * d);
     }
-    virtual int Channels() const{ return image.Channels(); }
+    int Channels() const override{ return image.Channels(); }
 private:
     glm::vec3 texel(int x, int y) const;
     FloatImage image;
@@ -197,8 +197,8 @@ private:
 class CheckerTexture : public Texture{
 public:
     virtual ~CheckerTexture() = default;
-    CheckerTexture(const std::shared_ptr<Texture>& textureA, const std::shared_ptr<Texture>& textureB, const glm::vec2& uvscale, const glm::vec3& colorScale = glm::vec3(1), bool invert = false) : Texture(colorScale, invert), tex1(textureA), tex2(textureB), invScale(1.0f / uvscale){}
-    float alpha(float u, float v) const override;
+    CheckerTexture(const std::shared_ptr<Texture>& textureA, const std::shared_ptr<Texture>& textureB, const glm::vec2& uvscale, const glm::vec3& colorScale = glm::vec3(1), bool invertTex = false) : Texture(colorScale, invertTex), tex1(textureA), tex2(textureB), invScale(1.0f / uvscale){}
+    float alpha(const glm::vec2& uv) const override;
 
 
     glm::vec3 Evaluate(const SurfaceInteraction& interaction) const override{
@@ -206,7 +206,7 @@ public:
         if((uv.x + uv.y) % 2 == 0)return colorScale * tex1->Evaluate(interaction);
         return colorScale * tex2->Evaluate(interaction);
     }
-    virtual int Channels() const{ return tex1->Channels(); }
+    int Channels() const override{ return tex1->Channels(); }
 private:
     std::shared_ptr<Texture> tex1;
     std::shared_ptr<Texture> tex2;
@@ -219,7 +219,7 @@ public:
     glm::vec3 Evaluate(const SurfaceInteraction& interaction) const override{
         return colorScale * glm::vec3 { interaction.uv,0 };
     }
-    virtual int Channels() const{ return 3; }
+    int Channels() const override{ return 3; }
 };
 
 class NormalTexture : public Texture{
@@ -228,7 +228,7 @@ public:
     glm::vec3 Evaluate(const SurfaceInteraction& interaction) const override{
         return colorScale * interaction.ns;
     }
-    virtual int Channels() const{ return 3; }
+    int Channels() const override{ return 3; }
 };
 
 

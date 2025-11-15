@@ -82,7 +82,7 @@ struct alignas(32) simdBVH_NODE{
 };
 
 
-#if defined(__SSE__)
+#if defined(__SSE__) || defined(_M_AMD64) || defined(_M_X64)
 template <typename T>
 class simdBVH : public Primitive{
 public:

@@ -19,6 +19,7 @@ public:
     std::vector<std::shared_ptr<Light>> GetLights() const;
 
     template <typename T>
+        requires std::is_base_of_v<BVHBase<std::shared_ptr<Primitive>>, T>
     void BuildTlas(){
         scene_bvh = std::make_shared<T>(std::move(primitives));
     }

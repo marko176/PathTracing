@@ -24,16 +24,18 @@ public:
     //hold full name not just path
     //fix export to have fullname.assbin
     //give virtual class for parsing to mesh
-    auto GetMeshes() const -> const std::vector<std::shared_ptr<Mesh>>&;
+    std::vector<std::shared_ptr<Mesh>> GetMeshes() const;
+
     bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max) const override{
         return model_bvh->Intersect(ray, interaction, max);
-    }
-    AABB BoundingBox() const override{
-        return model_bvh->BoundingBox();
     }
 
     bool IntersectPred(const Ray& ray, float max) const override{
         return model_bvh->IntersectPred(ray, max);
+    }
+
+    AABB BoundingBox() const override{
+        return model_bvh->BoundingBox();
     }
 
     std::vector<std::shared_ptr<Light>> GetLights() const override{
@@ -41,6 +43,7 @@ public:
     }
 
     template <typename T>
+        requires std::is_base_of_v<BVHBase<GeometricPrimitive>, T>
     void BuildBlas(){
         std::vector<GeometricPrimitive> primitives;
         primitives.reserve(1'000'000);
@@ -52,7 +55,7 @@ public:
                 std::shared_ptr<AreaLight> area = m->GetEmissiveTexture() != nullptr ? std::make_shared<AreaLight>(shape, m->GetEmissiveTexture()) : nullptr;
                 if(area){
                     area->PreProcess({});
-                    if(area->Power() == 0)area = nullptr;
+                    if(area->Power() <= std::numeric_limits<float>::epsilon())area = nullptr;
                 }
                 primitives.emplace_back(shape, m->GetMaterial(), area, m->GetMedium());
             }
@@ -61,6 +64,7 @@ public:
     }
 
     template <typename T>
+        requires std::is_base_of_v<BVHBase<GeometricPrimitive>, T>
     void BuildBlas(const std::shared_ptr<Material>& material, const std::shared_ptr<Medium>& medium){
         std::vector<GeometricPrimitive> primitives;
         primitives.reserve(1'000'000);
@@ -72,7 +76,7 @@ public:
                 std::shared_ptr<AreaLight> area = m->GetEmissiveTexture() != nullptr ? std::make_shared<AreaLight>(shape, m->GetEmissiveTexture()) : nullptr;
                 if(area){
                     area->PreProcess({});
-                    if(area->Power() == 0)area = nullptr;
+                    if(area->Power() <= std::numeric_limits<float>::epsilon())area = nullptr;
                 }
                 primitives.emplace_back(shape, material, area, medium);
             }

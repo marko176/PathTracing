@@ -172,10 +172,6 @@ struct Material{
         return std::nullopt;
     }
 
-    virtual bool is_specular(const SurfaceInteraction& interaction) const{
-        return false;
-    }
-
     virtual glm::vec3 calc_attenuation(const Ray& incoming, const SurfaceInteraction& interaction, const Ray& scattered) const{
         return { 1,1,1 };
     }
@@ -193,7 +189,7 @@ struct Material{
     }
 
     //glm::vec2 uv or interaction
-    virtual bool Alpha(float u, float v) const{
+    virtual bool Alpha(const glm::vec2& uv) const{
         return true;
     }
 };
@@ -304,7 +300,7 @@ public:
     }
 
     float GetRoughness(const SurfaceInteraction& interaction) const{
-        return roughnessTexture->Evaluate(interaction).g;//roughness is in g slot
+        return std::max<float>(roughnessTexture->Evaluate(interaction).g,0.0001);//roughness is in g slot
     }
 
     float GetMetallic(const SurfaceInteraction& interaction) const{
@@ -367,12 +363,11 @@ public:
 
     //tex always has just RGB
     //alpha is handled in geometric primitive?
-    bool Alpha(float u, float v) const final{
-        if(!HasAlpha())return true;
+    bool Alpha(const glm::vec2& uv) const final{
         float a = 0;
         if(alpha){
-            a = alpha->Evaluate(SurfaceInteraction({ 0,0,0 }, { 0,0,0 }, { u,v })).x;//alpha->color_value(u,v).x
-        } else a = tex->alpha(u, v);//should just give 1 channel tex->getChannel( 3 );
+            a = alpha->Evaluate(SurfaceInteraction({ 0,0,0 }, { 0,0,0 }, uv)).x;//alpha->color_value(u,v).x
+        } else a = tex->alpha(uv);//should just give 1 channel tex->getChannel( 3 );
         return alphaTester(a);
     }
 
@@ -534,11 +529,11 @@ public:
         }
 
         glm::vec3 wh = wi * etap + wo;
-        if(cosTheta_i == 0 || cosTheta_o == 0 || glm::dot(wh, wh) == 0) return 0;
+        if(glm::dot(wh, wh) == 0) return 0;
         wh = glm::normalize(wh);
         if(wh.z < 0)wh = -wh;
 
-        if(glm::dot(wh, wi) * cosTheta_i < 0.0 || glm::dot(wh, wo) * cosTheta_o < 0.0)
+        if(glm::dot(wh, wi) * cosTheta_i <= 0.0 || glm::dot(wh, wo) * cosTheta_o <= 0.0)
             return 0;
 
 
@@ -548,19 +543,15 @@ public:
 
 
         //dist->PDF()
-        double pdf = dist.PDF(wo, wh);//DD(wh,alpha,alpha) * G1(wo,roughness) / std::abs(wo.z) * std::abs(glm::dot(wo,wh));
+        float pdf = dist.PDF(wo, wh);//DD(wh,alpha,alpha) * G1(wo,roughness) / std::abs(wo.z) * std::abs(glm::dot(wo,wh));
         if(reflect){
             return pdf / (4 * std::abs(glm::dot(wo, wh))) * R / (R + T);
         } else{
-            double denom = (glm::dot(wi, wh) + glm::dot(wo, wh) / etap) * (glm::dot(wi, wh) + glm::dot(wo, wh) / etap);
-            double dwh_dwi = std::abs(glm::dot(wi, wh)) / denom;
+            float denom = (glm::dot(wi, wh) + glm::dot(wo, wh) / etap) * (glm::dot(wi, wh) + glm::dot(wo, wh) / etap);
+            float dwh_dwi = std::abs(glm::dot(wi, wh)) / denom;
 
             return pdf * dwh_dwi * T / (R + T);
         }
-    }
-
-    bool is_specular(const SurfaceInteraction& interaction) const final{
-        return true;
     }
 
     glm::vec3 calc_attenuation(const Ray& incoming, const SurfaceInteraction& interaction, const Ray& scattered) const final{
@@ -582,11 +573,11 @@ public:
         }
 
         glm::vec3 wh = wi * etap + wo;
-        if(cosTheta_i == 0 || cosTheta_o == 0 || glm::dot(wh, wh) == 0) return { 0,0,0 };
+        if(glm::dot(wh, wh) == 0) return { 0,0,0 };
         wh = glm::normalize(wh);
         if(wh.z < 0)wh = -wh;
 
-        if(glm::dot(wh, wi) * cosTheta_i < 0.0 || glm::dot(wh, wo) * cosTheta_o < 0.0)
+        if(glm::dot(wh, wi) * cosTheta_i <= 0.0 || glm::dot(wh, wo) * cosTheta_o <= 0.0)
             return { 0,0,0 };
 
 
@@ -595,7 +586,7 @@ public:
         if(reflect){
             return textureColor * dist.D(wh) * dist.G(wo, wi) * F / std::abs(4 * cosTheta_i * cosTheta_o);
         } else{
-            double denom = (glm::dot(wi, wh) + glm::dot(wo, wh) / etap) * (glm::dot(wi, wh) + glm::dot(wo, wh) / etap) * cosTheta_i * cosTheta_o;
+            float denom = (glm::dot(wi, wh) + glm::dot(wo, wh) / etap) * (glm::dot(wi, wh) + glm::dot(wo, wh) / etap) * cosTheta_i * cosTheta_o;
             float ft = dist.D(wh) * (1 - F) * dist.G(wo, wi) * std::abs(glm::dot(wi, wh) * glm::dot(wo, wh) / denom);
             return textureColor * ft;
         }
@@ -607,12 +598,11 @@ public:
         return alphaTester.mode != AlphaMode::Opaque && (alpha != nullptr || tex->Channels() == 4);//must test 
     }
 
-    bool Alpha(float u, float v) const final{
-        if(!HasAlpha())return true;
+    bool Alpha(const glm::vec2& uv) const final{
         float a = 0;
         if(alpha){
-            a = alpha->Evaluate(SurfaceInteraction({ 0,0,0 }, { 0,0,0 }, { u,v })).x;//alpha->color_value(u,v).x
-        } else a = tex->alpha(u, v);//should just give 1 channel tex->getChannel( 3 );
+            a = alpha->Evaluate(SurfaceInteraction({ 0,0,0 }, { 0,0,0 }, uv)).x;//alpha->color_value(u,v).x
+        } else a = tex->alpha(uv);//should just give 1 channel tex->getChannel( 3 );
         return alphaTester(a);
     }
 
@@ -689,9 +679,6 @@ public:
         return 0;
     }
 
-    bool is_specular(const SurfaceInteraction& interaction) const final{
-        return true;
-    }
 private:
     float ri;
     std::shared_ptr<Texture> albedo;
@@ -707,10 +694,6 @@ public:
         float dot = glm::dot(scattered.dir, interaction.ns);
         if(dot <= 0)return std::nullopt;
         return BxDFSample { FresnelSchlick(glm::dot(interaction.ns,-incoming.dir), albedo) / dot,1,BxDFFlags::Specular };
-    }
-
-    bool is_specular(const SurfaceInteraction& interaction) const final{
-        return true;
     }
 
 private:

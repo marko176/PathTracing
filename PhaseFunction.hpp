@@ -17,7 +17,7 @@ public:
 class HenyeyGreenstein : public PhaseFunction{
 public:
     virtual ~HenyeyGreenstein() = default;
-    HenyeyGreenstein(float g) : g(glm::clamp(g, -0.99f, 0.99f)){}
+    HenyeyGreenstein(float G) : g(glm::clamp(G, -0.99f, 0.99f)){}
 
     float PDF(const glm::vec3& in, const glm::vec3& out) const override;
     float Sample(const glm::vec3& in, glm::vec3& out, const glm::vec2& u) const override;

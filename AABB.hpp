@@ -32,15 +32,15 @@ struct AABB{
     }
 
     inline bool Hit(const Ray& ray, float min_t, float max_t) const{// add interval
-        return HitDistance(ray, min_t, max_t) != std::numeric_limits<float>::infinity();
+        return HitDistance(ray, min_t, max_t) < std::numeric_limits<float>::infinity();
     }
 
     inline bool Hit(const Ray& ray, float max_t) const{// add interval
-        return HitDistance(ray, max_t) != std::numeric_limits<float>::infinity();
+        return HitDistance(ray, max_t) < std::numeric_limits<float>::infinity();
     }
 
     inline float HitDistance(const Ray& ray, float min_t, float max_t) const{// add interval
-#if defined(__SSE__)
+#if defined(__SSE__) || defined(_M_AMD64) || defined(_M_X64)
         const __m128 bmin4 = _mm_set_ps(0, min.z, min.y, min.x);
         const __m128 bmax4 = _mm_set_ps(0, max.z, max.y, max.x);
 
@@ -73,7 +73,7 @@ struct AABB{
     }
 
     inline float HitDistance(const Ray& ray, float max_t) const{// add interval
-#if defined(__SSE__)
+#if defined(__SSE__) || defined(_M_AMD64) || defined(_M_X64)
         const __m128 bmin4 = _mm_set_ps(0, min.z, min.y, min.x);
         const __m128 bmax4 = _mm_set_ps(0, max.z, max.y, max.x);
 

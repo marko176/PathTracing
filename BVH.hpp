@@ -1,7 +1,7 @@
 #pragma once
 #include "Primitive.hpp"
 
-inline constexpr unsigned int P(int a, int b, int c, int d){
+inline constexpr unsigned char P(int a, int b, int c, int d){
     return (a << 6) | (b << 4) | (c << 2) | d;
 }
 
@@ -14,7 +14,7 @@ inline constexpr unsigned char PermToIndexLUT[24] = {
     P(3,1,0,2), P(3,1,2,0), P(3,2,0,1), P(3,2,1,0)
 };
 
-inline constexpr int PermToIndex(unsigned int perm){
+inline constexpr unsigned char PermToIndex(unsigned int perm){
     for(int i = 0;i < 24;i++){
         if(perm == PermToIndexLUT[i])return i;
     }
@@ -24,10 +24,12 @@ inline constexpr int PermToIndex(unsigned int perm){
 //BVH 4
 //
 
-struct alignas(32) BVH_NODE{
+struct BVH_NODE{
     AABB bbox;
+    uint32_t left = 0;
     uint32_t right = 0;// right node / first triangle / meshID  / modelID
-    uint16_t count = 0;// is_leaf / tirangle count / mesh count / modelCount
+    uint32_t tris = 0;
+    uint16_t count = 0;// is_leaf / triangle count / mesh count / modelCount
     uint16_t axis = 0;  //holds split axis, left is - of axis, right is + of axis
     //is ray sign is + -> left is closer (push right then left)
     bool isLeaf() const{
@@ -84,8 +86,6 @@ public:
         return BVHbbox;
     }
 
-    virtual void BuildFrom(const std::vector<T>& prims) = 0;
-
 protected:
     struct PrimitiveInfo{
         PrimitiveInfo(uint32_t index, const AABB& bbox) : index { index }, bbox { bbox }, centroid(0.5f * (bbox.max + bbox.min)){}
@@ -101,9 +101,9 @@ protected:
         return baseNodes;
     }
 
-    inline bool intersectPrimitives(const Ray& ray, float& max, int primIndex, int primCount, SurfaceInteraction& interaction) const{
+    inline bool intersectPrimitives(const Ray& ray, float& max, uint32_t primIndex, uint32_t primCount, SurfaceInteraction& interaction) const{
         bool hit = false;
-        for(int i = primIndex;i < primIndex + primCount;i++){
+        for(uint32_t i = primIndex;i < primIndex + primCount;i++){
             if constexpr(requires { primitives[i]->Intersect(ray, interaction, max); }){
                 if(primitives[i]->Intersect(ray, interaction, max)){
                     hit = true;
@@ -120,8 +120,8 @@ protected:
         return hit;
     }
 
-    inline bool intersectPrimitivesPred(const Ray& ray, float max, int primIndex, int primCount) const{
-        for(int i = primIndex;i < primIndex + primCount;i++){
+    inline bool intersectPrimitivesPred(const Ray& ray, float max, uint32_t primIndex, uint32_t primCount) const{
+        for(uint32_t i = primIndex;i < primIndex + primCount;i++){
             if constexpr(requires { primitives[i]->IntersectPred(ray, max); }){
                 if(primitives[i]->IntersectPred(ray, max))return true;
             } else{
@@ -131,14 +131,14 @@ protected:
         return false;
     }
 private:
-    static uint32_t BuildBase(int first_triangle, int last_triangle, std::vector<PrimitiveInfo>& primitiveInfo, std::vector<BVH_NODE>& nodes){
+    static uint32_t BuildBase(uint32_t first_triangle, uint32_t last_triangle, std::vector<PrimitiveInfo>& primitiveInfo, std::vector<BVH_NODE>& nodes){
         uint32_t index = nodes.size();
         BVH_NODE& node = nodes.emplace_back();
-        size_t object_span = last_triangle - first_triangle;
+        uint32_t object_span = last_triangle - first_triangle;
 
         glm::vec3 maxAxis { -std::numeric_limits<float>::max() };
         glm::vec3 minAxis { std::numeric_limits<float>::max() };
-        for(int i = first_triangle;i < last_triangle;i++){
+        for(uint32_t i = first_triangle;i < last_triangle;i++){
             node.bbox.Expand(primitiveInfo[i].bbox);
             glm::vec3 triangle_centroid = primitiveInfo[i].centroid;
             maxAxis = glm::max(maxAxis, triangle_centroid);
@@ -147,21 +147,23 @@ private:
 
         node.right = first_triangle;//triangle
         node.count = object_span;
+        node.tris = object_span;
         if(object_span > 2){
 
-            int best_axis = 0;
+            unsigned char best_axis = 0;
             float bestPos = 0;
             float bestCost = std::numeric_limits<float>::max();
-            int BINS = object_span >= 1024 ? 32 :
+            uint32_t BINS = object_span >= 1024 ? 32 :
                 object_span >= 64 ? 16 : 8;
             std::vector<Bin> bins;
             std::vector<float> rightArea;
             bins.reserve(BINS);
             rightArea.reserve(BINS - 1);
 
-            for(int axis = 0;axis < 3;axis++){
+
+
+            for(unsigned char axis = 0;axis < 3;axis++){
                 bins.assign(BINS, Bin {});
-                rightArea.clear();
 
 
 
@@ -177,10 +179,10 @@ private:
                 */
 
 
-                if(max == min)continue;
+                if(std::abs(max-min)<=std::numeric_limits<float>::epsilon())continue;
                 float scale = BINS / (max - min);
 
-                for(int i = first_triangle;i < last_triangle;i++){
+                for(uint32_t i = first_triangle;i < last_triangle;i++){
                     //float triangle_centroid = (vertices[indices[i*3+0]][axis]+vertices[indices[i*3+1]][axis]+vertices[indices[i*3+2]][axis])/3.0f;
                     float triangle_centroid = primitiveInfo[i].centroid[axis];
                     int binId = std::min<int>(BINS - 1, (triangle_centroid - min) * scale);
@@ -189,18 +191,18 @@ private:
                 }
 
                 AABB leftBox, rightBox;
-                /*for(int i = BINS-1;i>=1;i--){
-                    rightBox.Expand( bins[i].aabb );// i == 0 -> BINS-1  i == BINS-2 -> 1
+                for(uint32_t i = BINS - 1;i >= 1;i--){
+                    rightBox.Expand(bins[i].aabb);// i == 0 -> BINS-1  i == BINS-2 -> 1
                     rightArea[i - 1] = rightBox.Area();// i == 0 -> BINS - 2  i == BINS - 2 -> 0
-                }*/
-                for(int i = 0;i < BINS - 1;i++){
+                }
+                /*for(int i = 0;i < BINS - 1;i++){
                     rightBox.Expand(bins[BINS - 1 - i].aabb);// i == 0 -> BINS-1  i == BINS-2 -> 1
                     rightArea[BINS - 2 - i] = rightBox.Area();// i == 0 -> BINS - 2  i == BINS - 2 -> 0
-                }
+                }*/
 
                 scale = (max - min) / BINS;
-                int leftSum = 0;
-                for(int i = 0;i < BINS - 1;i++){
+                uint32_t leftSum = 0;
+                for(uint32_t i = 0;i < BINS - 1;i++){
                     leftSum += bins[i].triCount;
                     leftBox.Expand(bins[i].aabb);
                     float cost = leftSum * leftBox.Area() + (object_span - leftSum) * rightArea[i];
@@ -218,7 +220,7 @@ private:
                 return index;
             }
 
-            int mid = std::partition(primitiveInfo.begin() + first_triangle, primitiveInfo.begin() + last_triangle, [&](const PrimitiveInfo& info){
+            uint32_t mid = std::partition(primitiveInfo.begin() + first_triangle, primitiveInfo.begin() + last_triangle, [&](const PrimitiveInfo& info){
                 float triangle_centroid = info.centroid[best_axis];
                 return triangle_centroid <= bestPos;
                 }) - primitiveInfo.begin();
@@ -236,7 +238,7 @@ private:
             //if ray sign is + we go left then right
 
             //node.left = pos+1;
-            BuildBase(first_triangle, mid, primitiveInfo, nodes);
+            node.left = BuildBase(first_triangle, mid, primitiveInfo, nodes);
             node.right = BuildBase(mid, last_triangle, primitiveInfo, nodes);
             node.count = 0;
             node.axis = best_axis;
@@ -278,8 +280,15 @@ public:
         }
 
 
-        nodes = BVHBase<T>::BuildBVHBase(primitiveInfo);
-
+        //nodes = BVHBase<T>::BuildBVHBase(primitiveInfo);
+        std::vector<BVH_NODE> BVHnodes = BVHBase<T>::BuildBVHBase(primitiveInfo);
+        nodes.reserve(BVHnodes.size());
+        if(BVHnodes.empty()){
+            BVHBase<T>::BVHbbox = AABB {};
+        } else{
+            BVHBase<T>::BVHbbox = BVHnodes[0].bbox;
+        }
+        BuildBVH2(BVHnodes);
 
         this->nodes.shrink_to_fit();
         for(const auto& info : primitiveInfo){
@@ -296,6 +305,31 @@ public:
         }
     }
 
+    struct alignas(32) BVH2_NODE{
+        AABB bbox;
+        uint32_t right = 0;// right node / first triangle / meshID  / modelID
+        uint16_t count = 0;// is_leaf / tirangle count / mesh count / modelCount
+        uint16_t axis = 0;  //holds split axis, left is - of axis, right is + of axis
+        //is ray sign is + -> left is closer (push right then left)
+        bool isLeaf() const{
+            return count != 0;
+        }
+    };
+
+    uint32_t BuildBVH2(const std::vector<BVH_NODE>& BVHnodes, uint32_t nodeIdx = 0){
+        const BVH_NODE& n = BVHnodes[nodeIdx];
+        uint32_t index = nodes.size();
+        BVH2_NODE& node = nodes.emplace_back();
+        node.bbox = n.bbox;
+        node.right = n.right;
+        node.count = n.count;
+        node.axis = n.axis;
+        if(n.isLeaf())return index;
+        BuildBVH2(BVHnodes, n.left);
+        node.right = BuildBVH2(BVHnodes, n.right);
+        return index;
+    }
+
 
     bool IntersectPred(const Ray& ray, float max = std::numeric_limits<float>::infinity()) const final{
         if(!BVHBase<T>::BVHbbox.Hit(ray, max))return false;
@@ -305,7 +339,7 @@ public:
 
         while(i){
             uint32_t index = stack[--i];
-            BVH_NODE node = nodes[index];
+            BVH2_NODE node = nodes[index];
 
             // switch to intercesion test
 
@@ -334,7 +368,7 @@ public:
         bool signs[3] = { ray.dir.x > 0,ray.dir.y > 0,ray.dir.z > 0 };
         while(i){
             uint32_t index = stack[--i];
-            BVH_NODE node = nodes[index];
+            BVH2_NODE node = nodes[index];
 
             if(node.count == 0){
                 uint32_t child1 = index + 1;
@@ -371,56 +405,15 @@ public:
         return hit_anything;
     }
 
-    void BuildFrom(const std::vector<T>& prims) override{
-        auto start = std::chrono::high_resolution_clock::now();
-        std::cout << "Building BVH2" << std::endl;
-
-        BVHBase<T>::primitives.clear();
-        nodes.clear();
-
-        BVHBase<T>::primitives.reserve(prims.size());
-
-        std::vector<PrimitiveInfo> primitiveInfo;
-        primitiveInfo.reserve(prims.size());
-
-        for(std::size_t i = 0;i < prims.size();i++){
-            if constexpr(requires { prims[i]->BoundingBox(); }){
-                AABB bbox = prims[i]->BoundingBox();
-                primitiveInfo.emplace_back(i, bbox);
-            } else{
-                AABB bbox = prims[i].BoundingBox();
-                primitiveInfo.emplace_back(i, bbox);
-            }
-        }
-
-
-        nodes = BVHBase<T>::BuildBVHBase(primitiveInfo);
-
-
-        this->nodes.shrink_to_fit();
-        for(const auto& info : primitiveInfo){
-            BVHBase<T>::primitives.emplace_back(prims[info.index]);
-        }
-
-        auto duration = std::chrono::high_resolution_clock::now() - start;
-        std::cout << "BVH built in: " << std::chrono::duration_cast<std::chrono::milliseconds>(duration) << std::endl;
-
-        if(nodes.empty()){
-            BVHBase<T>::BVHbbox = AABB {};
-        } else{
-            BVHBase<T>::BVHbbox = nodes[0].bbox;
-        }
-    };
-
 private:
-    std::vector<BVH_NODE> nodes;
+    std::vector<BVH2_NODE> nodes;
 };
 
 using BLAS = BVH<GeometricPrimitive>;
 using TLAS = BVH<std::shared_ptr<Primitive>>;
 
 
-#if defined(__SSE__)
+#if defined(__SSE__) || defined(_M_AMD64) || defined(_M_X64)
 template <typename T>
 class BVH4 : public BVHBase<T>{
     using typename BVHBase<T>::PrimitiveInfo;
@@ -586,9 +579,9 @@ class BVH4 : public BVHBase<T>{
         for(unsigned int mask = 0;mask < 16;mask++){
             for(unsigned int perm = 0;perm < 24;perm++){
                 const unsigned int order = PermToIndexLUT[perm];
-                unsigned int ans = 0;
+                unsigned char ans = 0;
                 for(int n = 6;n >= 0;n -= 2){
-                    const unsigned int idx = (order >> n) & 0x3;
+                    const unsigned char idx = (order >> n) & 0x3;
                     if(mask & (1 << idx)){
                         //0321
                         //stack = 1 2 3 -> 3 is first to intersect
@@ -630,16 +623,16 @@ public:
         //then we gather 8 shapes with GetShape
         //we then put all the data in the float arrays
         //pass them to Intersect8 and get result from it
-        std::vector<BVH_NODE> BVH2nodes = BVHBase<T>::BuildBVHBase(primitiveInfo);
-        if(BVH2nodes.empty()){
+        std::vector<BVH_NODE> BVHnodes = BVHBase<T>::BuildBVHBase(primitiveInfo);
+        if(BVHnodes.empty()){
             BVHBase<T>::BVHbbox = AABB {};
         } else{
-            BVHBase<T>::BVHbbox = BVH2nodes[0].bbox;
+            BVHBase<T>::BVHbbox = BVHnodes[0].bbox;
         }
 
 
-        rootNode = buildBVH4(BVH2nodes, 0);
-        std::cout << BVH2nodes.size() << "  " << nodes.size() << "....\n";
+        rootNode = buildBVH4(BVHnodes, 0);
+        std::cout << BVHnodes.size() << "  " << nodes.size() << "....\n";
 
         this->nodes.shrink_to_fit();
         for(const auto& info : primitiveInfo){
@@ -650,9 +643,9 @@ public:
         std::cout << "BVH4 built in: " << std::chrono::duration_cast<std::chrono::milliseconds>(duration) << std::endl;
     }
 
-    BVH4_NODE buildBVH4(const std::vector<BVH_NODE>& BVH2nodes, uint32_t nodeIdx = 0){
+    BVH4_NODE buildBVH4(const std::vector<BVH_NODE>& BVHnodes, uint32_t nodeIdx = 0){
 
-        const BVH_NODE& n = BVH2nodes[nodeIdx];
+        const BVH_NODE& n = BVHnodes[nodeIdx];
         unsigned char active = 0;
         unsigned char perm = 0;
         if(n.isLeaf()){
@@ -661,15 +654,17 @@ public:
 
         uint32_t index = nodes.size();
         BVH4_CLUSTER& node = nodes.emplace_back();
-        const BVH_NODE& left = BVH2nodes[nodeIdx + 1];
-        const BVH_NODE& right = BVH2nodes[n.right];
+        const BVH_NODE& left = BVHnodes[n.left];
+        const BVH_NODE& right = BVHnodes[n.right];
 
         if(left.isLeaf() && right.isLeaf()){
-            //       n
-            //     /   \ 
-            // node0   node1
-            BVH4_NODE node0 = buildBVH4(BVH2nodes, nodeIdx + 1);
-            BVH4_NODE node2 = buildBVH4(BVH2nodes, n.right);
+            /*
+                     n
+                   /   \
+               node0   node1
+            */
+            BVH4_NODE node0 = buildBVH4(BVHnodes, n.left);
+            BVH4_NODE node2 = buildBVH4(BVHnodes, n.right);
 
             node.SetDataAtIndex(left.bbox, 0);
             node.SetDataAtIndex(right.bbox, 2);
@@ -678,17 +673,19 @@ public:
             active = 0b0101;
             perm = n.axis + 0 * 3 + 0 * 9 + 0 * 27;
         } else if(left.isLeaf()){
-            BVH_NODE lowerLeft = BVH2nodes[n.right + 1];
-            BVH_NODE lowerRight = BVH2nodes[right.right];
+            BVH_NODE lowerLeft = BVHnodes[right.left];
+            BVH_NODE lowerRight = BVHnodes[right.right];
             if(lowerLeft.isLeaf() && lowerRight.isLeaf()){
-                //       n
-                //     /  \ 
-                // node0    right
-                //         /    \ 
-                //     node1    node2
-                BVH4_NODE node0 = buildBVH4(BVH2nodes, nodeIdx + 1);
-                BVH4_NODE node2 = buildBVH4(BVH2nodes, n.right + 1);
-                BVH4_NODE node3 = buildBVH4(BVH2nodes, right.right);
+                /*
+                         n
+                       /  \
+                   node0    right
+                           /    \
+                       node1    node2
+                */
+                BVH4_NODE node0 = buildBVH4(BVHnodes, n.left);
+                BVH4_NODE node2 = buildBVH4(BVHnodes, right.left);
+                BVH4_NODE node3 = buildBVH4(BVHnodes, right.right);
 
                 node.SetDataAtIndex(left.bbox, 0);
                 node.SetDataAtIndex(lowerLeft.bbox, 2);
@@ -701,19 +698,21 @@ public:
                 active = 0b1101;
                 perm = n.axis + 0 * 3 + right.axis * 9 + 0 * 27;
             } else if(lowerLeft.isLeaf()){
-                //       n
-                //     /  \ 
-                // node0    right
-                //         /    \ 
-                //     node1    lowerRight
-                //              /        \ 
-                //          node2        node3
-                BVH_NODE l = BVH2nodes[right.right + 1];
-                BVH_NODE r = BVH2nodes[lowerRight.right];
-                BVH4_NODE node0 = buildBVH4(BVH2nodes, nodeIdx + 1);
-                BVH4_NODE node1 = buildBVH4(BVH2nodes, n.right + 1);
-                BVH4_NODE node2 = buildBVH4(BVH2nodes, right.right + 1);
-                BVH4_NODE node3 = buildBVH4(BVH2nodes, lowerRight.right);
+                /*
+                         n
+                       /  \
+                   node0    right
+                           /    \
+                       node1    lowerRight
+                                /        \
+                            node2        node3
+                */
+                BVH_NODE l = BVHnodes[lowerRight.left];
+                BVH_NODE r = BVHnodes[lowerRight.right];
+                BVH4_NODE node0 = buildBVH4(BVHnodes, n.left);
+                BVH4_NODE node1 = buildBVH4(BVHnodes, right.left);
+                BVH4_NODE node2 = buildBVH4(BVHnodes, lowerRight.left);
+                BVH4_NODE node3 = buildBVH4(BVHnodes, lowerRight.right);
 
                 node.SetDataAtIndex(left.bbox, 0);
                 node.SetDataAtIndex(lowerLeft.bbox, 1);
@@ -728,19 +727,21 @@ public:
                 active = 0b1111;
                 perm = n.axis + right.axis * 3 + lowerRight.axis * 9 + 1 * 27;
             } else{
-                //       n
-                //     /  \ 
-                // node0    right
-                //         /     \ 
-                //   lowerLeft   node4
-                //    /     \ 
-                //node1     node2
-                BVH_NODE l = BVH2nodes[n.right + 1 + 1];
-                BVH_NODE r = BVH2nodes[lowerLeft.right];
-                BVH4_NODE node0 = buildBVH4(BVH2nodes, nodeIdx + 1);
-                BVH4_NODE node1 = buildBVH4(BVH2nodes, n.right + 1 + 1);
-                BVH4_NODE node2 = buildBVH4(BVH2nodes, lowerLeft.right);
-                BVH4_NODE node3 = buildBVH4(BVH2nodes, right.right);
+                /*
+                         n
+                       /  \
+                   node0    right
+                           /     \
+                     lowerLeft   node4
+                      /     \
+                  node1     node2
+                */
+                BVH_NODE l = BVHnodes[lowerLeft.left];
+                BVH_NODE r = BVHnodes[lowerLeft.right];
+                BVH4_NODE node0 = buildBVH4(BVHnodes, n.left);
+                BVH4_NODE node1 = buildBVH4(BVHnodes, lowerLeft.left);
+                BVH4_NODE node2 = buildBVH4(BVHnodes, lowerLeft.right);
+                BVH4_NODE node3 = buildBVH4(BVHnodes, right.right);
 
 
                 node.SetDataAtIndex(left.bbox, 0);
@@ -757,17 +758,19 @@ public:
                 perm = n.axis + right.axis * 3 + lowerLeft.axis * 9 + 2 * 27;
             }
         } else if(right.isLeaf()){
-            BVH_NODE lowerLeft = BVH2nodes[nodeIdx + 2];
-            BVH_NODE lowerRight = BVH2nodes[left.right];
+            BVH_NODE lowerLeft = BVHnodes[left.left];
+            BVH_NODE lowerRight = BVHnodes[left.right];
             if(lowerLeft.isLeaf() && lowerRight.isLeaf()){
-                //            n
-                //         /    \ 
-                //     left      node2
-                //     /   \        
-                //node0  node1       
-                BVH4_NODE node0 = buildBVH4(BVH2nodes, nodeIdx + 2);
-                BVH4_NODE node1 = buildBVH4(BVH2nodes, left.right);
-                BVH4_NODE node2 = buildBVH4(BVH2nodes, n.right);
+                /*
+                              n
+                           /    \
+                       left      node2
+                       /   \
+                  node0  node1
+                */
+                BVH4_NODE node0 = buildBVH4(BVHnodes, left.left);
+                BVH4_NODE node1 = buildBVH4(BVHnodes, left.right);
+                BVH4_NODE node2 = buildBVH4(BVHnodes, n.right);
 
                 node.SetDataAtIndex(lowerLeft.bbox, 0);
                 node.SetDataAtIndex(lowerRight.bbox, 1);
@@ -780,19 +783,21 @@ public:
                 active = 0b0111;
                 perm = n.axis + left.axis * 3 + 0 * 9 + 0 * 27;
             } else if(lowerLeft.isLeaf()){
-                //              n
-                //           /    \ 
-                //       left      node3
-                //      /    \        
-                // node0  lowerRight
-                //         /     \ 
-                //     node1     node2
-                BVH_NODE l = BVH2nodes[left.right + 1];
-                BVH_NODE r = BVH2nodes[lowerRight.right];
-                BVH4_NODE node0 = buildBVH4(BVH2nodes, nodeIdx + 2);
-                BVH4_NODE node1 = buildBVH4(BVH2nodes, left.right + 1);
-                BVH4_NODE node2 = buildBVH4(BVH2nodes, lowerRight.right);
-                BVH4_NODE node3 = buildBVH4(BVH2nodes, n.right);
+                /*
+                                n
+                             /    \
+                         left      node3
+                        /    \
+                   node0  lowerRight
+                           /     \
+                       node1     node2
+                */
+                BVH_NODE l = BVHnodes[lowerRight.left];
+                BVH_NODE r = BVHnodes[lowerRight.right];
+                BVH4_NODE node0 = buildBVH4(BVHnodes, nodeIdx + 2);
+                BVH4_NODE node1 = buildBVH4(BVHnodes, lowerRight.left);
+                BVH4_NODE node2 = buildBVH4(BVHnodes, lowerRight.right);
+                BVH4_NODE node3 = buildBVH4(BVHnodes, n.right);
 
                 node.SetDataAtIndex(lowerLeft.bbox, 0);
                 node.SetDataAtIndex(l.bbox, 1);
@@ -807,19 +812,21 @@ public:
                 active = 0b1111;
                 perm = n.axis + left.axis * 3 + lowerRight.axis * 9 + 4 * 27;
             } else{
-                //                 n
-                //              /    \ 
-                //          left      node3
-                //         /    \        
-                //    lowerLeft  node2
-                //     /     \ 
-                //node0     node1
-                BVH_NODE l = BVH2nodes[nodeIdx + 3];
-                BVH_NODE r = BVH2nodes[lowerLeft.right];
-                BVH4_NODE node0 = buildBVH4(BVH2nodes, nodeIdx + 3);
-                BVH4_NODE node1 = buildBVH4(BVH2nodes, lowerLeft.right);
-                BVH4_NODE node2 = buildBVH4(BVH2nodes, left.right);
-                BVH4_NODE node3 = buildBVH4(BVH2nodes, n.right);
+                /*
+                                   n
+                                /    \
+                            left      node3
+                           /    \
+                      lowerLeft  node2
+                       /     \
+                  node0     node1
+                */
+                BVH_NODE l = BVHnodes[lowerLeft.left];
+                BVH_NODE r = BVHnodes[lowerLeft.right];
+                BVH4_NODE node0 = buildBVH4(BVHnodes, lowerLeft.left);
+                BVH4_NODE node1 = buildBVH4(BVHnodes, lowerLeft.right);
+                BVH4_NODE node2 = buildBVH4(BVHnodes, left.right);
+                BVH4_NODE node3 = buildBVH4(BVHnodes, n.right);
 
                 node.SetDataAtIndex(l.bbox, 0);
                 node.SetDataAtIndex(r.bbox, 1);
@@ -835,20 +842,22 @@ public:
                 perm = n.axis + left.axis * 3 + lowerLeft.axis * 9 + 3 * 27;
             }
         } else{
-            //             n
-            //          /     \ 
-            //      left      right
-            //     /    \     /    \ 
-            // node0  node1 node2 node3
-            BVH_NODE A = BVH2nodes[nodeIdx + 2];
-            BVH_NODE B = BVH2nodes[left.right];
-            BVH_NODE C = BVH2nodes[n.right + 1];
-            BVH_NODE D = BVH2nodes[right.right];
+            /*
+                           n
+                        /     \
+                    left      right
+                   /    \     /    \
+               node0  node1 node2 node3
+            */
+            BVH_NODE A = BVHnodes[left.left];
+            BVH_NODE B = BVHnodes[left.right];
+            BVH_NODE C = BVHnodes[right.left];
+            BVH_NODE D = BVHnodes[right.right];
 
-            BVH4_NODE node0 = buildBVH4(BVH2nodes, nodeIdx + 2);
-            BVH4_NODE node1 = buildBVH4(BVH2nodes, left.right);
-            BVH4_NODE node2 = buildBVH4(BVH2nodes, n.right + 1);
-            BVH4_NODE node3 = buildBVH4(BVH2nodes, right.right);
+            BVH4_NODE node0 = buildBVH4(BVHnodes, left.left);
+            BVH4_NODE node1 = buildBVH4(BVHnodes, left.right);
+            BVH4_NODE node2 = buildBVH4(BVHnodes, right.left);
+            BVH4_NODE node3 = buildBVH4(BVHnodes, right.right);
 
             node.SetDataAtIndex(A.bbox, 0);
             node.SetDataAtIndex(B.bbox, 1);
@@ -880,7 +889,7 @@ public:
 
         //ray signs
         //lowest bit is x, becouse we use axis0 = x, see building of LUT
-        const unsigned char signs = ((ray.dir[2] < 0) << 2) | ((ray.dir[1] < 0) << 1) | (ray.dir[0] < 0);
+        //const unsigned char signs = ((ray.dir[2] < 0) << 2) | ((ray.dir[1] < 0) << 1) | (ray.dir[0] < 0);
         const __m128 maxt = _mm_set1_ps(max);
         BVH4_NODE stack[32];
         int sp = 0;
@@ -1061,52 +1070,6 @@ public:
         return hit;
     }
 
-    void BuildFrom(const std::vector<T>& prims) override{
-        auto start = std::chrono::high_resolution_clock::now();
-        std::cout << "Building BVH4" << std::endl;
-
-        BVHBase<T>::primitives.clear();
-        nodes.clear();
-        nodes.reserve(prims.size() * 2 - 1);
-        BVHBase<T>::primitives.reserve(prims.size());
-
-        std::vector<PrimitiveInfo> primitiveInfo;
-        primitiveInfo.reserve(prims.size());
-
-        for(std::size_t i = 0;i < prims.size();i++){
-            if constexpr(requires { prims[i]->BoundingBox(); }){
-                AABB bbox = prims[i]->BoundingBox();
-                primitiveInfo.emplace_back(i, bbox);
-            } else{
-                AABB bbox = prims[i].BoundingBox();
-                primitiveInfo.emplace_back(i, bbox);
-            }
-        }
-
-        //buildBVHBase accepty num of tris in leaf?
-        //if std::is_base_of<TrianglePrimitive> 
-        //then we gather 8 shapes with GetShape
-        //we then put all the data in the float arrays
-        //pass them to Intersect8 and get result from it
-        std::vector<BVH_NODE> BVH2nodes = BVHBase<T>::BuildBVHBase(primitiveInfo);
-        if(BVH2nodes.empty()){
-            BVHBase<T>::BVHbbox = AABB {};
-        } else{
-            BVHBase<T>::BVHbbox = BVH2nodes[0].bbox;
-        }
-
-
-        rootNode = buildBVH4(BVH2nodes, 0);
-        std::cout << BVH2nodes.size() << "  " << nodes.size() << "....\n";
-
-        this->nodes.shrink_to_fit();
-        for(const auto& info : primitiveInfo){
-            BVHBase<T>::primitives.emplace_back(prims[info.index]);
-        }
-
-        auto duration = std::chrono::high_resolution_clock::now() - start;
-        std::cout << "BVH4 built in: " << std::chrono::duration_cast<std::chrono::milliseconds>(duration) << std::endl;
-    };
 
 protected:
     BVH4_NODE rootNode;
@@ -1116,3 +1079,38 @@ protected:
 using BLAS4 = BVH4<GeometricPrimitive>;
 using TLAS4 = BVH4<std::shared_ptr<Primitive>>;
 #endif
+
+
+//during BVH8 construction keep all nodes (even the inner temporary ones)
+//after then find order for each ray sign combination
+//place the final nodes into tbe BVH8_CLUSTER
+
+struct BVH8_NODE{
+    uint32_t perm = 0;//top 8 bytes hold count -> if count != 0 -> leaf
+    //1. way
+    //(perm&0x7) << (3* ray sign) to find position of that child
+    //2. way 
+    // child[ray sign].perm holds all rodering
+    // this could have been used in BVH4 becouse we need 8 perm vectors -> aka >=8 children
+    uint32_t ClusterIdx = 0;//if leaf then this holds triangle index
+};
+//if we use 1. we can just >> (3*ray sign(0bXXX)) to get the nodes index in bottom 3 bits
+//we can maybe do this with vector instruction (rotate)
+// to do this we need AVX 512
+
+struct alignas(256) BVH8_CLUSTER{
+    float xmin[8] { 0 }, xmax[8] { 0 };
+    float ymin[8] { 0 }, ymax[8] { 0 };
+    float zmin[8] { 0 }, zmax[8] { 0 };
+
+    BVH8_NODE children[8] {};
+
+    void SetDataAtIndex(const AABB& bbox, int index){
+        xmin[index] = bbox.min[0];
+        ymin[index] = bbox.min[1];
+        zmin[index] = bbox.min[2];
+        xmax[index] = bbox.max[0];
+        ymax[index] = bbox.max[1];
+        zmax[index] = bbox.max[2];
+    }
+};

@@ -2,6 +2,7 @@
 #include <numbers>
 #include "Sampler.hpp"
 #include <thread>
+#include <numeric>
 inline double luminance(const glm::dvec3& v){//taken from gilm to film
     return dot(v, glm::dvec3(0.2126, 0.7152, 0.0722));
 }

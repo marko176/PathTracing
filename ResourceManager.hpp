@@ -43,10 +43,23 @@ public:
     }
 
     template <typename T, typename... Args>
+        requires std::is_base_of_v<BVHBase<GeometricPrimitive>, T>
     std::shared_ptr<Model> CacheModel(const std::string& name, const std::string& path, Args&&... args){
         auto it = modelCache.find(name);
         if(it != modelCache.end()){
             return it->second;
+        }
+        std::shared_ptr<Model> ptr = std::make_shared<Model>(path);
+        ptr->BuildBlas<T>(std::forward<Args>(args)...);
+        return modelCache.try_emplace(name, ptr).first->second;
+    }
+
+    template <typename T, typename... Args>
+        requires std::is_base_of_v<BVHBase<GeometricPrimitive>, T>
+    std::shared_ptr<Model> CacheOverwriteModel(const std::string& name, const std::string& path, Args&&... args){
+        auto it = modelCache.find(name);
+        if(it != modelCache.end()){
+            modelCache.erase(it);
         }
         std::shared_ptr<Model> ptr = std::make_shared<Model>(path);
         ptr->BuildBlas<T>(std::forward<Args>(args)...);
