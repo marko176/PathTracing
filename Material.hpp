@@ -32,7 +32,7 @@ inline glm::vec3 FresnelSchlick(float cos_theta, const glm::vec3& F0){
 }
 
 
-enum BxDFFlags : u_int32_t{
+enum BxDFFlags : uint32_t{
     None = 0b0,
     Transmissive = 0b1,
     Specular = 0b10
@@ -41,7 +41,7 @@ enum BxDFFlags : u_int32_t{
 struct BxDFSample{
     glm::vec3 f;
     float pdf;
-    u_int32_t flags;
+    uint32_t flags;//BxDFFlags
 
     bool isTransmissive() const{
         return flags & BxDFFlags::Transmissive;
@@ -239,7 +239,6 @@ public:
         if(u >= prob){
             wh = dist.sampleWh(wo, uv);
             wi = glm::reflect(-wo, wh);
-
         } else{
             float z = std::sqrt(1.0f - uv.y);
 

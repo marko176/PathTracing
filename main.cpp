@@ -480,7 +480,7 @@ void Miguel(){
     ch = std::make_shared<MicrofacetDiffuse>(std::make_shared<CheckerTexture>(white, green, glm::vec2 { 0.001,0.001 }));
     std::shared_ptr<AreaLight> area = std::make_shared<AreaLight>(std::make_shared<QuadShape>(glm::vec3(0.3, 1.5, 0), glm::vec3(-0.15, 0, 0), glm::vec3(0, 0, -0.15)), glm::vec3(600), false);
 
-    scene->Add(ResourceManager::get_instance().CacheModel<BLAS4>("San Miguel", "/home/markov/Documents/Coding/CPP/testing/models/HARD/temp.assbin"));
+    scene->Add(ResourceManager::get_instance().CacheModel<BLAS8>("San Miguel", "/home/markov/Documents/Coding/CPP/testing/models/HARD/temp.assbin"));
 
     auto lightFunc = [](const Ray& ray){
         float a = 0.5f * (ray.dir.y + 1.0f);
@@ -518,8 +518,9 @@ void Miguel(){
 
     //567 bvh2
     //518 simd bvh2
-    //388s BVH4 SIMD
-    int samples = 16;
+    //384s BVH4 SIMD 386
+    //367s BVH8 SIMD 372
+    int samples = 100;
     int sqrts = std::sqrt(samples);
 
     std::shared_ptr<Film> film = std::make_shared<Film>(glm::ivec2 { 1920,1080 }, std::make_shared<MitchellFilter>());
@@ -1077,7 +1078,7 @@ void transmission(){
 int main(){
     //stbi_set_flip_vertically_on_load(true);
     //"/home/markov/Documents/Coding/CPP/testing/stanford/common-3d-test-models-master/data/lucy.obj"
-    switch(2){
+    switch(1){
     case 0:
         temp();
         break;
