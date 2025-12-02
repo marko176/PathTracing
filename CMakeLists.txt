@@ -42,15 +42,50 @@ target_include_directories(PathTracer PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries(PathTracer PRIVATE assimp)
 
 if (MSVC) 
-    #add_compile_options(/FS /O2)
     target_compile_options(PathTracer PRIVATE
         $<$<CONFIG:Debug>:/FS /Zi /Od /W3 /MDd>
         $<$<CONFIG:RelWithDebInfo>:/FS /Zi /O2 /W2 /MD>
         $<$<CONFIG:Release>:/FS /Ox /MD>
     )
 else()
-    #add_compile_options(-O3 -march=native -g)
     target_compile_options(PathTracer PRIVATE
+
+        $<$<CONFIG:Debug>:-O0;-g;-march=native;-Wall;-Wunreachable-code;-Wuninitialized;-Winit-self;-Wfloat-equal>
+
+        $<$<CONFIG:RelWithDebInfo>:-O2;-g;-march=native;-Wall>
+
+        $<$<CONFIG:Release>:-O3;-g;-march=native>
+    )
+endif()
+
+
+add_executable(example1 
+            stb_image.cpp 
+            stb_image_write.cpp
+            examples/example_1.cpp  
+            Model.cpp 
+            Texture.cpp 
+            ResourceManager.cpp 
+            Primitive.cpp 
+            Shape.cpp
+            Light.cpp
+            LightSampler.cpp
+            Scene.cpp
+            Integrators.cpp
+            PhaseFunction.cpp)
+
+
+target_include_directories(example1 PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_libraries(example1 PRIVATE assimp)
+
+if (MSVC) 
+    target_compile_options(example1 PRIVATE
+        $<$<CONFIG:Debug>:/FS /Zi /Od /W3 /MDd>
+        $<$<CONFIG:RelWithDebInfo>:/FS /Zi /O2 /W2 /MD>
+        $<$<CONFIG:Release>:/FS /Ox /MD>
+    )
+else()
+    target_compile_options(example1 PRIVATE
 
         $<$<CONFIG:Debug>:-O0;-g;-march=native;-Wall;-Wunreachable-code;-Wuninitialized;-Winit-self;-Wfloat-equal>
 

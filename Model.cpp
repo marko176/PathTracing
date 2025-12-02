@@ -121,7 +121,7 @@ std::vector<std::shared_ptr<Texture>> Model::GetTextures(aiMaterial* material) c
     return textures;
 }
 
-std::shared_ptr<Material> Model::SetupOBJMaterial(const std::vector<std::shared_ptr<Texture>>& textures, aiMaterial* material) const{
+std::shared_ptr<Material> Model::SetupMaterial(const std::vector<std::shared_ptr<Texture>>& textures, aiMaterial* material) const{
     std::shared_ptr<Material> mat = nullptr;
     float ior = 1.5;
     material->Get(AI_MATKEY_REFRACTI, ior);
@@ -336,7 +336,7 @@ std::shared_ptr<Mesh> Model::process_mesh(aiMesh* mesh, const aiScene* scene){
         aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
         std::vector<std::shared_ptr<Texture>> textures = GetTextures(material);
 
-        std::shared_ptr<Material> mat = SetupOBJMaterial(textures, material);
+        std::shared_ptr<Material> mat = SetupMaterial(textures, material);
         std::shared_ptr<Medium> medium = nullptr;
         float thickeness = 0;
 

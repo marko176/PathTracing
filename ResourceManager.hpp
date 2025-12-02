@@ -74,11 +74,11 @@ public:
         return nullptr;
     }
 
-    void releaseTextures(){
+    void releaseTextureCache(){
         texture_cache.clear();
     }
 
-    void releaseModels(){
+    void releaseModelCache(){
         modelCache.clear();
     }
 
@@ -87,7 +87,11 @@ public:
     }
 private:
     ResourceManager() = default;
-    ~ResourceManager() = default;
+    ~ResourceManager() {
+        releaseTextureCache();
+        releaseMeshCache();
+        releaseModelCache();
+    }
 
 
 

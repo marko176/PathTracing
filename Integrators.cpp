@@ -5,6 +5,7 @@
 #include "Sampler.hpp"
 #include <chrono>
 #include <thread>
+#include <syncstream>
 
 bool Integrator::Unoccluded(const Ray& ray, float t) const{
     return !scene->IntersectPred(ray, t);
@@ -23,55 +24,77 @@ void TileIntegrator::Render() const{
     std::vector<std::thread> workers;
     std::atomic<int> done { 0 };
 
-    constexpr int tileSize = 32;
+    constexpr const int tileSize = 16;
     glm::ivec2 resolution = camera->GetFilm()->Resolution();
     int tileCount = ((resolution.x + tileSize - 1) / tileSize) * ((resolution.y + tileSize - 1) / tileSize);
     std::mutex consoleMutex;
     uint32_t samples = sampler->SamplesPerPixel();
     auto lamb = [&](){
-        int tile;
+        int tileNum;
         std::shared_ptr<Sampler> clonedSampler = sampler->Clone();
-        while((tile = done.fetch_add(1, std::memory_order_relaxed)) < tileCount){
-            int tileX = tile % ((resolution.x + tileSize - 1) / tileSize);
-            int tileY = tile / ((resolution.x + tileSize - 1) / tileSize);
+        while((tileNum = done.fetch_add(1, std::memory_order_relaxed)) < tileCount){
+            int tileX = tileNum % ((resolution.x + tileSize - 1) / tileSize);
+            int tileY = tileNum / ((resolution.x + tileSize - 1) / tileSize);
             int minX = tileX * tileSize;
             int minY = tileY * tileSize;
             int maxX = std::min((tileX + 1) * tileSize, resolution.x);
             int maxY = std::min((tileY + 1) * tileSize, resolution.y);
             FilmTile tile = camera->GetFilm()->GetFilmTile({ {minX,minY},{maxX,maxY} });
-            consoleMutex.lock();
-            std::cout << "\rFinished:" << std::setw(7) << std::right << std::fixed << std::setprecision(2) << 100 * (done.load()) / float(tileCount) << "%" << std::flush;
-            consoleMutex.unlock();
-            for(int y = minY;y < maxY;y++){
-                for(int x = minX;x < maxX;x++){
-                    VarianceEstimator estimator[3];
 
-                    while(estimator[0].Samples() < 128 * samples){//was 32
-                        for(uint32_t sample_index = 0;sample_index < samples; sample_index++){
-                            clonedSampler->StartPixelSample({ x,y }, sample_index);
-                            glm::dvec2 p = glm::dvec2 { x,y } + clonedSampler->getPixel2D();
-                            float time = clonedSampler->get1D();
-                            Ray ray = camera->GenerateRay(p, time, clonedSampler->get2D());
-                            glm::dvec3 color = Li(ray);
-                            if(glm::isnan(color.x) || glm::isnan(color.y) || glm::isnan(color.z)){
-                                std::cout << "Nan:" << x << " " << y << "\n";
-                                continue;
+            std::osyncstream(std::cout)<<"\rFinished:" << std::setw(7) << std::right << std::fixed << std::setprecision(2) << 100 * (done.load(std::memory_order_relaxed)) / float(tileCount) << "%" << std::flush;
+
+            //this could work now becouse perv tile size was 32x32
+            //FilmTile Atile = camera->GetFilm()->GetFilmTile({ {minX,minY},{maxX,maxY} });
+            //for(int VarIdx = 0;VarIdx<2;VarIdx++){
+                for(int y = minY;y < maxY;y++){
+                    for(int x = minX;x < maxX;x++){
+                        VarianceEstimator estimator[3];
+    
+                        while(estimator[0].Samples() < 128 * samples){//was 32
+                            for(uint32_t sample_index = 0;sample_index < samples; sample_index++){
+                                clonedSampler->StartPixelSample({ x,y }, sample_index);
+                                glm::dvec2 p = glm::dvec2 { x,y } + clonedSampler->getPixel2D();
+                                float time = clonedSampler->get1D();
+                                Ray ray = camera->GenerateRay(p, time, clonedSampler->get2D());
+                                glm::dvec3 color = Li(ray);
+                                if(glm::isnan(color.x) || glm::isnan(color.y) || glm::isnan(color.z)){
+                                    std::osyncstream(std::cout) << "Nan:" << x << " " << y << "\n"<<std::flush;
+                                    continue;
+                                }
+    
+                                tile.Add(p, color);
+                                //if(estimator[0].Samples() % 2 == 1)Atile.Add(p, color);
+                                
+                                color *= glm::dvec3(0.2126f, 0.7152f, 0.0722f);
+                                for(int k = 0;k < 3;k++)
+                                    estimator[k].Add(color[k]);
                             }
-
-                            tile.Add(p, color);
-                            color *= glm::dvec3(0.2126f, 0.7152f, 0.0722f);
-                            for(int k = 0;k < 3;k++)
-                                estimator[k].Add(color[k]);
-
+                            float k = 1.5;//lower good for dragon , very low or very high for caustics
+                            if(estimator[0].RelativeVariance() <= k &&
+                                estimator[1].RelativeVariance() <= k &&
+                                estimator[2].RelativeVariance() <= k)break;
                         }
-                        float k = 1.5;//lower good for dragon , very low or very high for caustics
-                        if(estimator[0].RelativeVariance() <= k &&
-                            estimator[1].RelativeVariance() <= k &&
-                            estimator[2].RelativeVariance() <= k)break;
                     }
-
                 }
-            }
+                /*
+                double eb = 0;
+                for(int y = minY;y < maxY;y++){
+                    for(int x = minX;x < maxX;x++){
+                        auto tt = tile.At({x,y});
+                        auto tt2 = Atile.At({x,y});
+                        glm::dvec3 I = tt.RGB / tt.weight;
+                        glm::dvec3 A = tt2.RGB / tt2.weight;
+                        double ep = (std::abs(I.r-A.r) + std::abs(I.g-A.g) + std::abs(I.b-A.b)) / (std::sqrt(I.r + I.g + I.b + 1e-12f));
+                        eb += ep;
+                    }
+                }
+
+                eb *= std::sqrt(static_cast<double>(tileSize * tileSize) / (resolution.x * resolution.y)) / (tileSize * tileSize);
+                if(eb <= 0.0002){
+                    break;
+                }
+                */
+            //}
             camera->GetFilm()->Merge(tile);
         }
         };
@@ -108,6 +131,11 @@ glm::vec3 SimplePathIntegrator::Li(Ray ray) const{
         glm::vec3 L = { 0,0,0 };
         if(interaction.AreaLight && (L = interaction.AreaLight->L(interaction, ray)) != glm::vec3(0, 0, 0)){
             output += attenuation * L;
+        }
+
+        if(!interaction.mat){//in case of medium
+            ray.origin = ray.at(interaction.t);
+            continue;
         }
 
         Ray new_ray;
@@ -159,13 +187,19 @@ glm::vec3 PathIntegrator::Li(Ray ray) const{
             return output;
         }
 
-        glm::vec2 random_variables = sampler->get2D();
-        glm::vec2 light_random_variables = sampler->get2D();
-        float scatter_random_variable = sampler->get1D();
-        float light_selection_random_variable = sampler->get1D();
-        float rr_random_variable = sampler->get1D();
+        std::array<glm::vec2,4> random_sequence = sampler->get2Dx4f();
+        //glm::vec2 random_variables = sampler->get2D();
+        glm::vec2 random_variables = random_sequence[0];
+        //glm::vec2 light_random_variables = sampler->get2D();
+        glm::vec2 light_random_variables = random_sequence[1];
+        //float scatter_random_variable = sampler->get1D();
+        float scatter_random_variable = random_sequence[2].x;
+        //float light_selection_random_variable = sampler->get1D();
+        float light_selection_random_variable = random_sequence[2].y;
+        //float rr_random_variable = sampler->get1D();
+        float rr_random_variable = random_sequence[3].x;
 
-        glm::vec3 L = { 0,0,0 };
+        glm::vec3 L;
         if(interaction.AreaLight && (L = interaction.AreaLight->L(interaction, ray)) != glm::vec3(0, 0, 0)){
             if(spec){
                 output += attenuation * L;
@@ -176,7 +210,7 @@ glm::vec3 PathIntegrator::Li(Ray ray) const{
             }
         }
 
-        if(!interaction.mat){
+        if(!interaction.mat){//in case of medium
             spec = true;
             ray.origin = ray.at(interaction.t);
             continue;
@@ -243,9 +277,7 @@ glm::vec3 PathIntegrator::SampleLd(const Ray& ray, const SurfaceInteraction& int
         w1 = w1 * w1;
         float w_light = (w2) / (w1 + w2);
         return sampled_light->L(lightSample.interaction, shadow_ray) * f * w_light / light_pdf;
-
     }
-    return { 0,0,0 };
 }
 
 glm::vec3 VolPathIntegrator::Li(Ray ray) const{
@@ -261,6 +293,15 @@ glm::vec3 VolPathIntegrator::Li(Ray ray) const{
         MediumInteraction medInteraction;
 
         if(!Intersect(ray, interaction, std::numeric_limits<float>::infinity())){
+            /*if withing scene bound
+            output += attenuation * SampleLd(ray, medInteraction, light_selection_random_variable, light_random_variables);
+            output += attenuation * ray.medium->Le();
+            glm::vec3 scattered;
+            medInteraction.phaseFunction->Sample(ray.dir, scattered, phase_random_variables);
+            ray = Ray(medInteraction.p, scattered, ray.time, interaction.getMedium(scattered));
+            spec = false;
+            */
+
             for(auto&& light : scene->infiniteLights){
                 glm::vec3 L = light->Le(ray);
                 if(spec){
@@ -282,6 +323,7 @@ glm::vec3 VolPathIntegrator::Li(Ray ray) const{
         //it doesnt work if medium clips another object -> if we are in medium we see we hit outside -> no medium
         //ray.medium = interaction.getInverseMedium(ray.dir);
 
+        //and within scene bounds!
         if(!ray.medium)
             ray.medium = scene->GetMedium();
 
@@ -289,14 +331,19 @@ glm::vec3 VolPathIntegrator::Li(Ray ray) const{
             attenuation *= ray.medium->Sample(ray, interaction.t, medInteraction);
         //doesnt work form medium to medium better would be to get medium here?
 
-        glm::vec2 random_variables = sampler->get2D();
-        glm::vec2 light_random_variables = sampler->get2D();
-        float scatter_random_variable = sampler->get1D();
-        float light_selection_random_variable = sampler->get1D();
-        float rr_random_variable = sampler->get1D();
-        glm::vec2 phase_random_variables = sampler->get2D();
+        std::array<glm::vec2,4> random_sequence= sampler->get2Dx4f();
+        //glm::vec2 random_variables = sampler->get2D();
+        glm::vec2 random_variables = random_sequence[0];
+        //glm::vec2 light_random_variables = sampler->get2D();
+        glm::vec2 light_random_variables = random_sequence[1];
+        //float scatter_random_variable = sampler->get1D();
+        float scatter_random_variable = random_sequence[2].x;
+        //float light_selection_random_variable = sampler->get1D();
+        float light_selection_random_variable = random_sequence[2].y;
+        //glm::vec2 phase_random_variables = sampler->get2D();
+        glm::vec2 phase_random_variables = random_sequence[3];
 
-        //tjedan prije u ponidiljak
+        float rr_random_variable = sampler->get1D();
 
         if(medInteraction.isValid()){
             output += attenuation * SampleLd(ray, medInteraction, light_selection_random_variable, light_random_variables);
@@ -422,6 +469,5 @@ glm::vec3 VolPathIntegrator::SampleLd(const Ray& ray, const GeometricInteraction
         float w_light = (w2) / (w1 + w2);
         return Tr * sampled_light->L(lightSample.interaction, shadow_ray) * f * w_light / light_pdf;
     }
-    return { 0,0,0 };
 }
 

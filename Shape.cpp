@@ -252,18 +252,7 @@ bool TriangleShape::IntersectPred(const Ray& ray, float max) const{
         , mesh->vertices[index2], baryPos, t);
     if(!hit_triangle || t > max || t < shadowEpsilon)return false;
 
-    /*
-    float u = baryPos.x;
-    float v = baryPos.y;
-    float w = 1.0f - u - v;
-
-
-    glm::vec2 uv =  u * mesh->texCoords[index1] +
-                    v * mesh->texCoords[index2]+
-                    w * mesh->texCoords[index0];
-    */
-
-    return true;//mesh->material->Alpha(uv.x,uv.y);
+    return true;
 }
 
 AABB TriangleShape::BoundingBox() const{

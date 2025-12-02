@@ -40,211 +40,6 @@
 #include "Integrators.hpp"
 
 
-/*
-inline glm::vec3 Li2(Ray curr_ray, const Scene& scene,const std::shared_ptr<Sampler>& sampler,const std::shared_ptr<LightSampler>& LIsampler) {
-    glm::vec3 color = {1,1,1};
-    glm::vec3 output = {0,0,0};
-
-
-    int depth = 0;
-    int rr_depth = 0;
-    float prevPDF = 1;
-    bool spec = true;
-
-    while(depth++<128 && (color.x + color.y + color.z) != 0.0f){
-        SurfaceInteraction interaction;
-        MediumInteraction medInteraction;
-
-        if(!scene.Intersect(curr_ray,interaction,1e30f)){
-            float a = 0.5f*(curr_ray.dir.y+1.0f);
-            return output + color * 1.5f * ((1.0f-a)*glm::vec3(1,0.85,0.55) + a*glm::vec3(0.45,0.65,1));
-        }
-
-        if(curr_ray.medium){
-            color *= curr_ray.medium->Tr(curr_ray,interaction.t);
-        }
-
-
-        glm::vec2 random_variables = sampler->get2D();
-        glm::vec2 light_random_variables = sampler->get2D();
-        float light_selection_random_variable = sampler->get1D();
-        float rr_random_variable = sampler->get1D();
-
-        glm::vec3 L = {0,0,0};
-        if(interaction.AreaLight && (L = interaction.AreaLight->L(interaction,curr_ray)) != glm::vec3(0,0,0)){
-            if(spec){
-                output += color * L;
-            }else{
-                double light_pdf = LIsampler->PMF(interaction.AreaLight) * interaction.AreaLight->PDF(interaction,curr_ray);
-                float w = prevPDF * prevPDF / (prevPDF * prevPDF + light_pdf * light_pdf);
-                output += color * L * w;
-            }
-
-        }
-        if(interaction.mat){
-            Ray new_ray;
-
-            //if mat -> normal
-            //if !mat -> fog
-
-            if(!interaction.mat->scatter(curr_ray,interaction,new_ray,random_variables)){
-                return output;//absorbed
-            }
-
-            new_ray.medium = interaction.getMedium(new_ray.dir);
-
-            if(interaction.mat->is_specular(interaction)){
-                color *= interaction.mat->f_PDF(curr_ray,interaction,new_ray);
-                curr_ray = new_ray;
-                spec = true;
-                continue;
-            }
-            spec = false;
-
-            float brdfPDF = interaction.mat->PDF(curr_ray,interaction,new_ray);
-            prevPDF = brdfPDF;
-            output += color * LIsampler->SampleLd(curr_ray,interaction,scene.scene_bvh,light_selection_random_variable,light_random_variables);
-            glm::vec3 color_attenuation = interaction.mat->calc_attenuation(curr_ray,interaction,new_ray);
-
-            if(brdfPDF <= 0)break;
-            color *= color_attenuation / (brdfPDF);
-            curr_ray = new_ray;
-        }else{
-            curr_ray = Ray(curr_ray.at(interaction.t),curr_ray.dir);//we have to have smaller shadow offset for this 0.0001f but for other scenes 0.0005
-                                                                    //even 0.0001 is not perfect
-            curr_ray.medium = interaction.getMedium(curr_ray.dir);
-            spec = false;
-        }
-
-        if(rr_depth++>3){
-            float rr_prob = std::fmin(0.95f,std::fmaxf(std::fmaxf(color.x, color.y), color.z));
-            if(rr_random_variable >= rr_prob )break;
-            color /= rr_prob;
-        }
-
-    }
-    return output;
-}
-
-
-void renderPrimFilter(const Scene& scene, int width, int height,std::shared_ptr<LightSampler>& LIsampler, std::string outputImage,const std::shared_ptr<Filter>& filter){
-
-    double fov = 1.7;
-    //fov = 0.7;
-    fov = 1.7;//dragon
-
-
-
-    //20 sec
-    glm::dvec3 lookfrom = {-1000,300,0};
-    lookfrom = {17.3,1.2,7.2};
-    //lookfrom = {278,278,-800};
-    //lookfrom = {0.3,0.4,1};//dragon
-    //lookfrom = {0.3,0.2,1};
-    //glm::dvec3 lookfrom = {-900,300,0};
-    //glm::dvec3 lookfrom = {1.6,1.6,1.8};
-    glm::dvec3 lookat = {0,300,0};
-    lookat = {0,0,0};
-    double defocus_angle = 0;
-    double focus_dist = 6;
-    focus_dist = 1;
-    //lookat = {278,278,0};
-    //lookat = {0,0,0};//dragon
-    //glm::dvec3 lookat = {-600,230,-200};
-
-
-    double halfWidth  = std::tan(fov * 0.5f);
-    double halfHeight = halfWidth * height / width;
-    glm::dvec3 up = {0,1,0};
-    glm::dvec3 w = glm::normalize(lookfrom-lookat);
-    glm::dvec3 u = glm::normalize(glm::cross(up,w));
-    glm::dvec3 v = glm::cross(w,u);
-
-    double defocus_radius = focus_dist * std::tan(defocus_angle/2.0f);
-    glm::dvec3 defocus_disk_u = u * defocus_radius;
-    glm::dvec3 defocus_disk_v = v * defocus_radius;
-
-    unsigned int threads = std::thread::hardware_concurrency();
-    std::vector<std::thread> workers;
-    std::atomic<int> done{0};
-
-
-
-
-    int samples = 64;//64*16*4 -> 4 hours
-    int sqrts = std::sqrt(samples);
-
-    std::shared_ptr<Film> film = std::make_shared<Film>(glm::ivec2{width,height},filter);
-    constexpr int tileSize = 32;
-    int tileCount = ((width + tileSize - 1) / tileSize) * ((height + tileSize - 1) / tileSize);
-    std::mutex consoleMutex;
-    Camera camera(lookfrom,lookat,fov,film,defocus_angle,focus_dist);
-    auto lamb = [&](){
-        int k;
-        std::shared_ptr<Sampler> sampler = std::make_shared<StratifiedSampler>(sqrts,sqrts);
-        while((k = done.fetch_add(1, std::memory_order_relaxed))<tileCount){
-            int tileX = k % ((width + tileSize - 1) / tileSize);//k % 61
-            int tileY = k / ((width + tileSize - 1) / tileSize);
-            int minX = tileX * tileSize;
-            int minY = tileY * tileSize;
-            int maxX = std::min((tileX + 1) * tileSize, width);
-            int maxY = std::min((tileY + 1) * tileSize, height);
-
-            FilmTile tile = camera.GetFilm()->GetFilmTile({{minX,minY},{maxX,maxY}});
-
-            consoleMutex.lock();
-            std::cout<<"\rFinished:"<<std::setw(7)<<std::right<<std::fixed<<std::setprecision(2)<<100 * (done.load())/float(tileCount)<<"%"<<std::flush;
-            consoleMutex.unlock();
-
-            for(int y = minY;y < maxY;y++){
-                for(int x = minX;x < maxX;x++){
-
-                    VarianceEstimator estimator[3];
-
-                    while(estimator[0].Samples() < 128*samples){//was 32
-                        for(int sample_index = 0;sample_index < samples; sample_index++){
-                            sampler->StartPixelSample({x,y},sample_index);
-
-                            glm::dvec2 p = glm::dvec2{x,y} + sampler->GetPixel2D();
-                            Ray ray = camera.GenerateRay(p,sampler->GetPixel2D(),0);
-
-                            glm::dvec3 color = Li2(ray,scene, sampler,LIsampler);
-                            if(std::isnan(color.x) ||  std::isnan(color.y) ||  std::isnan(color.z)){
-                                std::cout<<"Nan:"<<x<<" "<<y<<"\n";
-                                continue;
-                            }
-
-                            tile.Add(p,color);
-                            color *= glm::dvec3(0.2126f, 0.7152f, 0.0722f);
-                            for(int k = 0;k<3;k++)
-                                estimator[k].Add(color[k]);
-
-                        }
-                        float k = 1.5;//1.5
-                        if( estimator[0].RelativeVariance() <= k &&
-                            estimator[1].RelativeVariance() <= k &&
-                            estimator[2].RelativeVariance() <= k)break;
-
-                    }
-
-                }
-            }
-            camera.GetFilm()->Merge(tile);
-        }
-    };
-
-    auto start = std::chrono::high_resolution_clock::now();
-    for(int t = 0;t<threads;t++){
-        workers.emplace_back(lamb);
-    }
-    for(auto& worker : workers)worker.join();
-
-    auto duration = std::chrono::high_resolution_clock::now() - start;
-    std::cout<<"\nRender time in ms: "<<std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()<<"\n";
-
-    film->WritePPM(outputImage);
-}
-*/
 
 void MatTest(){
     auto scene = std::make_shared<Scene>();
@@ -358,7 +153,9 @@ void MatTest(){
     camera->GetFilm()->WritePNG("RenderedScene");
     camera->GetFilm()->WritePPM("RenderedScene");
     camera->GetFilm()->WriteJPG("RenderedScene", 90);
-    ResourceManager::get_instance().releaseTextures();
+    ResourceManager::get_instance().releaseTextureCache();
+    ResourceManager::get_instance().releaseMeshCache();
+    ResourceManager::get_instance().releaseModelCache();
 }
 
 void NoModel(){
@@ -370,8 +167,8 @@ void NoModel(){
     auto glass = std::make_shared<MicrofacetDielectric>(1.5, 0.0, glm::vec3(1));
     auto checker = std::make_shared<MicrofacetDiffuse>(ResourceManager::get_instance().GetTexture<CheckerTexture>("greenTexture", white, green, glm::vec2 { 0.02 }));
     ch = std::make_shared<MicrofacetDiffuse>(std::make_shared<CheckerTexture>(white, green, glm::vec2 { 0.001,0.001 }));
-    std::shared_ptr<AreaLight> area = std::make_shared<AreaLight>(std::make_shared<QuadShape>(glm::vec3(0.3, 1.5, 0), glm::vec3(-0.15, 0, 0), glm::vec3(0, 0, -0.15)), glm::vec3(600), false);
-    auto outsideMedium = std::make_shared<HomogeneusMedium>(glm::vec3 { 0.01f, 0.9f, 0.9f }, glm::vec3 { 1.0f, 0.1f, 0.1f }, std::make_shared<HenyeyGreenstein>(0.9), 0.5f);
+    std::shared_ptr<AreaLight> area = std::make_shared<AreaLight>(std::make_shared<QuadShape>(glm::vec3(0.3, 2.5, 0), glm::vec3(-0.15, 0, 0), glm::vec3(0, 0, -0.15)), glm::vec3(1000), false);
+    auto outsideMedium = std::make_shared<HomogeneusMedium>(glm::vec3 { 0.01f, 0.9f, 0.9f }, glm::vec3 { 1.0f, 0.1f, 0.1f }, std::make_shared<HenyeyGreenstein>(0.75), 0.1f);
 
 
     scene->Add(std::make_shared<GeometricPrimitive>(area->getShape(), light, area, nullptr));//-0.3, -1
@@ -418,7 +215,7 @@ void NoModel(){
     
 
     //scene->infiniteLights.push_back(std::make_shared<UniformInfiniteLight>(glm::vec3{0,0,1}));
-    scene->infiniteLights.push_back(std::make_shared<FunctionInfiniteLight>(lightFunc));
+    //scene->infiniteLights.push_back(std::make_shared<FunctionInfiniteLight>(lightFunc));
     //scene->infiniteLights.push_back(std::make_shared<TextureInfiniteLight>(std::make_shared<FloatImageTexture>("/home/markov/Downloads/kloofendal_48d_partly_cloudy_puresky_8k.hdr"), 600 / 255.0f, [](float r){return 4 * std::sqrt(r);}));
     //scene->infiniteLights.push_back(std::make_shared<TextureInfiniteLight>(std::make_shared<FloatImageTexture>("/home/markov/Downloads/lilienstein_4k.hdr"),600/255.0f,[](float r){return 4 * std::sqrt(r);}));
     //scene->infiniteLights.push_back(std::make_shared<TextureInfiniteLight>(std::make_shared<FloatImageTexture>("/home/markov/Downloads/shanghai_bund_8k.hdr"),600/255.0f,[](float r){return 4 * std::sqrt(r);}));
@@ -426,6 +223,10 @@ void NoModel(){
 
 
     std::shared_ptr<LightSampler> ls = std::make_shared<PowerLightSampler>();
+
+    scene->Add(std::make_shared<GeometricPrimitive>(std::make_shared<SphereShape>(glm::vec3(0, 0, 0), 10), checker, nullptr));
+
+
     scene->BuildTlas<TLAS4>();
 
 
@@ -433,20 +234,20 @@ void NoModel(){
     //ls->Add(std::make_shared<PointLight>(glm::vec3(0.3,1.5,0),glm::vec3(6)));
     ls->PreProcess(scene->BoundingBox());
 
-    double fov = 1.7;//1.7 , 2.5
+    double fov = 2.5;//1.7 , 2.5
 
 
     glm::dvec3 lookfrom = { -1000,300,0 };
     lookfrom = { 17.3,1.2,7.2 };
 
     lookfrom = { 0.3,0.4,1 };//dragon
-
+    lookfrom = { 0.3,1.7,1 };
     glm::dvec3 lookat = { 0,300,0 };
-    lookat = { 0,0,0 };
+    lookat = { 0,1.5,0 };
 
 
 
-    int samples = 36;
+    int samples = 100*4;
 
 
 
@@ -457,16 +258,19 @@ void NoModel(){
 
     auto camera = std::make_shared<Camera>(lookfrom, lookat, fov, film, glm::vec2(0, 1));
     auto sampler = std::make_shared<StratifiedSampler>(sqrts, sqrts);
-    auto integrator = std::make_shared<VolPathIntegrator>(scene, camera, sampler, ls, 128);
+    auto integrator = std::make_shared<VolPathIntegrator>(scene, camera, sampler, ls, 64);
 
-    //camera->SetMedium(outsideMedium);
-    //scene->SetMedium(outsideMedium);
+    camera->SetMedium(outsideMedium);
+    //scene->SetMediumBounds({-5,-5,-5},{5,5,5});this should be primitive which we can also hit
+    scene->SetMedium(outsideMedium);
 
     integrator->Render();
     camera->GetFilm()->WritePNG("RenderedScene");
     camera->GetFilm()->WritePPM("RenderedScene");
     camera->GetFilm()->WriteJPG("RenderedScene", 90);
-    ResourceManager::get_instance().releaseTextures();
+    ResourceManager::get_instance().releaseTextureCache();
+    ResourceManager::get_instance().releaseMeshCache();
+    ResourceManager::get_instance().releaseModelCache();
 }
 
 void Miguel(){
@@ -480,7 +284,7 @@ void Miguel(){
     ch = std::make_shared<MicrofacetDiffuse>(std::make_shared<CheckerTexture>(white, green, glm::vec2 { 0.001,0.001 }));
     std::shared_ptr<AreaLight> area = std::make_shared<AreaLight>(std::make_shared<QuadShape>(glm::vec3(0.3, 1.5, 0), glm::vec3(-0.15, 0, 0), glm::vec3(0, 0, -0.15)), glm::vec3(600), false);
 
-    scene->Add(ResourceManager::get_instance().CacheModel<BLAS8>("San Miguel", "/home/markov/Documents/Coding/CPP/testing/models/HARD/temp.assbin"));
+    scene->Add(ResourceManager::get_instance().CacheModel<BLAS4>("San Miguel", "/home/markov/Documents/Coding/CPP/testing/models/HARD/temp.assbin"));
 
     auto lightFunc = [](const Ray& ray){
         float a = 0.5f * (ray.dir.y + 1.0f);
@@ -520,6 +324,9 @@ void Miguel(){
     //518 simd bvh2
     //384s BVH4 SIMD 386
     //367s BVH8 SIMD 372
+
+    //BVH4 363 -> randomAVXx8
+    //BVH8 349 -> randomAVXx8 
     int samples = 100;
     int sqrts = std::sqrt(samples);
 
@@ -538,7 +345,9 @@ void Miguel(){
     camera->GetFilm()->WritePPM("RenderedScene");
     camera->GetFilm()->WritePNG("RenderedScene");
     camera->GetFilm()->WriteJPG("RenderedScene", 100);
-    ResourceManager::get_instance().releaseTextures();
+    ResourceManager::get_instance().releaseTextureCache();
+    ResourceManager::get_instance().releaseMeshCache();
+    ResourceManager::get_instance().releaseModelCache();
 }
 
 void temp(){
@@ -564,10 +373,10 @@ void temp(){
     std::shared_ptr<Primitive> transformedModel = std::make_shared<TransformedPrimitive>(ResourceManager::get_instance().CacheModel<BLAS4>("Glass Dragon", "/home/markov/Documents/Coding/CPP/testing/models/temp_other.assbin", glass, std::make_shared<HomogeneusMedium>(glm::vec3 { 0.01f, 0.9f, 0.9f }, glm::vec3 { 1.0f, 0.1f, 0.1f }, std::make_shared<HenyeyGreenstein>(0.8), 25.0f)), pos);
 
     //scene->Add(transformedModel);
-    auto micro = std::make_shared<MicrofacetDielectric>(1.5, 0.5, glm::vec3 { 1 });
+    auto micro = std::make_shared<MicrofacetDielectric>(1.5, 0.0, glm::vec3 { 1 });
 
     scene->Add(ResourceManager::get_instance().CacheModel<BLAS4>("Medium Dragon", "/home/markov/Documents/Coding/CPP/testing/models/temp_other.assbin",
-        micro,
+        ch,
         std::make_shared<HomogeneusMedium>(glm::vec3 { 0.01f, 0.9f, 0.9f },
             glm::vec3 { 1.0f, 0.1f, 0.1f },
             std::make_shared<HenyeyGreenstein>(0.8),
@@ -617,7 +426,9 @@ void temp(){
     lookat = { 0,0,0 };
 
     //64*4
-    int samples = 100;//64*16*4 -> 4 hours
+
+    //550
+    int samples = 16;//64*16*4 -> 4 hours
     int sqrts = std::sqrt(samples);
 
     std::shared_ptr<Film> film = std::make_shared<Film>(glm::ivec2 { 1920,1080 }, std::make_shared<MitchellFilter>());
@@ -634,7 +445,9 @@ void temp(){
     camera->GetFilm()->WritePNG("RenderedScene");
     camera->GetFilm()->WritePPM("RenderedScene");
     camera->GetFilm()->WriteJPG("RenderedScene", 100);
-    ResourceManager::get_instance().releaseTextures();
+    ResourceManager::get_instance().releaseTextureCache();
+    ResourceManager::get_instance().releaseMeshCache();
+    ResourceManager::get_instance().releaseModelCache();
 }
 
 
@@ -792,7 +605,9 @@ void helmet(){
 
     camera->GetFilm()->WriteJPG("Helmet", 100);
 #endif
-    ResourceManager::get_instance().releaseTextures();
+    ResourceManager::get_instance().releaseTextureCache();
+    ResourceManager::get_instance().releaseMeshCache();
+    ResourceManager::get_instance().releaseModelCache();
 }
 
 
@@ -885,7 +700,9 @@ void knight(){
 
     //camera->GetFilm()->WritePNG("RenderedScene");
     //camera->GetFilm()->WritePPM("RenderedScene");
-    ResourceManager::get_instance().releaseTextures();
+    ResourceManager::get_instance().releaseTextureCache();
+    ResourceManager::get_instance().releaseMeshCache();
+    ResourceManager::get_instance().releaseModelCache();
 }
 
 void opacity(){
@@ -974,7 +791,9 @@ void opacity(){
 
     //camera->GetFilm()->WritePNG("RenderedScene");
     //camera->GetFilm()->WritePPM("RenderedScene");
-    ResourceManager::get_instance().releaseTextures();
+    ResourceManager::get_instance().releaseTextureCache();
+    ResourceManager::get_instance().releaseMeshCache();
+    ResourceManager::get_instance().releaseModelCache();
 }
 
 void transmission(){
@@ -1064,7 +883,9 @@ void transmission(){
 
     //camera->GetFilm()->WritePNG("RenderedScene");
     //camera->GetFilm()->WritePPM("RenderedScene");
-    ResourceManager::get_instance().releaseTextures();
+    ResourceManager::get_instance().releaseTextureCache();
+    ResourceManager::get_instance().releaseMeshCache();
+    ResourceManager::get_instance().releaseModelCache();
 }
 //how to deal when we spawn ray inside objects with medium?
 //interaction spawnRay() -> this spawns ray but gives us 
@@ -1104,5 +925,7 @@ int main(){
         transmission();
         break;
     }
-    ResourceManager::get_instance().releaseTextures();
+    ResourceManager::get_instance().releaseTextureCache();
+    ResourceManager::get_instance().releaseMeshCache();
+    ResourceManager::get_instance().releaseModelCache();
 }

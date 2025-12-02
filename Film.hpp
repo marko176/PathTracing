@@ -34,13 +34,13 @@ inline glm::dvec3 reinhard_extended_luminance(const glm::dvec3& v, double max_wh
     return change_luminance(v, l_new);
 }
 
-inline glm::dvec3 reinhard_jodie(const glm::dvec3& v){
-    double l = luminance(v);
-    glm::dvec3 tv = v / (1.0 + v);
-    return glm::mix(v / (1.0 + l), tv, tv);
+inline glm::dvec3 reinhard_jodie(const glm::dvec3& color){
+    double l = luminance(color);
+    glm::dvec3 tcolor = color / (1.0 + color);
+    return glm::mix(color / (1.0 + l), tcolor, tcolor);
 }
 
-inline glm::dvec3 ACESFilm(glm::dvec3 color){
+inline glm::dvec3 ACESFilm(const glm::dvec3& color){
     const double A = 2.51f;
     const double B = 0.03f;
     const double C = 2.43f;
@@ -136,7 +136,8 @@ public:
 
 
 
-    static std::filesystem::path GetOutputFilePath(const std::string& filename){
+    std::filesystem::path GetOutputFilePath(const std::string& filename) {
+        if(!outputPath.empty())return outputPath;
         std::filesystem::path projectRoot = findProjectRoot();
         std::filesystem::path outputDir = projectRoot / "Output";
         std::error_code ec;
@@ -145,7 +146,12 @@ public:
             std::cerr << "Failed to create output dir: " << ec.message() << "\n";
             return "";
         }
-        return outputDir / (filename);
+        outputPath = outputDir / (filename);
+        return outputPath;
+    }
+
+    void setOutputPath(const std::filesystem::path& path){
+        outputPath = path;
     }
 
     void WritePPM(const std::string& filename){
@@ -214,8 +220,8 @@ public:
         stbi_flip_vertically_on_write(false);
     }
 
-    void ReadImage(const std::string& filename){
-        //implement
+    void Clear() {
+        screen.assign(screen.size(),AtomicPixel{0,0,0,0});
     }
 
     glm::ivec2 Resolution() const{
@@ -275,4 +281,5 @@ private:
     std::vector<AtomicPixel> screen;
     std::shared_ptr<Filter> filter;
     double maxComponent;
+    std::filesystem::path outputPath;
 };

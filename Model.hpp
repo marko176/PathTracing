@@ -90,7 +90,7 @@ private:
 
     //std::shared_ptr<Material> SetupMaterial(aiMaterial* material) const;
 
-    std::shared_ptr<Material> SetupOBJMaterial(const std::vector<std::shared_ptr<Texture>>& textures, aiMaterial* material) const;
+    std::shared_ptr<Material> SetupMaterial(const std::vector<std::shared_ptr<Texture>>& textures, aiMaterial* material) const;
 
     static std::string GetFormat(const std::string& filepath){
         std::size_t index = filepath.find_last_of('.');

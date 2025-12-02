@@ -96,6 +96,18 @@ public:
             }
         }
     }
+
+    static Mesh* getMeshAt(uint32_t idx){
+        return meshList[idx];
+    }
+
+    uint32_t getMeshIndex() const {
+        return MeshIndex;
+    }
+
+    uint32_t getTriIndex() const {
+        return TriIndex;
+    }
 private:
     uint32_t MeshIndex;
     uint32_t TriIndex;

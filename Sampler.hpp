@@ -20,6 +20,8 @@ public:
 
     virtual glm::dvec2 getPixel2D() = 0;
 
+    virtual std::array<glm::vec2,4> get2Dx4f() = 0;
+
     [[nodiscard]] virtual std::shared_ptr<Sampler> Clone() const = 0;
 };
 
@@ -42,6 +44,17 @@ public:
 
     glm::dvec2 get2D() final{
         return { random_double(),random_double() };
+    }
+
+
+    //get1Dx8
+    std::array<glm::vec2,4> get2Dx4f() final {
+        std::array<float,8> floats = RandomFloatx8();
+        std::array<glm::vec2,4> ans;
+        for(int i = 0;i<4;i++){
+            ans[i]={floats[i*2],floats[i*2+1]};
+        }
+        return ans;
     }
 
     glm::dvec2 getPixel2D() final{
@@ -81,7 +94,7 @@ public:
         uint64_t seed = Hash(px, py, dimension);
         uint64_t stratum = PermutationElement(sampleIndex, SamplesPerPixel(), seed);
         ++dimension;
-        return (stratum + random_double()) / (SamplesPerPixel());
+        return (stratum + random_float()) / (SamplesPerPixel());
     }
 
     glm::dvec2 get2D() final{
@@ -92,12 +105,34 @@ public:
         int sy = stratum / xSamples;
 
         // local jitter in cell
-        double dx = random_double();
-        double dy = random_double();
+        double dx = random_float();
+        double dy = random_float();
         return {
             (sx + dx) / double(xSamples),
             (sy + dy) / double(ySamples)
         };
+    }
+
+    std::array<glm::vec2,4> get2Dx4f() final {
+
+        std::array<float,8> floats = RandomFloatx8();
+        std::array<glm::vec2,4> ans;
+        for(int i = 0;i<4;i++){
+            uint64_t seed = Hash(px, py, dimension);
+            uint64_t stratum = PermutationElement(sampleIndex, SamplesPerPixel(), seed);//would be good to move this before randomfloatx8 becouse of the avx slowdown
+            
+            dimension += 2;
+
+            uint64_t sx = stratum % xSamples;
+            uint64_t sy = stratum / xSamples;
+
+            float fx = (sx + floats[i*2]) / static_cast<float>(xSamples);
+            float fy = (sy + floats[i*2+1]) / static_cast<float>(ySamples);
+
+            ans[i]=glm::vec2{fx,fy};
+        }
+
+        return ans;
     }
 
     glm::dvec2 getPixel2D() final{

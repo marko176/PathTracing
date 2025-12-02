@@ -43,8 +43,7 @@ protected:
 class PathIntegrator : public TileIntegrator{
 public:
     virtual ~PathIntegrator() = default;
-    PathIntegrator(const std::shared_ptr<Scene>& scene, const std::shared_ptr<Camera>& camera, const std::shared_ptr<Sampler>& sampler, uint32_t maxDepth) : PathIntegrator(scene, camera, sampler, std::make_shared<UniformLightSampler>(), maxDepth){}
-    PathIntegrator(const std::shared_ptr<Scene>& scene, const std::shared_ptr<Camera>& camera, const std::shared_ptr<Sampler>& sampler, const std::shared_ptr<LightSampler>& lightSampler, int maxDepth) : TileIntegrator(scene, camera, sampler), lightSampler(lightSampler), maxDepth(maxDepth){}
+    PathIntegrator(const std::shared_ptr<Scene>& scene, const std::shared_ptr<Camera>& camera, const std::shared_ptr<Sampler>& sampler, const std::shared_ptr<LightSampler>& lightSampler, uint32_t maxDepth) : TileIntegrator(scene, camera, sampler), lightSampler(lightSampler), maxDepth(maxDepth){}
 
     glm::vec3 Li(Ray ray) const override;
 protected:
@@ -57,8 +56,7 @@ protected:
 class VolPathIntegrator : public TileIntegrator{
 public:
     virtual ~VolPathIntegrator() = default;
-    VolPathIntegrator(const std::shared_ptr<Scene>& scene, const std::shared_ptr<Camera>& camera, const std::shared_ptr<Sampler>& sampler, uint32_t maxDepth) : VolPathIntegrator(scene, camera, sampler, std::make_shared<UniformLightSampler>(), maxDepth){}
-    VolPathIntegrator(const std::shared_ptr<Scene>& scene, const std::shared_ptr<Camera>& camera, const std::shared_ptr<Sampler>& sampler, const std::shared_ptr<LightSampler>& lightSampler, int maxDepth) : TileIntegrator(scene, camera, sampler), lightSampler(lightSampler), maxDepth(maxDepth){}
+    VolPathIntegrator(const std::shared_ptr<Scene>& scene, const std::shared_ptr<Camera>& camera, const std::shared_ptr<Sampler>& sampler, const std::shared_ptr<LightSampler>& lightSampler, uint32_t maxDepth) : TileIntegrator(scene, camera, sampler), lightSampler(lightSampler), maxDepth(maxDepth){}
 
     glm::vec3 Li(Ray ray) const override;
 protected:

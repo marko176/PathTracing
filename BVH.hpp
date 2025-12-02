@@ -26,7 +26,7 @@ inline constexpr unsigned char PermToIndex(unsigned int perm){
 //BVH 4
 //
 
-struct BVH_NODE{
+struct alignas(32) BVH_NODE{
     AABB bbox;
     uint32_t left = 0;
     uint32_t right = 0;// right node / first triangle / meshID  / modelID
@@ -251,6 +251,44 @@ private:
         return index;
     }
 
+    struct PrimitiveInfoSoA {
+
+        void Add(uint32_t index, const AABB& bbox) {
+            indices.push_back(index);
+            min[0].push_back(bbox.min[0]);
+            min[1].push_back(bbox.min[1]);
+            min[2].push_back(bbox.min[2]);
+            max[0].push_back(bbox.max[0]);
+            max[1].push_back(bbox.max[1]);
+            max[2].push_back(bbox.max[2]);
+            centroid[0].push_back(0.5 * (min[0].back() + max[0].back()));
+            centroid[1].push_back(0.5 * (min[1].back() + max[1].back()));
+            centroid[2].push_back(0.5 * (min[2].back() + max[2].back()));
+        }
+
+        std::vector<uint32_t>& GetIndices() {
+            return indices;
+        }
+
+        std::vector<float>& GetMinAxis(unsigned char axis) {
+            return min[axis];
+        }
+
+        std::vector<float>& GetMaxAxis(unsigned char axis) {
+            return max[axis];
+        }
+
+        std::vector<float>& GetCentroidAxis(unsigned char axis) {
+            return centroid[axis];
+        }
+    private:
+        friend class BVHBase;
+        std::vector<uint32_t> indices;
+        std::vector<float> min[3];
+        std::vector<float> max[3];
+        std::vector<float> centroid[3];
+    };
+
     static uint32_t BuildBaseThreaded(uint32_t first_triangle, uint32_t last_triangle, std::vector<PrimitiveInfo>& primitiveInfo, std::vector<BVH_NODE>& nodes, std::atomic<uint32_t>& idx){
         uint32_t index = idx.fetch_add(1, std::memory_order_relaxed);
         BVH_NODE& node = nodes[index];
@@ -318,8 +356,8 @@ private:
 
             }
             float parent_cost = node.bbox.Area() * object_span;
-            //float minCost = 1.0f/2.0f + bestCost / node.bbox.Area();
-            if(bestCost >= parent_cost /*|| minCost >= object_span*/){
+            float minCost = 1.0f/8.0f + bestCost / node.bbox.Area();
+            if(bestCost >= parent_cost/* || object_span < minCost*/){
                 return index;
             }
 

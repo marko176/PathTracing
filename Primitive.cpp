@@ -6,7 +6,8 @@ AABB GeometricPrimitive::BoundingBox() const{
 bool GeometricPrimitive::IntersectPred(const Ray& ray, float max) const{
     if(material && material->HasAlpha()){
         SurfaceInteraction intr;
-        return Intersect(ray, intr, max);
+        bool hit = shape->Intersect(ray, intr, max);
+        return hit && material->Alpha(intr.uv);
     } else{
         return shape->IntersectPred(ray, max);
     }
@@ -15,13 +16,13 @@ bool GeometricPrimitive::Intersect(const Ray& ray, SurfaceInteraction& interacti
     SurfaceInteraction intr;
     bool hit = shape->Intersect(ray, intr, max);
     if(!hit || (material && !material->Alpha(intr.uv)))return false;
-
+    
     interaction = std::move(intr);
     interaction.AreaLight = areaLight;
     interaction.mat = material;
     interaction.medium = medium;
 
-    return hit;
+    return true;
 }
 
 std::vector<std::shared_ptr<Light>> GeometricPrimitive::GetLights() const{

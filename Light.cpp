@@ -119,7 +119,7 @@ glm::vec3 TextureInfiniteLight::L(const SurfaceInteraction& interaction, const R
 
 LightSample TextureInfiniteLight::sample(const glm::vec2& uv, float time) const{
 
-    float weight = random_double() * totalWeight;
+    float weight = random_float() * totalWeight;
     int index = std::upper_bound(accWeights.begin(), accWeights.end(), weight) - accWeights.begin();
     int cellX = index % ySamples;
     int cellY = index / ySamples;
