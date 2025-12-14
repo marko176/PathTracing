@@ -37,7 +37,7 @@ Output images will be stored in: `Output/`
 
 - **Camera** with field of view and thin-lens approximation
 
-- **BVH2** using SAH-based binned building and simd during traversal and **BVH4** based on [BVH4](http://jcgt.org/published/0004/04/05/), split into:
+- **BVH2** using SAH-based binned building and simd during traversal and [BVH4](http://jcgt.org/published/0004/04/05/), split into:
   - TLAS (Top-Level Acceleration Structure)
   - BLAS (Bottom-Level Acceleration Structure)
 

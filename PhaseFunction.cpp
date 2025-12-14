@@ -5,7 +5,6 @@ float HenyeyGreenstein::PDF(const glm::vec3& in, const glm::vec3& out) const{
     return phaseHG<float>(glm::dot(in, out), g);
 }
 
-
 float HenyeyGreenstein::Sample(const glm::vec3& in, glm::vec3& out, const glm::vec2& u) const{
     float cosTheta;
     if(std::abs(g) < 1e-3)

@@ -1,8 +1,6 @@
 #pragma once
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/glm.hpp>
-#include <glm/gtx/intersect.hpp>
-#include <glm/gtc/matrix_transform.hpp>
 #include <random>
 #include <numbers>
 #include "pcg-cpp/pcg_random.hpp"

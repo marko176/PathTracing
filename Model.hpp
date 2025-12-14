@@ -1,7 +1,7 @@
 #pragma once
-#include "Mesh.hpp"
 #include <string>
 #include <vector>
+#include "Mesh.hpp"
 #include "AABB.hpp"
 #include "Primitive.hpp"
 #include "BVH.hpp"
@@ -9,10 +9,6 @@ struct aiScene;
 struct aiNode;
 struct aiMesh;
 class aiMaterial;
-
-
-
-
 
 class Material;
 class Model : public Primitive{

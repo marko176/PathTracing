@@ -1,7 +1,6 @@
 #pragma once
-#include "AABB.hpp"
-#include "Primitive.hpp"
 #include "BVH.hpp"
+
 class Medium;
 class Scene{
 public:
@@ -21,7 +20,7 @@ public:
     template <typename T>
         requires std::is_base_of_v<BVHBase<std::shared_ptr<Primitive>>, T>
     void BuildTlas(){
-        scene_bvh = std::make_shared<T>(std::move(primitives));
+        scene_bvh = std::make_shared<T>(primitives);
     }
 
     std::shared_ptr<Medium> GetMedium() const;

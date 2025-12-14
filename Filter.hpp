@@ -5,7 +5,6 @@
 #include <numbers>
 template <std::floating_point T>
 inline constexpr T Gaussian(T x, T sigma){
-    //return 1.0 / std::sqrt( 2 * std::numbers::pi_v<T> * sigma * sigma) * std::exp(-(x*x) / (2 * sigma * sigma));
     return std::numbers::inv_sqrtpi_v<T> / (sigma * std::numbers::sqrt2_v<T>) * std::exp(-(x * x) / (2 * sigma * sigma));
 }
 
@@ -39,7 +38,7 @@ class BoxFilter : public Filter{
 public:
     virtual ~BoxFilter() = default;
 
-    BoxFilter(const glm::vec2& radius = glm::vec2 { 0.5f }) : radius { radius }{}
+    BoxFilter(const glm::vec2& filterRadius = glm::vec2 { 0.5f }) : radius { filterRadius }{}
 
     glm::vec2 Radius() const final{
         return radius;
@@ -61,7 +60,7 @@ class GaussianFilter : public Filter{
 public:
     virtual ~GaussianFilter() = default;
 
-    GaussianFilter(const glm::vec2& radius = glm::vec2 { 1.5f }, double sigma = 0.5f) : radius { radius }, sigma { sigma }, X { Gaussian<double>(radius.x,sigma) }, Y { Gaussian<double>(radius.y,sigma) }{}
+    GaussianFilter(const glm::vec2& filterRadius = glm::vec2 { 1.5f }, double sigma = 0.5f) : radius { filterRadius }, sigma { sigma }, X { Gaussian<double>(filterRadius.x,sigma) }, Y { Gaussian<double>(filterRadius.y,sigma) }{}
 
     glm::vec2 Radius() const final{
         return radius;
@@ -106,7 +105,6 @@ private:
         } else if(absX <= 2){
             return 1.0 / 6.0 * ((-b - 6 * c) * absX * absX * absX + (6 * b + 30 * c) * absX * absX + (-12 * b - 48 * c) * absX + (8 * b + 24 * c));
         } else return 0;
-
     }
     glm::vec2 radius;
     double b;
@@ -117,7 +115,7 @@ class LanczosFilter : public Filter{
 public:
     virtual ~LanczosFilter() = default;
 
-    LanczosFilter(const glm::vec2& radius = glm::vec2 { 1.5f }, double tau = 3) : radius(radius), tau(tau){}
+    LanczosFilter(const glm::vec2& filterRadius = glm::vec2 { 1.5f }, double tau = 3) : radius { filterRadius }, tau { tau }{}
 
     glm::vec2 Radius() const final{
         return radius;

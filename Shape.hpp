@@ -1,10 +1,10 @@
 #pragma once
 #include <memory>
+#include <mutex>
+#include <numbers>
 #include "Ray.hpp"
 #include "AABB.hpp"
 #include "Material.hpp"
-#include <mutex>
-#include <numbers>
 class Mesh;
 class Shape{
 public:
@@ -32,7 +32,7 @@ public:
         return bbox;
     }
 
-    static glm::vec2 getSphereUV(glm::vec3 p){
+    static glm::vec2 GetSphereUV(glm::vec3 p){
         p = glm::normalize(p);
         float theta = std::acos(glm::clamp(p.y, -1.0f, 1.0f));
         float phi = std::atan2(p.z, p.x);

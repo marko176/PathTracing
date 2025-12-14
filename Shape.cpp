@@ -15,7 +15,9 @@ bool SphereShape::Intersect(const Ray& ray, SurfaceInteraction& interaction, flo
             glm::vec3 up = (std::fabs(interaction.ns.x) > 0.9999f) ? glm::vec3(0, 1, 0) : glm::vec3(1, 0, 0);
             interaction.tangent = glm::normalize(glm::cross(up, interaction.ns));
             interaction.p = ray.at(temp) + shadowEpsilon * interaction.n;
-            interaction.uv = getSphereUV(interaction.n);
+            interaction.uv = GetSphereUV(interaction.n);
+            interaction.AreaLight = nullptr;
+            interaction.medium = nullptr;
             return true;
         }
         temp = (-b + std::sqrt(discriminant)) / a;
@@ -26,7 +28,9 @@ bool SphereShape::Intersect(const Ray& ray, SurfaceInteraction& interaction, flo
             glm::vec3 up = (std::fabs(interaction.ns.x) > 0.9999f) ? glm::vec3(0, 1, 0) : glm::vec3(1, 0, 0);
             interaction.tangent = glm::normalize(glm::cross(up, interaction.ns));
             interaction.p = ray.at(temp) + shadowEpsilon * interaction.n;
-            interaction.uv = getSphereUV(interaction.n);
+            interaction.uv = GetSphereUV(interaction.n);
+            interaction.AreaLight = nullptr;
+            interaction.medium = nullptr;
             return true;
         }
     }
@@ -73,12 +77,12 @@ SurfaceInteraction SphereShape::Sample(const glm::vec2& u) const{
     float phi = 2.0f * std::numbers::pi_v<float> *u.y;
     glm::vec3 dir { r * std::cos(phi), r * std::sin(phi), z };
     glm::vec3 p = center + radius * dir;
-    return SurfaceInteraction { p, glm::normalize(p - center), getSphereUV(p) };
+    return SurfaceInteraction { p, glm::normalize(p - center), GetSphereUV(p) };
 }
 
 inline bool IntersectRayTriangle(const glm::vec3& origin, const glm::vec3& dir, const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3, float& u, float& v, float& t){
-    glm::vec3 edge1 = v2 - v1;
-    glm::vec3 edge2 = v3 - v1;
+    const glm::vec3 edge1 = v2 - v1;
+    const glm::vec3 edge2 = v3 - v1;
     glm::vec3 h = glm::cross(dir, edge2);
     float det = glm::dot(edge1, h);
     if(det > -std::numeric_limits<float>::epsilon() && det < std::numeric_limits<float>::epsilon())return false;
@@ -92,6 +96,8 @@ inline bool IntersectRayTriangle(const glm::vec3& origin, const glm::vec3& dir, 
     t = glm::dot(edge2, q) * inv_det;
     return t >= shadowEpsilon;
 }
+
+
 
 
 void sse_cross(__m128 result[3], const __m128 a[3], const __m128 b[3]){
@@ -185,11 +191,15 @@ bool TriangleShape::Intersect(const Ray& ray, SurfaceInteraction& interaction, f
     int index1 = mesh->indices[TriIndex * 3 + 1];
     int index2 = mesh->indices[TriIndex * 3 + 2];
 
-    bool hit_triangle = glm::intersectRayTriangle(ray.origin, ray.dir, mesh->vertices[index0]
-        , mesh->vertices[index1]
-        , mesh->vertices[index2], baryPos, t);
-    //bool hit_triangle = IntersectRayTriangle(ray.origin,ray.dir,mesh->vertices[index0],mesh->vertices[index1],mesh->vertices[index2],baryPos.x,baryPos.y,t);
-    //bool hit_triangle = IntersectRay4Triangle(ray.origin,ray.dir,mesh->vertices[index0],mesh->vertices[index1],mesh->vertices[index2],baryPos.x,baryPos.y,t);
+    const glm::vec3 vertex0 = mesh->vertices[index0];
+    const glm::vec3 vertex1 = mesh->vertices[index1];
+    const glm::vec3 vertex2 = mesh->vertices[index2];
+
+    bool hit_triangle = glm::intersectRayTriangle(ray.origin, ray.dir, vertex0
+        , vertex1
+        , vertex2, baryPos, t);
+    //bool hit_triangle = IntersectRayTriangle(ray.origin,ray.dir,vertex0,vertex1,vertex2,baryPos.x,baryPos.y,t);
+    //bool hit_triangle = IntersectRay4Triangle(ray.origin,ray.dir,vertex0,vertex1,vertex2,baryPos.x,baryPos.y,t);
     //if we dont use glm t<shadowEPsilon not needed
     if(!hit_triangle || t > max || t < shadowEpsilon)return false;
 
@@ -201,58 +211,60 @@ bool TriangleShape::Intersect(const Ray& ray, SurfaceInteraction& interaction, f
         v * mesh->texCoords[index2] +
         w * mesh->texCoords[index0];
 
-    //if(!mesh->material->Alpha(uv.x,uv.y))return false;//alpha = true when opaque
     glm::vec3 norm_normal = glm::normalize(u * mesh->normals[index1] +
         v * mesh->normals[index2] +
         w * mesh->normals[index0]);
 
-    glm::vec3 e1 = mesh->vertices[index1] - mesh->vertices[index0];
-    glm::vec3 e2 = mesh->vertices[index2] - mesh->vertices[index0];
+    glm::vec3 e1 = vertex1 - vertex0;
+    glm::vec3 e2 = vertex2 - vertex0;
     glm::vec3 N = glm::normalize(glm::cross(e1, e2));
     interaction.n = N;
     if(glm::dot(N, norm_normal) < 0){
         norm_normal = -norm_normal;
     }
-    if(glm::dot(ray.dir, N) > 0.0f){
-        //norm_normal = -norm_normal;//WRONG BUT TIR DOESNT WORK
-        N *= -1;
-    }
+
     interaction.t = t;
     interaction.ns = norm_normal;
     interaction.uv = uv;
-    interaction.p = ray.at(t) + shadowEpsilon * N;
+    interaction.p = ray.at(t) + shadowEpsilon * N * (glm::dot(ray.dir, N) > 0.0f ? -1.0f : 1.0f);
     interaction.AreaLight = nullptr;
+    interaction.medium = nullptr;
     if(!mesh->tangents.empty()){
         glm::vec3 tangent = u * mesh->tangents[index1] +
             v * mesh->tangents[index2] +
             w * mesh->tangents[index0];
         interaction.tangent = glm::normalize(tangent - interaction.ns * glm::dot(interaction.ns, tangent));
-        //glm::vec3 bitangent = glm::cross(interaction.ns, tangent);
-        //interaction.bitangent = glm::normalize(bitangent);
-
         interaction.ns = mesh->material->sample_normalMap(interaction);
     } else{
         glm::vec3 up = (std::fabs(interaction.ns.x) > 0.9999f) ? glm::vec3(0, 1, 0) : glm::vec3(1, 0, 0);
         interaction.tangent = glm::normalize(glm::cross(up, interaction.ns));
-        //interaction.ns = mesh->material->sample_normalMap(interaction);
+        interaction.ns = mesh->material->sample_normalMap(interaction);
     }
 
     return true;
 }
 bool TriangleShape::IntersectPred(const Ray& ray, float max) const{
-
-    glm::vec2 baryPos;
-    float t = std::numeric_limits<float>::infinity();
     const Mesh* mesh = meshList[MeshIndex];
     int index0 = mesh->indices[TriIndex * 3 + 0];
     int index1 = mesh->indices[TriIndex * 3 + 1];
     int index2 = mesh->indices[TriIndex * 3 + 2];
-    bool hit_triangle = glm::intersectRayTriangle(ray.origin, ray.dir, mesh->vertices[index0]
-        , mesh->vertices[index1]
-        , mesh->vertices[index2], baryPos, t);
-    if(!hit_triangle || t > max || t < shadowEpsilon)return false;
-
-    return true;
+    const glm::vec3 v1 = mesh->vertices[index0];
+    const glm::vec3 v2 = mesh->vertices[index1];
+    const glm::vec3 v3 = mesh->vertices[index2];
+    const glm::vec3 edge1 = v2 - v1;
+    const glm::vec3 edge2 = v3 - v1;
+    glm::vec3 h = glm::cross(ray.dir, edge2);
+    float det = glm::dot(edge1, h);
+    if(det > -std::numeric_limits<float>::epsilon() && det < std::numeric_limits<float>::epsilon())return false;
+    float inv_det = 1.0f / det;
+    glm::vec3 s = ray.origin - v1;
+    float u = glm::dot(s, h) * inv_det;
+    if(u < 0 || u > 1)return false;
+    glm::vec3 q = glm::cross(s, edge1);
+    float v = glm::dot(ray.dir, q) * inv_det;
+    if(v < 0 || u + v > 1)return false;
+    float t = glm::dot(edge2, q) * inv_det;
+    return t<=max && t >= shadowEpsilon;
 }
 
 AABB TriangleShape::BoundingBox() const{
@@ -264,7 +276,7 @@ AABB TriangleShape::BoundingBox() const{
 }
 SurfaceInteraction TriangleShape::Sample(const glm::vec2& u) const{
     float w = 1.0f - u.x - u.y;
-    Mesh* mesh = meshList[MeshIndex];
+    const Mesh* mesh = meshList[MeshIndex];
 
     int index0 = mesh->indices[TriIndex * 3 + 0];
     int index1 = mesh->indices[TriIndex * 3 + 1];
@@ -273,9 +285,9 @@ SurfaceInteraction TriangleShape::Sample(const glm::vec2& u) const{
     glm::vec3 e1 = mesh->vertices[index1] - mesh->vertices[index0];
     glm::vec3 e2 = mesh->vertices[index2] - mesh->vertices[index0];
     glm::vec3 n = glm::normalize(glm::cross(e1, e2));
-    if(n.x != n.x){
+    if(n.x != n.x)
         n = { 0,0,0 };
-    }
+    
 
     glm::vec3 p = u.x * mesh->vertices[index1] + u.y * mesh->vertices[index2] + w * mesh->vertices[index0];
     glm::vec2 uv = u.x * mesh->texCoords[index1] +
@@ -284,7 +296,7 @@ SurfaceInteraction TriangleShape::Sample(const glm::vec2& u) const{
     return SurfaceInteraction { p,n,uv };
 }
 float TriangleShape::Area() const{
-    Mesh* mesh = meshList[MeshIndex];
+    const Mesh* mesh = meshList[MeshIndex];
     return glm::length(glm::cross(mesh->vertices[mesh->indices[TriIndex * 3 + 0]] - mesh->vertices[mesh->indices[TriIndex * 3 + 2]], mesh->vertices[mesh->indices[TriIndex * 3 + 1]] - mesh->vertices[mesh->indices[TriIndex * 3 + 2]])) * 0.5f;
 }
 
@@ -301,6 +313,8 @@ float TriangleShape::PDF(const GeometricInteraction& interaction, const Ray& ray
     if(area == 0 || light_cosine == 0 || interaction.n.x != interaction.n.x)return 0;
     return (dist_squared) / (light_cosine * area);
 }
+
+
 
 
 bool QuadShape::Intersect(const Ray& ray, SurfaceInteraction& interaction, float max) const{

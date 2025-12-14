@@ -7,9 +7,12 @@
 
 #include <immintrin.h>
 
+#define SSE_RAY 0
+
+
 class Medium;
 struct Ray{
-#if defined(__SSE__) || defined(_M_AMD64) || defined(_M_X64)
+#if (defined(__SSE__) || defined(_M_AMD64) || defined(_M_X64)) && SSE_RAY
     union{
         glm::vec3 origin;
         alignas(16) __m128 O4;

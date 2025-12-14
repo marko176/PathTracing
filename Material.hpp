@@ -1,12 +1,12 @@
 #pragma once
+#include <iostream>
+#include <numbers>
+#include <optional>
 #include "Texture.hpp"
 #include "Ray.hpp"
 #include "Interaction.hpp"
 #include "Random.hpp"
-#include <iostream>
 #include "Onb.hpp"
-#include <numbers>
-#include <optional>
 
 template <std::floating_point T>
 inline T FresnelDielectric(T cosTheta_i, T eta){
@@ -80,28 +80,6 @@ public:
         if(denom <= 0)return std::numeric_limits<float>::infinity();
 
         return 1 / denom;
-        /*
-        if (wh.z <= 0.0) return 0.0;
-
-        float nx = wh.x;
-        float ny = wh.y;
-        float nz = wh.z;
-        float ax = alphaX;
-        float ay = alphaY;
-
-        // denominator base: (nx^2/ax^2 + ny^2/ay^2 + nz^2)
-        float inv_ax2 = 1.0 / (ax * ax);
-        float inv_ay2 = 1.0 / (ay * ay);
-
-        float base = nx*nx * inv_ax2 + ny*ny * inv_ay2 + nz*nz;
-        // protect against extremely small base
-        if (base <= 1e-12) return 0.0;
-
-        float denom = std::numbers::pi_v<float> * ax * ay * base * base; // squared
-        if (denom <= 0.0) return 0.0;
-
-        return 1.0 / denom;
-        */
     }
 
     float G1(const glm::vec3& w) const{
@@ -228,11 +206,11 @@ public:
     std::optional<BxDFSample> scatter(const Ray& incoming, const SurfaceInteraction& interaction, Ray& scattered, float u, const glm::vec2& uv) const final{
         //doesnt support smooth material!
         float roughness = GetRoughness(interaction);
-        float metallic = GetMetallic(interaction);//metallic is in b in gltf
+        
 
         onb TBN(glm::dot(incoming.dir, interaction.ns) > 0 ? -interaction.ns : interaction.ns);
         MicrofacetDistribution dist { roughness,roughness };
-        float prob = SampleProb(roughness, metallic);
+        float prob = SampleProb(roughness);
         glm::vec3 wo = TBN.toLocal(-incoming.dir);
         glm::vec3 wi;
         glm::vec3 wh;
@@ -255,7 +233,7 @@ public:
         if(wi.z <= 0){
             return std::nullopt;
         }
-
+        
 
         float diffuse_pdf = prob * wi.z * std::numbers::inv_pi_v<float>;
 
@@ -265,7 +243,7 @@ public:
 
 
         glm::vec3 textureColor = tex->Evaluate(interaction);
-
+        float metallic = GetMetallic(interaction);//metallic is in b in gltf
         glm::vec3 F0 = glm::mix(glm::vec3(0.04f), textureColor, metallic);
 
         glm::vec3 F = FresnelSchlick(glm::dot(wi, wh), F0);
@@ -288,14 +266,8 @@ public:
     }
 
 
-    float SampleProb(float roughness, float metallic) const{
-        if(roughness >= 0.7){
-            return 1;
-        } else if(metallic <= 0.7 && roughness >= 0.0005f){
-            return 0.5;
-        } else if(metallic <= 0.9 && roughness >= 0.005f){
-            return 0.5;//going higher help but produces fireflys
-        } else return roughness * (1.0f - metallic) >= 0.1f ? 0.5f : 0.0f;
+    static inline float SampleProb(float roughness) {
+        return roughness >= 0.7 ? 1 : 0.5;
     }
 
     float GetRoughness(const SurfaceInteraction& interaction) const{
@@ -314,7 +286,7 @@ public:
         glm::vec3 wo = TBN.toLocal(-incoming.dir);
         glm::vec3 wh = TBN.toLocal(glm::normalize(scattered.dir - incoming.dir));
 
-        float prob = SampleProb(roughness, GetMetallic(interaction));//metallic is in b in gltf
+        float prob = SampleProb(roughness);//metallic is in b in gltf
 
         float diffuse = prob * std::abs(glm::dot(interaction.ns, scattered.dir)) * std::numbers::inv_pi_v<float>;
 
@@ -330,12 +302,11 @@ public:
         glm::vec3 wi = TBN.toLocal(scattered.dir);
         glm::vec3 wh = glm::normalize(wo + wi);
         float roughness = GetRoughness(interaction);
+        float metallic = GetMetallic(interaction);//metallic is in b in gltf
+
         MicrofacetDistribution dist { roughness,roughness };
 
 
-
-
-        float metallic = GetMetallic(interaction);//metallic is in b in gltf
         glm::vec3 textureColor = tex->Evaluate(interaction);
 
         glm::vec3 F0 = glm::mix(glm::vec3(0.04f), textureColor, metallic);
@@ -357,7 +328,7 @@ public:
 
 
     bool HasAlpha() const final{
-        return alphaTester.mode != AlphaMode::Opaque && (alpha != nullptr || tex->Channels() == 4);//must test 
+        return alphaTester.mode != AlphaMode::Opaque;//must test 
     }
 
     //tex always has just RGB
@@ -378,6 +349,7 @@ public:
 
     void setAlphaTester(AlphaTester tester){
         alphaTester = tester;
+        if(alpha == nullptr && tex->Channels() != 4)alphaTester.mode = AlphaMode::Opaque;
     }
 private:
     std::shared_ptr<Texture> tex;
@@ -594,7 +566,7 @@ public:
 
 
     bool HasAlpha() const final{
-        return alphaTester.mode != AlphaMode::Opaque && (alpha != nullptr || tex->Channels() == 4);//must test 
+        return alphaTester.mode != AlphaMode::Opaque;//must test 
     }
 
     bool Alpha(const glm::vec2& uv) const final{
@@ -613,6 +585,7 @@ public:
 
     void setAlphaTester(AlphaTester tester){
         alphaTester = tester;
+        if(alpha == nullptr && tex->Channels() != 4)alphaTester.mode = AlphaMode::Opaque;
     }
 
 private:
@@ -689,7 +662,7 @@ public:
     SpecularConductor(const glm::vec3& albedo) : albedo(albedo){}
 
     std::optional<BxDFSample> scatter(const Ray& incoming, const SurfaceInteraction& interaction, Ray& scattered, float u, const glm::vec2& uv)const final{
-        scattered = Ray(interaction.p, glm::reflect(incoming.dir, interaction.ns));
+        scattered = Ray(interaction.p, glm::reflect(incoming.dir, interaction.ns), incoming.time);
         float dot = glm::dot(scattered.dir, interaction.ns);
         if(dot <= 0)return std::nullopt;
         return BxDFSample { FresnelSchlick(glm::dot(interaction.ns,-incoming.dir), albedo) / dot,1,BxDFFlags::Specular };

@@ -44,10 +44,10 @@ struct SurfaceInteraction : public GeometricInteraction{
     }
     glm::vec2 uv = { 0,0 };
     float t = 0;//we dont need t if we have point? t = glm::length(ray)
-    glm::vec3 ns;
-    std::shared_ptr<Material> mat;
-    glm::vec3 tangent;
-    std::shared_ptr<Light> AreaLight;
+    glm::vec3 ns = { 0,0,0 };
+    std::shared_ptr<Material> mat = nullptr;
+    glm::vec3 tangent = { 0,0,0 };
+    std::shared_ptr<Light> AreaLight = nullptr;
 };
 
 struct MediumInteraction : public GeometricInteraction{
@@ -60,5 +60,5 @@ struct MediumInteraction : public GeometricInteraction{
     bool isValid() const{
         return phaseFunction != nullptr;
     }
-    std::shared_ptr<PhaseFunction> phaseFunction;
+    std::shared_ptr<PhaseFunction> phaseFunction = nullptr;
 };

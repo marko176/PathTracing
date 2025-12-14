@@ -10,12 +10,9 @@ struct AABB{
     glm::vec3 min;
     glm::vec3 max;
 
-
-
     AABB() : min { std::numeric_limits<float>::infinity() }, max { -min }{
 
     }
-
 
     AABB(const glm::vec3& point) : min(point), max(point){
 
@@ -40,7 +37,7 @@ struct AABB{
     }
 
     inline float HitDistance(const Ray& ray, float min_t, float max_t) const{// add interval
-#if defined(__SSE__) || defined(_M_AMD64) || defined(_M_X64)
+#if (defined(__SSE__) || defined(_M_AMD64) || defined(_M_X64)) && SSE_RAY
         const __m128 bmin4 = _mm_set_ps(0, min.z, min.y, min.x);
         const __m128 bmax4 = _mm_set_ps(0, max.z, max.y, max.x);
 
@@ -73,7 +70,7 @@ struct AABB{
     }
 
     inline float HitDistance(const Ray& ray, float max_t) const{// add interval
-#if defined(__SSE__) || defined(_M_AMD64) || defined(_M_X64)
+#if (defined(__SSE__) || defined(_M_AMD64) || defined(_M_X64)) && SSE_RAY
         const __m128 bmin4 = _mm_set_ps(0, min.z, min.y, min.x);
         const __m128 bmax4 = _mm_set_ps(0, max.z, max.y, max.x);
 
@@ -113,6 +110,13 @@ struct AABB{
         return (tEntry <= tExit && tExit >= shadowEpsilon && tEntry <= max_t) ? tEntry : std::numeric_limits<float>::infinity();//maybe texit greater than 0 ?
     }
 
+    static AABB empty(){
+        return AABB { glm::vec3{std::numeric_limits<float>::infinity()},glm::vec3{-std::numeric_limits<float>::infinity()} };
+    }
+
+    static AABB universe(){
+        return AABB { glm::vec3{-std::numeric_limits<float>::infinity()},glm::vec3{std::numeric_limits<float>::infinity()} };
+    }
 
     //using AABB::nothing
     //AABB::universe
@@ -123,14 +127,17 @@ struct AABB{
         return e.x * e.y + e.y * e.z + e.z * e.x;
     }
 
-    glm::vec3 operator[](int i) const{ return (i == 0) ? min : max; }
-    glm::vec3& operator[](int i){ return (i == 0) ? min : max; }
+    inline glm::vec3 operator[](int i) const{ return (i == 0) ? min : max; }
+    inline glm::vec3& operator[](int i){ return (i == 0) ? min : max; }
 
-    glm::vec3 Corner(int n){
+    inline glm::vec3 Corner(int n){
         return { (*this)[(n & 1)].x,
                 (*this)[(n & 2) ? 1 : 0].y,
                 (*this)[(n & 4) ? 1 : 0].z };
     }
+
+private:
+    AABB(const glm::vec3& Min, const glm::vec3& Max) : min { min }, max { max }{}
 };
 
 struct Bounds2i{

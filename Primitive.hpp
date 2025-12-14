@@ -82,7 +82,7 @@ struct alignas(32) simdBVH_NODE{
 };
 
 
-#if defined(__SSE__) || defined(_M_AMD64) || defined(_M_X64)
+#if (defined(__SSE__) || defined(_M_AMD64) || defined(_M_X64)) && SSE_RAY
 template <typename T>
 class simdBVH : public Primitive{
 public:

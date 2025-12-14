@@ -1,7 +1,5 @@
 #include "ResourceManager.hpp"
 #include "stb_image.h"
-#include <iostream>
-#include <fstream>
 
 
 [[nodiscard]] std::shared_ptr<Texture> ResourceManager::GetImageTexture(const std::string& path, bool gammaCorrection, const glm::vec3& colorScale, bool invert){

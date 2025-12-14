@@ -11,7 +11,6 @@
 #include "Material.hpp"
 #include "Medium.hpp"
 #include "ResourceManager.hpp"
-#include <memory_resource>
 
 
 Model::Model(const std::string& path){

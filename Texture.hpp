@@ -1,8 +1,7 @@
 #pragma once
 #include <memory>
-#include "stb_image.h"
-#include <iostream>
 #include <array>
+#include "stb_image.h"
 #include "Interaction.hpp"
 
 inline int wrap_index(int i, int n){

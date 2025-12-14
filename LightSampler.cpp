@@ -10,17 +10,19 @@ std::shared_ptr<Light> UniformLightSampler::Sample(float u) const{
     return lights[index];
 }
 float UniformLightSampler::PMF(const std::shared_ptr<Light>& light) const{
+    if(lights.empty())return 0;
     return 1.0f / lights.size();
 }
 
 void UniformLightSampler::PreProcess(const AABB& bbox){
-    std::vector<std::shared_ptr<Light>> culledLights;
-    for(const std::shared_ptr<Light>& light : lights){
+    std::vector<std::shared_ptr<Light>> validLights;
+    validLights.reserve(lights.size());
+    for(auto&& light : lights){
         light->PreProcess(bbox);
         if(light->Power() < 0.01f)continue;
-        culledLights.push_back(light);
+        validLights.emplace_back(light);
     }
-    lights = culledLights;
+    lights = validLights;
 }
 
 
@@ -50,15 +52,15 @@ float PowerLightSampler::PMF(const std::shared_ptr<Light>& light) const{
 void PowerLightSampler::PreProcess(const AABB& bbox){
     lightPowers.clear();
     lightPowers.reserve(lights.size());
-    std::vector<std::shared_ptr<Light>> culledLights; //we cull lights with very small power
-    for(const std::shared_ptr<Light>& light : lights){
+    std::vector<std::shared_ptr<Light>> validLights; //we cull lights with very small power
+    validLights.reserve(lights.size());
+    for(auto&& light : lights){
         light->PreProcess(bbox);
         if(light->Power() < 0.01f)continue;
-        lightPowers.push_back(light->Power());
-        culledLights.push_back(light);
-        totalPower += lightPowers.back();
+        validLights.emplace_back(light);
+        totalPower += lightPowers.emplace_back(light->Power());
     }
-    lights = culledLights;
+    lights = validLights;
 }
 
 

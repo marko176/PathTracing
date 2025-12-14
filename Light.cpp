@@ -1,11 +1,9 @@
 #include "Light.hpp"
-#include <numbers>
 #include "Sampler.hpp"
+#include <numbers>
 #include <thread>
 #include <numeric>
-inline double luminance(const glm::dvec3& v){//taken from gilm to film
-    return dot(v, glm::dvec3(0.2126, 0.7152, 0.0722));
-}
+
 
 
 void InfiniteLight::PreProcess(const AABB& bbox){
@@ -40,7 +38,7 @@ LightSample UniformInfiniteLight::sample(const glm::vec2& uv, float time) const{
     float r = std::sqrt(1.0f - z * z);
     float x = r * std::cos(theta);
     float y = r * std::sin(theta);
-    return { color,{{},{},SphereShape::getSphereUV(glm::normalize(glm::vec3(x,y,z)))},glm::vec3(x,y,z) };
+    return { color,{{},{},SphereShape::GetSphereUV(glm::vec3(x,y,z))},glm::vec3(x,y,z) };
 }
 
 float UniformInfiniteLight::PDF(const GeometricInteraction& interaction, const Ray& ray) const{
@@ -66,7 +64,7 @@ LightSample FunctionInfiniteLight::sample(const glm::vec2& uv, float time) const
     float r = std::sqrt(1.0f - z * z);
     float x = r * std::cos(theta);
     float y = r * std::sin(theta);
-    return { Le({{0,0,0},glm::vec3(x,y,z)}),{{},{},SphereShape::getSphereUV(glm::normalize(glm::vec3(x,y,z)))},glm::vec3(x,y,z) };
+    return { Le({{0,0,0},glm::vec3(x,y,z)}),{{},{},SphereShape::GetSphereUV(glm::vec3(x,y,z))},glm::vec3(x,y,z) };
 }
 
 float FunctionInfiniteLight::PDF(const GeometricInteraction& interaction, const Ray& ray) const{
@@ -110,7 +108,7 @@ void FunctionInfiniteLight::PreProcess(const AABB& bbox){
 
 
 glm::vec3 TextureInfiniteLight::Le(const Ray& ray) const{
-    return LeScale * tex->Evaluate({ {0,0,0},{0,0,0},SphereShape::getSphereUV(ray.dir) });//must be normalized
+    return LeScale * tex->Evaluate({ {0,0,0},{0,0,0},SphereShape::GetSphereUV(ray.dir) });//must be normalized
 }
 
 glm::vec3 TextureInfiniteLight::L(const SurfaceInteraction& interaction, const Ray& ray) const{
@@ -140,7 +138,7 @@ LightSample TextureInfiniteLight::sample(const glm::vec2& uv, float time) const{
 
     //float pdf = (weights[index] / totalWeight) * (1.0f / cellOmega);
     //Le({{0,0,0},dir})
-    return { {0,0,0},{{},{},SphereShape::getSphereUV(glm::normalize(dir))},dir };
+    return { {0,0,0},{{},{},SphereShape::GetSphereUV(dir)},dir };
 }
 
 float TextureInfiniteLight::PDF(const GeometricInteraction& interaction, const Ray& ray) const{

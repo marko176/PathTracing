@@ -2,7 +2,7 @@
 #include "Primitive.hpp"
 #include <atomic>
 #include <thread>
-#include <execution>
+
 inline constexpr unsigned char P(int a, int b, int c, int d){
     return (a << 6) | (b << 4) | (c << 2) | d;
 }
@@ -22,9 +22,6 @@ inline constexpr unsigned char PermToIndex(unsigned int perm){
     }
     return 0;
 }
-
-//BVH 4
-//
 
 struct alignas(32) BVH_NODE{
     AABB bbox;
@@ -95,13 +92,14 @@ protected:
         glm::vec3 centroid;
     };
 
-    static std::vector<BVH_NODE> BuildBVHBase(std::vector<PrimitiveInfo>& primitiveInfo){
+    static std::vector<BVH_NODE> BuildBVHBase(std::vector<PrimitiveInfo>& primitiveInfo,uint32_t leafSize = 2){
         //std::vector<BVH_NODE> baseNodes;
         //baseNodes.reserve(primitiveInfo.size() * 2 - 1);
         //BVHBase::BuildBase(0, primitiveInfo.size(), primitiveInfo, baseNodes);
+
         std::vector<BVH_NODE> baseNodes(primitiveInfo.size() * 2 - 1);
         std::atomic<uint32_t> idx { 0 };
-        BVHBase::BuildBaseThreaded(0, primitiveInfo.size(), primitiveInfo, baseNodes, idx);
+        BVHBase::BuildBaseThreaded(0, primitiveInfo.size(), primitiveInfo, baseNodes, idx, leafSize);
         baseNodes.resize(idx.load(std::memory_order_relaxed));
         return baseNodes;
     }
@@ -136,7 +134,7 @@ protected:
         return false;
     }
 private:
-    static uint32_t BuildBase(uint32_t first_triangle, uint32_t last_triangle, std::vector<PrimitiveInfo>& primitiveInfo, std::vector<BVH_NODE>& nodes){
+    static uint32_t BuildBase(uint32_t first_triangle, uint32_t last_triangle, std::vector<PrimitiveInfo>& primitiveInfo, std::vector<BVH_NODE>& nodes, uint32_t leafSize){
         uint32_t index = nodes.size();
         BVH_NODE& node = nodes.emplace_back();
         uint32_t object_span = last_triangle - first_triangle;
@@ -152,7 +150,7 @@ private:
 
         node.right = first_triangle;//triangle
         node.count = object_span;
-        if(object_span > 2){
+        if(object_span > leafSize){
 
             unsigned char best_axis = 0;
             float bestPos = 0;
@@ -242,8 +240,8 @@ private:
             //if ray sign is + we go left then right
 
             //node.left = pos+1;
-            node.left = BuildBase(first_triangle, mid, primitiveInfo, nodes);
-            node.right = BuildBase(mid, last_triangle, primitiveInfo, nodes);
+            node.left = BuildBase(first_triangle, mid, primitiveInfo, nodes, leafSize);
+            node.right = BuildBase(mid, last_triangle, primitiveInfo, nodes, leafSize);
             node.count = 0;
             node.axis = best_axis;
 
@@ -289,7 +287,7 @@ private:
         std::vector<float> centroid[3];
     };
 
-    static uint32_t BuildBaseThreaded(uint32_t first_triangle, uint32_t last_triangle, std::vector<PrimitiveInfo>& primitiveInfo, std::vector<BVH_NODE>& nodes, std::atomic<uint32_t>& idx){
+    static uint32_t BuildBaseThreaded(uint32_t first_triangle, uint32_t last_triangle, std::vector<PrimitiveInfo>& primitiveInfo, std::vector<BVH_NODE>& nodes, std::atomic<uint32_t>& idx, uint32_t leafSize){
         uint32_t index = idx.fetch_add(1, std::memory_order_relaxed);
         BVH_NODE& node = nodes[index];
         uint32_t object_span = last_triangle - first_triangle;
@@ -306,7 +304,7 @@ private:
 
         node.right = first_triangle;//triangle
         node.count = object_span;
-        if(object_span > 2){
+        if(object_span > leafSize){
 
             unsigned char best_axis = 0;
             float bestPos = 0;
@@ -375,14 +373,14 @@ private:
 
             if(object_span > 256 * 1024){
                 std::jthread left([&](){
-                    node.left = BuildBaseThreaded(first_triangle, mid, primitiveInfo, nodes, idx);
+                    node.left = BuildBaseThreaded(first_triangle, mid, primitiveInfo, nodes, idx, leafSize);
                     });
                 std::jthread right([&](){
-                    node.right = BuildBaseThreaded(mid, last_triangle, primitiveInfo, nodes, idx);
+                    node.right = BuildBaseThreaded(mid, last_triangle, primitiveInfo, nodes, idx, leafSize);
                     });
             } else{
-                node.left = BuildBaseThreaded(first_triangle, mid, primitiveInfo, nodes, idx);
-                node.right = BuildBaseThreaded(mid, last_triangle, primitiveInfo, nodes, idx);
+                node.left = BuildBaseThreaded(first_triangle, mid, primitiveInfo, nodes, idx, leafSize);
+                node.right = BuildBaseThreaded(mid, last_triangle, primitiveInfo, nodes, idx, leafSize);
             }
             node.count = 0;
             node.axis = best_axis;
@@ -398,15 +396,15 @@ protected:
 
 
 template <typename T>
-class BVH : public BVHBase<T>{
+class BVH2 : public BVHBase<T>{
     using typename BVHBase<T>::PrimitiveInfo;
 public:
-    virtual ~BVH() = default;
-    BVH() = default;
+    virtual ~BVH2() = default;
+    BVH2() = default;
 
-    BVH(const std::vector<T>& prims){
+    BVH2(const std::vector<T>& prims){
         auto start = std::chrono::high_resolution_clock::now();
-        std::cout << "Building BVH" << std::endl;
+        std::cout << "Building BVH2" << std::endl;
 
         BVHBase<T>::primitives.reserve(prims.size());
 
@@ -553,8 +551,8 @@ private:
     std::vector<BVH2_NODE> nodes;
 };
 
-using BLAS = BVH<GeometricPrimitive>;
-using TLAS = BVH<std::shared_ptr<Primitive>>;
+using BLAS2 = BVH2<GeometricPrimitive>;
+using TLAS2 = BVH2<std::shared_ptr<Primitive>>;
 
 
 #if defined(__SSE__) || defined(_M_AMD64) || defined(_M_X64)
@@ -1102,15 +1100,6 @@ public:
                     if(mask & 1)stack[sp++] = node.children[i];
                     mask >>= 1;
                 }
-                /*
-                int bitcnt = std::popcount(mask);
-                const unsigned char orderIdx = LUT[signs][bvh4node.perm];
-                unsigned char order = maskLUT[mask][orderIdx];
-
-                while(bitcnt--!=0){
-                    stack[sp++]=node.children[order&0x3];
-                    order>>=2;
-                }*/
 
             } else if(BVHBase<T>::intersectPrimitivesPred(ray, max, bvh4node.ClusterIdx, bvh4node.count)){
                 return true;
@@ -1121,6 +1110,7 @@ public:
 
     bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max = std::numeric_limits<float>::infinity()) const final{
         static const __m128 Eps = _mm_set1_ps(shadowEpsilon);
+        
         //origin
         const __m128 Ox4 = _mm_set1_ps(ray.origin.x);
         const __m128 Oy4 = _mm_set1_ps(ray.origin.y);

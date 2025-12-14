@@ -63,11 +63,14 @@ void MatTest(){
     for(std::size_t i = 0;i < values.size();i++){
         for(std::size_t j = 0;j < metalValues.size();j++){
             auto mat = std::make_shared<MicrofacetDiffuse>(b, nullptr, std::make_shared<SolidColor>(glm::vec3(values[i])), std::make_shared<SolidColor>(glm::vec3(metalValues[j])));
-            auto matee = std::make_shared<SpecularConductor>(glm::vec3 { .1,.2,.5 });
+            //auto matee = std::make_shared<SpecularConductor>(glm::vec3 { .1,.2,.5 });
 
-            scene->Add(std::make_shared<GeometricPrimitive>(std::make_shared<SphereShape>(glm::vec3(i - (int)values.size() / 2, j + 0.5, 0), 0.4), mat));
+            scene->Add(std::make_shared<GeometricPrimitive>(std::make_shared<SphereShape>(glm::vec3(static_cast<int>(i) - (int)values.size() / 2, j + 0.5, 0), 0.4), mat));
         }
     }
+
+    std::cout << values.size() * metalValues.size() << std::endl;
+
     auto mat1 = std::make_shared<MicrofacetDiffuse>(b, nullptr, std::make_shared<SolidColor>(glm::vec3(1)), std::make_shared<SolidColor>(glm::vec3(0)));
     auto mat2 = std::make_shared<MicrofacetDiffuse>(b, nullptr, std::make_shared<SolidColor>(glm::vec3(0.7)), std::make_shared<SolidColor>(glm::vec3(0)));
     auto mat3 = std::make_shared<MicrofacetDiffuse>(b, nullptr, std::make_shared<SolidColor>(glm::vec3(0.5)), std::make_shared<SolidColor>(glm::vec3(0)));
@@ -207,12 +210,12 @@ void NoModel(){
     //                        new Light(glm::vec3(8, 8, 8))};
 //scene->Add(std::make_shared<GeometricPrimitive>(std::make_shared<SphereShape>(glm::vec3(0,0,0),20),nullptr,nullptr,outsideMedium));
 
-    
+
     auto lightFunc = [](const Ray& ray){
         float a = 0.5f * (ray.dir.y + 1.0f);
         return 3.f * ((1.0f - a) * glm::vec3(1, 0.85, 0.55) + a * glm::vec3(0.45, 0.65, 1));
         };
-    
+
 
     //scene->infiniteLights.push_back(std::make_shared<UniformInfiniteLight>(glm::vec3{0,0,1}));
     //scene->infiniteLights.push_back(std::make_shared<FunctionInfiniteLight>(lightFunc));
@@ -247,7 +250,7 @@ void NoModel(){
 
 
 
-    int samples = 100*4;
+    int samples = 100 * 4;
 
 
 
@@ -376,7 +379,7 @@ void temp(){
     auto micro = std::make_shared<MicrofacetDielectric>(1.5, 0.0, glm::vec3 { 1 });
 
     scene->Add(ResourceManager::get_instance().CacheModel<BLAS4>("Medium Dragon", "/home/markov/Documents/Coding/CPP/testing/models/temp_other.assbin",
-        ch,
+        micro,
         std::make_shared<HomogeneusMedium>(glm::vec3 { 0.01f, 0.9f, 0.9f },
             glm::vec3 { 1.0f, 0.1f, 0.1f },
             std::make_shared<HenyeyGreenstein>(0.8),
@@ -428,7 +431,7 @@ void temp(){
     //64*4
 
     //550
-    int samples = 16;//64*16*4 -> 4 hours
+    int samples = 36;//64*16*4 -> 4 hours
     int sqrts = std::sqrt(samples);
 
     std::shared_ptr<Film> film = std::make_shared<Film>(glm::ivec2 { 1920,1080 }, std::make_shared<MitchellFilter>());

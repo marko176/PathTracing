@@ -1,5 +1,10 @@
 #pragma once
 #include <cstring>
+
+inline double luminance(const glm::dvec3& v){
+    return dot(v, glm::dvec3(0.2126, 0.7152, 0.0722));
+}
+
 class VarianceEstimator{
 public:
     void Add(double val){
@@ -8,6 +13,12 @@ public:
         mean += delta / sampleCount;
         double delta2 = val - mean;
         S += delta * delta2;
+    }
+
+    void Reset() {
+        S = 0;
+        mean = 0;
+        sampleCount = 0;
     }
 
     double Mean() const{

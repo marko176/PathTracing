@@ -4,11 +4,9 @@
 #include <functional>
 
 struct LightSample{
-    //should have light color!
     glm::vec3 L;
     SurfaceInteraction interaction;
     glm::vec3 dir;
-
 
     bool isDeltaInteraction() const{
         return interaction.n == glm::vec3 { 0,0,0 };

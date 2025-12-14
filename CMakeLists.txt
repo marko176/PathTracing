@@ -91,6 +91,6 @@ else()
 
         $<$<CONFIG:RelWithDebInfo>:-O2;-g;-march=native;-Wall>
 
-        $<$<CONFIG:Release>:-O3;-g;-march=native>
+        $<$<CONFIG:Release>:-O3;-g;-march=native;-fno-math-errno;-fno-trapping-math>
     )
 endif()

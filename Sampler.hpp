@@ -10,7 +10,7 @@ class Sampler{
 public:
     virtual ~Sampler() = default;
 
-    virtual int SamplesPerPixel() const = 0;
+    virtual unsigned int SamplesPerPixel() const = 0;
 
     virtual void StartPixelSample(const glm::ivec2& p, int index) = 0;
 
@@ -29,9 +29,9 @@ class UniformSampler : public Sampler{
 public:
     virtual ~UniformSampler() = default;
 
-    UniformSampler(uint32_t samples) : samples(samples), px(0), py(0){}
+    UniformSampler(unsigned int samples) : samples(samples), px(0), py(0){}
 
-    constexpr int SamplesPerPixel() const final{ return samples; }
+    constexpr unsigned int SamplesPerPixel() const final{ return samples; }
 
     void StartPixelSample(const glm::ivec2& p, int index) final{
         px = p.x;
@@ -65,23 +65,23 @@ public:
         return std::make_shared<UniformSampler>(samples);
     }
 private:
-    uint32_t samples;
-    uint32_t px;
-    uint32_t py;
+    unsigned int samples;
+    unsigned int px;
+    unsigned int py;
 };
 
 class StratifiedSampler : public Sampler{
 public:
     virtual ~StratifiedSampler() = default;
 
-    StratifiedSampler(uint32_t xSamples, uint32_t ySamples) : xSamples(xSamples), ySamples(ySamples){
+    StratifiedSampler(unsigned int xSamples, unsigned int ySamples) : xSamples(xSamples), ySamples(ySamples){
         px = 0;
         py = 0;
         sampleIndex = 0;
         dimension = 0;
     }
 
-    constexpr int SamplesPerPixel() const final{ return xSamples * ySamples; }
+    constexpr unsigned int SamplesPerPixel() const final{ return xSamples * ySamples; }
 
     void StartPixelSample(const glm::ivec2& p, int index) final{
         px = p.x;
@@ -91,9 +91,8 @@ public:
     }
 
     double get1D() final{
-        uint64_t seed = Hash(px, py, dimension);
+        uint64_t seed = Hash(px, py, dimension++);
         uint64_t stratum = PermutationElement(sampleIndex, SamplesPerPixel(), seed);
-        ++dimension;
         return (stratum + random_float()) / (SamplesPerPixel());
     }
 
@@ -143,10 +142,10 @@ public:
         return std::make_shared<StratifiedSampler>(xSamples, ySamples);
     }
 private:
-    uint32_t px;
-    uint32_t py;
+    unsigned int xSamples;
+    unsigned int ySamples;
+    unsigned int px;
+    unsigned int py;
     uint64_t dimension;
     uint64_t sampleIndex;
-    uint16_t xSamples;
-    uint16_t ySamples;
 };

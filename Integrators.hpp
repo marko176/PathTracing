@@ -10,12 +10,12 @@ class Sampler;
 class Integrator{
 public:
     virtual ~Integrator() = default;
-    virtual void Render() const = 0;
+    virtual void Render(unsigned int threadCount  = std::thread::hardware_concurrency()) const = 0;
     Integrator(const std::shared_ptr<Scene>& scene, const std::shared_ptr<Camera>& camera, const std::shared_ptr<Sampler>& sampler) : scene(scene), camera(camera), sampler(sampler){}
     bool Unoccluded(const Ray& ray, float t) const;
-    virtual glm::vec3 Li(Ray ray) const = 0;
     bool Intersect(const Ray& ray, SurfaceInteraction& interaction, float max = std::numeric_limits<float>::infinity()) const;
     bool IntersectTr(const Ray& ray, SurfaceInteraction& interaction, glm::vec3& Tr, float max = std::numeric_limits<float>::infinity()) const;
+    virtual glm::vec3 Li(Ray ray) const = 0;
 protected:
     std::shared_ptr<Scene> scene;
     std::shared_ptr<Camera> camera;
@@ -27,7 +27,7 @@ public:
     virtual ~TileIntegrator() = default;
     TileIntegrator(const std::shared_ptr<Scene>& scene, const std::shared_ptr<Camera>& camera, const std::shared_ptr<Sampler>& sampler) : Integrator(scene, camera, sampler){}
 
-    void Render() const override;
+    void Render(unsigned int threadCount  = std::thread::hardware_concurrency()) const override;
 };
 
 class SimplePathIntegrator : public TileIntegrator{

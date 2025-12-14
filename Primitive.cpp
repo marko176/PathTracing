@@ -1,5 +1,5 @@
 #include "Primitive.hpp"
-#include <chrono>
+
 AABB GeometricPrimitive::BoundingBox() const{
     return shape->BoundingBox();
 }
@@ -17,7 +17,7 @@ bool GeometricPrimitive::Intersect(const Ray& ray, SurfaceInteraction& interacti
     bool hit = shape->Intersect(ray, intr, max);
     if(!hit || (material && !material->Alpha(intr.uv)))return false;
     
-    interaction = std::move(intr);
+    interaction = intr;
     interaction.AreaLight = areaLight;
     interaction.mat = material;
     interaction.medium = medium;

@@ -7,6 +7,7 @@
 #include "stb_image_write.h"
 
 
+
 inline std::filesystem::path findProjectRoot(std::filesystem::path p = std::filesystem::current_path()){
     while(!p.empty()){
         if(std::filesystem::exists(p / "Release")){
@@ -16,10 +17,6 @@ inline std::filesystem::path findProjectRoot(std::filesystem::path p = std::file
         p = p.parent_path();
     }
     return {};
-}
-
-inline double luminance(const glm::dvec3& v){
-    return dot(v, glm::dvec3(0.2126, 0.7152, 0.0722));
 }
 
 inline glm::dvec3 change_luminance(const glm::dvec3& c_in, double l_out){
@@ -136,7 +133,7 @@ public:
 
 
 
-    std::filesystem::path GetOutputFilePath(const std::string& filename) {
+    std::filesystem::path GetOutputFilePath(const std::string& filename){
         if(!outputPath.empty())return outputPath;
         std::filesystem::path projectRoot = findProjectRoot();
         std::filesystem::path outputDir = projectRoot / "Output";
@@ -154,8 +151,7 @@ public:
         outputPath = path;
     }
 
-    void WritePPM(const std::string& filename){
-
+    void WritePPM(const std::string& filename, const std::function<glm::vec3(glm::vec3)>& toneMapper = reinhard_jodie){
         std::filesystem::path filePath = GetOutputFilePath(filename);
         if(filePath.empty())return;
         std::ofstream out(filePath.string() + ".ppm", std::ios::binary);
@@ -163,7 +159,7 @@ public:
         for(int i = yResolution - 1;i >= 0;i--){
             for(int j = 0;j < xResolution;j++){
                 glm::dvec3 color = glm::dvec3 { screen[i * xResolution + j].r.load(),screen[i * xResolution + j].g.load(),screen[i * xResolution + j].b.load() } / screen[i * xResolution + j].weight.load();
-                color = reinhard_jodie(color);
+                color = toneMapper(color);
                 double r = linear_to_sRGB(color.r);
                 double g = linear_to_sRGB(color.g);
                 double b = linear_to_sRGB(color.b);
@@ -173,7 +169,7 @@ public:
         out.close();
     }
 
-    void WritePNG(const std::string& filename){
+    void WritePNG(const std::string& filename, const std::function<glm::vec3(glm::vec3)>& toneMapper = reinhard_jodie){
         std::filesystem::path filePath = GetOutputFilePath(filename);
         if(filePath.empty())return;
         constexpr int channels = 3;
@@ -181,7 +177,7 @@ public:
         for(int i = 0;i < yResolution;i++){
             for(int j = 0;j < xResolution;j++){
                 glm::dvec3 color = glm::dvec3 { screen[i * xResolution + j].r.load(),screen[i * xResolution + j].g.load(),screen[i * xResolution + j].b.load() } / screen[i * xResolution + j].weight.load();
-                color = reinhard_jodie(color);
+                color = toneMapper(color);
                 double r = linear_to_sRGB(color.r);
                 double g = linear_to_sRGB(color.g);
                 double b = linear_to_sRGB(color.b);
@@ -197,7 +193,7 @@ public:
     }
 
     //quality between 1-100
-    void WriteJPG(const std::string& filename, int quality){
+    void WriteJPG(const std::string& filename, int quality, const std::function<glm::vec3(glm::vec3)>& toneMapper = reinhard_jodie){
         std::filesystem::path filePath = GetOutputFilePath(filename);
         if(filePath.empty())return;
         constexpr int channels = 3;
@@ -205,7 +201,7 @@ public:
         for(int i = 0;i < yResolution;i++){
             for(int j = 0;j < xResolution;j++){
                 glm::dvec3 color = glm::dvec3 { screen[i * xResolution + j].r.load(),screen[i * xResolution + j].g.load(),screen[i * xResolution + j].b.load() } / screen[i * xResolution + j].weight.load();
-                color = reinhard_jodie(color);
+                color = toneMapper(color);
                 double r = linear_to_sRGB(color.r);
                 double g = linear_to_sRGB(color.g);
                 double b = linear_to_sRGB(color.b);
@@ -220,8 +216,8 @@ public:
         stbi_flip_vertically_on_write(false);
     }
 
-    void Clear() {
-        screen.assign(screen.size(),AtomicPixel{0,0,0,0});
+    void Clear(){
+        screen.assign(screen.size(), AtomicPixel { 0,0,0,0 });
     }
 
     glm::ivec2 Resolution() const{
@@ -230,10 +226,10 @@ public:
 private:
     struct AtomicPixel{
         AtomicPixel(){
-            this->r.store(0);
-            this->g.store(0);
-            this->b.store(0);
-            this->weight.store(0);
+            r.store(0, std::memory_order_relaxed);
+            g.store(0, std::memory_order_relaxed);
+            b.store(0, std::memory_order_relaxed);
+            weight.store(0, std::memory_order_relaxed);
         }
 
         AtomicPixel(double r, double g, double b, double weight) : r(r), g(g), b(b), weight(weight){
@@ -259,22 +255,13 @@ private:
         AtomicPixel(const AtomicPixel& other) : r(other.r.load()), g(other.g.load()), b(other.b.load()), weight(other.weight.load()){}
 
         AtomicPixel& operator=(const AtomicPixel& other){
-            if(other != *this){
-                r = other.r.load();
-                g = other.g.load();
-                b = other.b.load();
-                weight = other.weight.load();
-            }
+            r = other.r.load();
+            g = other.g.load();
+            b = other.b.load();
+            weight = other.weight.load();
             return *this;
         }
 
-        bool operator==(const AtomicPixel& other) const{
-            return r.load() == other.r.load() && g.load() == other.g.load() && b.load() == other.b.load() && weight.load() == other.weight.load();
-        }
-
-        bool operator!=(const AtomicPixel& other) const{
-            return !(other == *this);
-        }
     };
     uint16_t xResolution;
     uint16_t yResolution;
